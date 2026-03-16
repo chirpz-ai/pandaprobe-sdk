@@ -30,7 +30,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: libraries/python
-        run: uv pip install -e ".[dev,openai,langgraph]"
+        run: uv pip install --system -e ".[dev,openai,langgraph]"
 
       - name: Lint
         working-directory: libraries/python
