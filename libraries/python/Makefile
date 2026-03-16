@@ -1,4 +1,4 @@
-.PHONY: install install-dev lint format test test-cov build clean
+.PHONY: install install-dev sync lock lint format format-check test test-cov build clean
 
 install:
 	uv pip install -e .
@@ -13,19 +13,22 @@ lock:
 	uv lock
 
 lint:
-	ruff check src/ tests/
+	uv run ruff check .
 
 format:
-	ruff format src/ tests/
+	uv run ruff format .
+
+format-check:
+	uv run ruff format --check .
 
 test:
-	pytest tests/ -v
+	uv run pytest tests/ -v
 
 test-cov:
-	pytest tests/ -v --cov=pandaprobe --cov-report=term-missing
+	uv run pytest tests/ -v --cov=pandaprobe --cov-report=term-missing
 
 build:
-	python -m build
+	uv build
 
 clean:
 	rm -rf dist/ build/ *.egg-info src/*.egg-info .pytest_cache .ruff_cache
