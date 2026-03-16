@@ -14,31 +14,53 @@ on:
   workflow_dispatch:
 
 jobs:
-  lint-and-test:
+  # ============================================================================
+  # Python CI
+  # ============================================================================
+  python-lint:
+    name: Python Lint
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
-
+    defaults:
+      run:
+        working-directory: libraries/python
     steps:
       - uses: actions/checkout@v4
 
       - name: Install uv
         uses: astral-sh/setup-uv@v4
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.12"
+          enable-cache: true
 
       - name: Install dependencies
-        working-directory: libraries/python
-        run: uv pip install --system -e ".[dev,openai,langgraph]"
+        run: make sync
+
+      - name: Check formatting
+        run: make format-check
 
       - name: Lint
+        run: make lint
+
+  python-test:
+    name: Python Test ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    defaults:
+      run:
         working-directory: libraries/python
-        run: ruff check src/ tests/
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+
+      - name: Install dependencies
+        run: make sync
 
       - name: Test
-        working-directory: libraries/python
-        run: pytest tests/ -v --cov=pandaprobe --cov-report=term-missing
+        run: make test-cov
