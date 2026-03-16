@@ -26,6 +26,7 @@ htmlcov/
 
 # IDE
 .vscode/
+.cursor/plans/
 .idea/
 *.swp
 *.swo
