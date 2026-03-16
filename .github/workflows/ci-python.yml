@@ -4,12 +4,12 @@ on:
   push:
     branches: [main]
     paths:
-      - "libraries/**"
+      - "libraries/python/**"
       - ".github/**"
   pull_request:
     branches: [main]
     paths:
-      - "libraries/**"
+      - "libraries/python/**"
       - ".github/**"
   workflow_dispatch:
 
