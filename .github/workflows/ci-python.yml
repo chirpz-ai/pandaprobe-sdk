@@ -5,12 +5,12 @@ on:
     branches: [main]
     paths:
       - "libraries/python/**"
-      - ".github/workflows/ci-python.yml"
+      - ".github/**"
   pull_request:
     branches: [main]
     paths:
       - "libraries/python/**"
-      - ".github/workflows/ci-python.yml"
+      - ".github/**"
   workflow_dispatch:
 
 jobs:
