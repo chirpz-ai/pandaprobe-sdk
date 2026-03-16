@@ -4,13 +4,13 @@ on:
   push:
     branches: [main]
     paths:
-      - "libraries/python/**"
-      - ".github/workflows/ci-python.yml"
+      - "libraries/**"
+      - ".github/**"
   pull_request:
     branches: [main]
     paths:
-      - "libraries/python/**"
-      - ".github/workflows/ci-python.yml"
+      - "libraries/**"
+      - ".github/**"
   workflow_dispatch:
 
 jobs:
