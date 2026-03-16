@@ -2,9 +2,17 @@
 
 from __future__ import annotations
 
+import sys
 from datetime import datetime, timezone
-from enum import StrEnum
 from typing import Any
+
+if sys.version_info >= (3, 11):
+    from enum import StrEnum
+else:
+    from enum import Enum
+
+    class StrEnum(str, Enum):
+        pass
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
