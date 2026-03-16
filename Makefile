@@ -1,4 +1,4 @@
-.PHONY: py-install py-install-dev py-sync py-lock py-lint py-format py-test py-test-cov py-build py-clean
+.PHONY: py-install py-install-dev py-sync py-lock py-lint py-format py-format-check py-test py-test-cov py-build py-clean
 
 PYTHON_DIR = libraries/python
 
@@ -19,6 +19,9 @@ py-lint:
 
 py-format:
 	$(MAKE) -C $(PYTHON_DIR) format
+
+py-format-check:
+	$(MAKE) -C $(PYTHON_DIR) format-check
 
 py-test:
 	$(MAKE) -C $(PYTHON_DIR) test
