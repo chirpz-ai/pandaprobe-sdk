@@ -34,7 +34,7 @@ export OPENAI_API_KEY="sk-..."
 
 ```bash
 cd libraries/python
-uv run python examples/openai/01_chat_completion.py
+uv run python libraries/python/examples/openai/01_chat_completion.py
 ```
 
 ## Examples
