@@ -5,8 +5,10 @@ from __future__ import annotations
 from typing import Any
 
 
-def extract_name(serialized: dict[str, Any], fallback: str = "unknown") -> str:
+def extract_name(serialized: dict[str, Any] | None, fallback: str = "unknown") -> str:
     """Extract a human-readable name from a LangChain serialized dict."""
+    if not serialized:
+        return fallback
     if "name" in serialized and serialized["name"]:
         return str(serialized["name"])
     if "id" in serialized:
