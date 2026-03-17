@@ -34,7 +34,7 @@ export OPENAI_API_KEY="sk-..."
 
 ```bash
 cd libraries/python
-uv run python libraries/python/examples/openai/01_chat_completion.py
+uv run python examples/openai/01_chat_completion.py
 ```
 
 ## Examples
@@ -62,8 +62,8 @@ uv run python libraries/python/examples/openai/01_chat_completion.py
 
 | Example | Description | Env Vars |
 |---|---|---|
-| `langgraph/01_chatbot.py` | Simple `StateGraph` chatbot with `CallbackHandler` | `OPENAI_API_KEY` |
-| `langgraph/02_tool_agent.py` | ReAct agent with tool calls (weather + calculator) traced via `CallbackHandler` | `OPENAI_API_KEY` |
+| `langgraph/01_chatbot.py` | Simple `StateGraph` chatbot with `LangGraphCallbackHandler` | `OPENAI_API_KEY` |
+| `langgraph/02_tool_agent.py` | ReAct agent with tool calls (weather + calculator) traced via `LangGraphCallbackHandler` | `OPENAI_API_KEY` |
 
 ### Sessions
 

@@ -36,8 +36,8 @@ from pandaprobe.wrappers import wrap_openai
 client = wrap_openai(openai.OpenAI())
 
 # Option 3: LangGraph integration
-from pandaprobe.integrations.langgraph import CallbackHandler
-result = graph.invoke(input, config={"callbacks": [CallbackHandler()]})
+from pandaprobe.integrations.langgraph import LangGraphCallbackHandler
+result = graph.invoke(input, config={"callbacks": [LangGraphCallbackHandler()]})
 ```
 
 See [`libraries/python/README.md`](libraries/python/README.md) for full documentation.
