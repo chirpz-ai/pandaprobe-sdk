@@ -26,7 +26,7 @@ oai_client = openai.OpenAI()
 SYSTEM_PROMPT = "You are a helpful tutor. Keep answers short (2-3 sentences). Build on previous context."
 
 
-def chat_turn(session, turn_name: str, conversation: list[dict], user_message: str) -> str:
+def chat_turn(session, turn_name: str, conversation: list[dict], user_message: str) -> tuple[str, str]:
     """Run one conversation turn: send to OpenAI, trace it, score it."""
     conversation.append({"role": "user", "content": user_message})
 
