@@ -1,5 +1,5 @@
 """LangGraph/LangChain integration for PandaProbe."""
 
-from pandaprobe.integrations.langgraph.callback import CallbackHandler
+from pandaprobe.integrations.langgraph.callback import LangGraphCallbackHandler
 
-__all__ = ["CallbackHandler"]
+__all__ = ["LangGraphCallbackHandler"]

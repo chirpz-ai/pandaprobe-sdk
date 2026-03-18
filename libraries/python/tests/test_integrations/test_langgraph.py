@@ -10,7 +10,7 @@ import respx
 
 import pandaprobe
 import pandaprobe.client as client_module
-from pandaprobe.integrations.langgraph.callback import CallbackHandler
+from pandaprobe.integrations.langgraph.callback import LangGraphCallbackHandler
 from pandaprobe.integrations.langgraph.utils import extract_name, safe_output
 
 
@@ -50,7 +50,7 @@ class TestCallbackHandler:
     @respx.mock
     def test_simple_chain_trace(self):
         route = respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
-        handler = CallbackHandler()
+        handler = LangGraphCallbackHandler()
 
         root_id = uuid4()
         handler.on_chain_start({"name": "MyGraph"}, {"query": "hello"}, run_id=root_id)
@@ -62,7 +62,7 @@ class TestCallbackHandler:
     @respx.mock
     def test_nested_chain_with_llm(self):
         respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
-        handler = CallbackHandler()
+        handler = LangGraphCallbackHandler()
 
         root_id = uuid4()
         node_id = uuid4()
@@ -89,7 +89,7 @@ class TestCallbackHandler:
     @respx.mock
     def test_tool_callback(self):
         respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
-        handler = CallbackHandler()
+        handler = LangGraphCallbackHandler()
 
         root_id = uuid4()
         tool_id = uuid4()
@@ -102,7 +102,7 @@ class TestCallbackHandler:
     @respx.mock
     def test_error_handling(self):
         respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
-        handler = CallbackHandler()
+        handler = LangGraphCallbackHandler()
 
         root_id = uuid4()
         handler.on_chain_start({"name": "Graph"}, {}, run_id=root_id)
@@ -111,7 +111,7 @@ class TestCallbackHandler:
     @respx.mock
     def test_retriever_callback(self):
         respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
-        handler = CallbackHandler()
+        handler = LangGraphCallbackHandler()
 
         root_id = uuid4()
         ret_id = uuid4()
@@ -124,7 +124,7 @@ class TestCallbackHandler:
     @respx.mock
     def test_overrides(self):
         respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
-        handler = CallbackHandler(
+        handler = LangGraphCallbackHandler(
             session_id="sess-1",
             user_id="user-1",
             tags=["test"],

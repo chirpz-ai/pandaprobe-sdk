@@ -19,14 +19,14 @@ except ImportError:  # pragma: no cover
     _LCBase = object  # type: ignore[assignment,misc]
 
 
-class CallbackHandler(BaseIntegrationAdapter, _LCBase):  # type: ignore[misc]
+class LangGraphCallbackHandler(BaseIntegrationAdapter, _LCBase):  # type: ignore[misc]
     """LangChain ``BaseCallbackHandler`` that maps graph events to PandaProbe traces.
 
     Usage::
 
-        from pandaprobe.integrations.langgraph import CallbackHandler
+        from pandaprobe.integrations.langgraph import LangGraphCallbackHandler
 
-        handler = CallbackHandler()
+        handler = LangGraphCallbackHandler()
         result = graph.invoke(input, config={"callbacks": [handler]})
     """
 
@@ -54,17 +54,18 @@ class CallbackHandler(BaseIntegrationAdapter, _LCBase):  # type: ignore[misc]
 
     def on_chain_start(
         self,
-        serialized: dict[str, Any],
+        serialized: dict[str, Any] | None,
         inputs: dict[str, Any],
         *,
         run_id: UUID,
         parent_run_id: UUID | None = None,
+        name: str | None = None,
         **kwargs: Any,
     ) -> None:
         rid = str(run_id)
         pid = str(parent_run_id) if parent_run_id else None
         self._parents[rid] = pid
-        name = extract_name(serialized, "chain")
+        name = name or extract_name(serialized, "chain")
 
         if pid is None:
             self._root_run_id = rid
@@ -114,18 +115,19 @@ class CallbackHandler(BaseIntegrationAdapter, _LCBase):  # type: ignore[misc]
 
     def on_llm_start(
         self,
-        serialized: dict[str, Any],
+        serialized: dict[str, Any] | None,
         prompts: list[str],
         *,
         run_id: UUID,
         parent_run_id: UUID | None = None,
         invocation_params: dict[str, Any] | None = None,
+        name: str | None = None,
         **kwargs: Any,
     ) -> None:
         rid = str(run_id)
         pid = str(parent_run_id) if parent_run_id else None
         self._parents[rid] = pid
-        name = extract_name(serialized, "llm")
+        name = name or extract_name(serialized, "llm")
         model = (invocation_params or {}).get("model") or (invocation_params or {}).get("model_name")
         span = SpanData(
             span_id=rid,
@@ -175,17 +177,18 @@ class CallbackHandler(BaseIntegrationAdapter, _LCBase):  # type: ignore[misc]
 
     def on_tool_start(
         self,
-        serialized: dict[str, Any],
+        serialized: dict[str, Any] | None,
         input_str: str,
         *,
         run_id: UUID,
         parent_run_id: UUID | None = None,
+        name: str | None = None,
         **kwargs: Any,
     ) -> None:
         rid = str(run_id)
         pid = str(parent_run_id) if parent_run_id else None
         self._parents[rid] = pid
-        name = extract_name(serialized, "tool")
+        name = name or extract_name(serialized, "tool")
         span = SpanData(
             span_id=rid,
             parent_span_id=pid,
@@ -220,17 +223,18 @@ class CallbackHandler(BaseIntegrationAdapter, _LCBase):  # type: ignore[misc]
 
     def on_retriever_start(
         self,
-        serialized: dict[str, Any],
+        serialized: dict[str, Any] | None,
         query: str,
         *,
         run_id: UUID,
         parent_run_id: UUID | None = None,
+        name: str | None = None,
         **kwargs: Any,
     ) -> None:
         rid = str(run_id)
         pid = str(parent_run_id) if parent_run_id else None
         self._parents[rid] = pid
-        name = extract_name(serialized, "retriever")
+        name = name or extract_name(serialized, "retriever")
         span = SpanData(
             span_id=rid,
             parent_span_id=pid,

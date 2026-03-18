@@ -74,9 +74,9 @@ response = client.chat.completions.create(
 ### 4. LangGraph integration
 
 ```python
-from pandaprobe.integrations.langgraph import CallbackHandler
+from pandaprobe.integrations.langgraph import LangGraphCallbackHandler
 
-handler = CallbackHandler()
+handler = LangGraphCallbackHandler()
 result = graph.invoke(
     {"messages": [HumanMessage(content="hello")]},
     config={"callbacks": [handler]},
