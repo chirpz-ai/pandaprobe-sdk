@@ -8,7 +8,9 @@ import inspect
 import logging
 from typing import Any, Callable, TypeVar
 
+from pandaprobe.client import get_client
 from pandaprobe.schemas import SpanKind
+from pandaprobe.tracing.context import get_current_trace
 
 logger = logging.getLogger("pandaprobe")
 
@@ -50,7 +52,7 @@ def trace(
 
             @functools.wraps(fn)
             async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
-                client = _get_client()
+                client = get_client()
                 if client is None or not client.enabled:
                     return await fn(*args, **kwargs)
 
@@ -71,7 +73,7 @@ def trace(
 
         @functools.wraps(fn)
         def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
-            client = _get_client()
+            client = get_client()
             if client is None or not client.enabled:
                 return fn(*args, **kwargs)
 
@@ -121,7 +123,7 @@ def span(
 
             @functools.wraps(fn)
             async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
-                trace_ctx = _get_current_trace()
+                trace_ctx = get_current_trace()
                 if trace_ctx is None:
                     return await fn(*args, **kwargs)
 
@@ -136,7 +138,7 @@ def span(
 
         @functools.wraps(fn)
         def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
-            trace_ctx = _get_current_trace()
+            trace_ctx = get_current_trace()
             if trace_ctx is None:
                 return fn(*args, **kwargs)
 
@@ -157,18 +159,6 @@ def span(
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-
-def _get_client():
-    from pandaprobe.client import get_client
-
-    return get_client()
-
-
-def _get_current_trace():
-    from pandaprobe.tracing.context import get_current_trace
-
-    return get_current_trace()
 
 
 def _capture_input(fn: Callable[..., Any], args: tuple, kwargs: dict[str, Any]) -> dict[str, Any]:
