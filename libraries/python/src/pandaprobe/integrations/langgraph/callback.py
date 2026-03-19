@@ -10,6 +10,7 @@ from uuid import UUID
 from pandaprobe.integrations._base import BaseIntegrationAdapter
 from pandaprobe.integrations.langgraph.utils import extract_name, safe_output
 from pandaprobe.schemas import SpanData, SpanKind, SpanStatusCode, TraceData, TraceStatus
+from pandaprobe.tracing.session import get_current_session_id
 
 logger = logging.getLogger("pandaprobe")
 
@@ -263,6 +264,7 @@ class LangGraphCallbackHandler(BaseIntegrationAdapter, _LCBase):  # type: ignore
         try:
             client = self._resolve_client()
             spans = list(self._spans.values())
+            session_id = self._session_id if self._session_id is not None else get_current_session_id()
             trace = TraceData(
                 name=self._trace_name,
                 status=TraceStatus.ERROR if error else TraceStatus.COMPLETED,
@@ -271,7 +273,7 @@ class LangGraphCallbackHandler(BaseIntegrationAdapter, _LCBase):  # type: ignore
                 metadata=dict(self._metadata),
                 started_at=self._trace_started_at or datetime.now(timezone.utc),
                 ended_at=datetime.now(timezone.utc),
-                session_id=self._session_id,
+                session_id=session_id,
                 user_id=self._user_id,
                 tags=list(self._tags),
                 spans=spans,
