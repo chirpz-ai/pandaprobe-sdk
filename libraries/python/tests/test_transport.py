@@ -1,5 +1,9 @@
 """Tests for pandaprobe.transport."""
 
+import subprocess
+import sys
+import textwrap
+
 import httpx
 import pytest
 import respx
@@ -162,3 +166,82 @@ class TestErrorCallback:
             assert len(errors) >= 1
         finally:
             transport.shutdown()
+
+
+class TestShutdownReliability:
+    def test_atexit_flushes_without_runtime_error(self):
+        """Spawn a child process that exits without calling flush/shutdown.
+
+        The SDK's atexit handler must drain all queued traces without raising
+        ``RuntimeError: cannot schedule new futures after shutdown``.
+        """
+        script = textwrap.dedent("""\
+            import sys, json
+            from unittest.mock import MagicMock, patch
+
+            sent = []
+
+            class FakeResponse:
+                status_code = 202
+                text = "{}"
+                headers = {}
+
+            class FakeClient:
+                def __init__(self, **kw): pass
+                def post(self, url, **kw):
+                    sent.append(("POST", url, kw.get("json")))
+                    return FakeResponse()
+                def patch(self, url, **kw):
+                    sent.append(("PATCH", url, kw.get("json")))
+                    return FakeResponse()
+                def close(self): pass
+                def __enter__(self): return self
+                def __exit__(self, *a): self.close()
+
+            import httpx
+            with patch.object(httpx, "Client", FakeClient):
+                from pandaprobe.config import SdkConfig
+                from pandaprobe.transport import Transport
+
+                cfg = SdkConfig(
+                    api_key="sk_pp_test",
+                    project_name="test",
+                    endpoint="http://testserver",
+                    batch_size=5,
+                    flush_interval=60.0,
+                    max_queue_size=100,
+                )
+                t = Transport(cfg)
+                for i in range(3):
+                    t.enqueue_trace({"name": f"trace-{i}"})
+
+            # Exit without flush() or shutdown() — atexit handler must do it.
+        """)
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        assert result.returncode == 0, f"Process exited with code {result.returncode}\nstderr:\n{result.stderr}"
+        assert "RuntimeError" not in result.stderr, f"RuntimeError during shutdown:\n{result.stderr}"
+        assert "cannot schedule new futures" not in result.stderr, f"Executor shutdown race:\n{result.stderr}"
+
+    def test_double_shutdown_is_safe(self, config):
+        """Calling shutdown() twice must not raise."""
+        transport = Transport(config)
+        transport.enqueue_trace({"name": "t"})
+        transport.shutdown()
+        transport.shutdown()
+
+    @respx.mock
+    def test_shutdown_flushes_pending_items(self, config):
+        """shutdown() must drain all queued items before returning."""
+        route = respx.post("http://testserver/traces").mock(
+            return_value=httpx.Response(202, json={"trace_id": "x"})
+        )
+        transport = Transport(config)
+        for i in range(3):
+            transport.enqueue_trace({"name": f"trace-{i}"})
+        transport.shutdown()
+        assert route.call_count == 3
