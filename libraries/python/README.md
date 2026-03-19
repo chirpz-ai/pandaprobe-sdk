@@ -18,24 +18,17 @@ pip install pandaprobe[all]          # Everything
 
 ## Quick Start
 
-### 1. Initialize the SDK
-
-```python
-import pandaprobe
-
-pandaprobe.init(
-    api_key="sk_pp_...",
-    project_name="my-project",
-    endpoint="http://localhost:8000",
-)
-```
-
-Or set environment variables:
+### 1. Set environment variables
 
 ```bash
 export PANDAPROBE_API_KEY="sk_pp_..."
 export PANDAPROBE_PROJECT_NAME="my-project"
+export PANDAPROBE_ENDPOINT="my-pandaprobe-endpoint"
 ```
+
+The SDK auto-initializes from these environment variables on first use — no explicit `init()` call is needed. To disable tracing, set `PANDAPROBE_ENABLED=false`.
+
+You can still use `pandaprobe.init(...)` for programmatic configuration if preferred.
 
 ### 2. Decorator-based tracing (custom agents)
 
@@ -83,16 +76,44 @@ result = graph.invoke(
 )
 ```
 
-### 5. Programmatic scoring
+### 5. Session management
+
+Group related traces under a session ID using the universal session API:
 
 ```python
-client.score(
+import pandaprobe
+
+# Context manager — session is scoped to the block
+with pandaprobe.session("conversation-123"):
+    run_agent("What is recursion?")
+    run_agent("Can you give me an example?")
+
+# Imperative — useful for dynamic session switching
+pandaprobe.set_session("conversation-456")
+run_agent("New topic")
+```
+
+The session ID propagates across all SDK layers (decorators, wrappers, integrations, context managers).
+
+### 6. Programmatic scoring
+
+```python
+pandaprobe.score(
     trace_id="...",
     name="user_satisfaction",
     value="0.9",
     data_type="NUMERIC",
     reason="User clicked thumbs up",
 )
+```
+
+### 7. Flushing
+
+For short-lived scripts, call `pandaprobe.flush()` before exiting to ensure all traces are sent. For long-running processes, the SDK flushes automatically via a background thread and an `atexit` handler.
+
+```python
+pandaprobe.flush()
+pandaprobe.shutdown()
 ```
 
 ## Configuration
@@ -102,7 +123,7 @@ client.score(
 | `PANDAPROBE_API_KEY` | *(required)* | API key |
 | `PANDAPROBE_PROJECT_NAME` | *(required)* | Project name |
 | `PANDAPROBE_ENDPOINT` | `http://localhost:8000` | Backend URL |
-| `PANDAPROBE_ENABLED` | `true` | Disable SDK silently |
+| `PANDAPROBE_ENABLED` | `true` | Enable/disable SDK (gatekeeper for auto-init) |
 | `PANDAPROBE_BATCH_SIZE` | `10` | Traces per flush batch |
 | `PANDAPROBE_FLUSH_INTERVAL` | `5.0` | Seconds between flushes |
 | `PANDAPROBE_DEBUG` | `false` | Verbose logging |
