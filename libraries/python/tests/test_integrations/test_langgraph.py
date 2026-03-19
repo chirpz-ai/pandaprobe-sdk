@@ -16,12 +16,14 @@ from pandaprobe.integrations.langgraph.utils import extract_name, safe_output
 
 @pytest.fixture(autouse=True)
 def _setup_client():
-    original = client_module._global_client
+    original_client = client_module._global_client
+    original_flag = client_module._auto_init_attempted
     pandaprobe.init(api_key="sk_pp_test", project_name="proj", endpoint="http://testserver", flush_interval=60.0)
     yield
     if client_module._global_client is not None:
         client_module._global_client.shutdown()
-    client_module._global_client = original
+    client_module._global_client = original_client
+    client_module._auto_init_attempted = original_flag
 
 
 class TestUtils:

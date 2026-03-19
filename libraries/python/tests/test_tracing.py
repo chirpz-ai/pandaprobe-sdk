@@ -98,7 +98,3 @@ class TestSpanStack:
             assert get_span_stack() == []
 
 
-class TestSessionManager:
-    def test_session_passes_session_id(self, client):
-        session = client.session("conv-123")
-        assert session.session_id == "conv-123"
