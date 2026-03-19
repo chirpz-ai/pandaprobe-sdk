@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 from pandaprobe.schemas import SpanKind, TraceData, TraceStatus
+from pandaprobe.tracing.session import get_current_session_id
 
 if TYPE_CHECKING:
     from pandaprobe.client import Client
@@ -58,7 +59,7 @@ class TraceContext:
         self._name = name
         self._input = input
         self._output: Any = None
-        self._session_id = session_id
+        self._session_id = session_id if session_id is not None else get_current_session_id()
         self._user_id = user_id
         self._tags = tags or []
         self._metadata = metadata or {}
