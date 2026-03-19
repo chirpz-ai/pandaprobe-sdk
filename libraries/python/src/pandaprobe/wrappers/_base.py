@@ -11,7 +11,10 @@ import logging
 from datetime import datetime, timezone
 from typing import Any
 
+from pandaprobe.client import get_client
 from pandaprobe.schemas import SpanKind
+from pandaprobe.tracing.context import get_current_trace
+from pandaprobe.tracing.session import get_current_session_id
 
 logger = logging.getLogger("pandaprobe")
 
@@ -62,8 +65,6 @@ def enter_llm_span(cleaned_kwargs: dict[str, Any], method_name: str, input_key: 
     This is the shared entry-point used by every wrapper provider.
     Returns a SpanContext (or None if the SDK is disabled).
     """
-    from pandaprobe.tracing.context import get_current_trace
-
     input_data = safe_serialize({input_key: cleaned_kwargs.get(input_key, cleaned_kwargs.get("prompt", []))})
     model_params = extract_model_params(cleaned_kwargs)
     trace_ctx = get_current_trace()
@@ -75,13 +76,11 @@ def enter_llm_span(cleaned_kwargs: dict[str, Any], method_name: str, input_key: 
         span_ctx.set_model_parameters(model_params)
         return span_ctx
 
-    from pandaprobe.client import get_client
-
     client = get_client()
     if client is None or not client.enabled:
         return None
 
-    standalone = client.trace(method_name, input=input_data)
+    standalone = client.trace(method_name, input=input_data, session_id=get_current_session_id())
     standalone.__enter__()
 
     span_ctx = standalone.span(method_name, kind=SpanKind.LLM, model=cleaned_kwargs.get("model"))
