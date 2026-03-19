@@ -1,44 +1,27 @@
-"""SessionManager — convenience wrapper that pins a session_id to all traces."""
+"""ContextVar-based session ID propagation.
+
+Provides a universal mechanism for setting and retrieving the current
+session ID across all SDK layers (decorators, wrappers, integrations,
+context managers) without requiring explicit parameter passing.
+"""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from contextvars import ContextVar, Token
 
-if TYPE_CHECKING:
-    from pandaprobe.client import Client
-    from pandaprobe.tracing.context import TraceContext
+_current_session_id: ContextVar[str | None] = ContextVar("_current_session_id", default=None)
 
 
-class SessionManager:
-    """Thin helper returned by :pymeth:`Client.session`.
+def get_current_session_id() -> str | None:
+    """Return the session ID set in the current context, or ``None``."""
+    return _current_session_id.get(None)
 
-    Every trace started through this manager inherits the given *session_id*.
-    """
 
-    def __init__(self, client: Client, session_id: str) -> None:
-        self._client = client
-        self._session_id = session_id
+def set_current_session_id(session_id: str | None) -> Token[str | None]:
+    """Set the session ID for the current context. Returns a reset token."""
+    return _current_session_id.set(session_id)
 
-    @property
-    def session_id(self) -> str:
-        return self._session_id
 
-    def trace(
-        self,
-        name: str,
-        *,
-        input: Any = None,
-        user_id: str | None = None,
-        tags: list[str] | None = None,
-        metadata: dict[str, Any] | None = None,
-        **kwargs: Any,
-    ) -> TraceContext:
-        return self._client.trace(
-            name,
-            input=input,
-            session_id=self._session_id,
-            user_id=user_id,
-            tags=tags,
-            metadata=metadata,
-            **kwargs,
-        )
+def reset_current_session_id(token: Token[str | None]) -> None:
+    """Reset the session ID to its previous value using the given token."""
+    _current_session_id.reset(token)
