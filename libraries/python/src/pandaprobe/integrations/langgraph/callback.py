@@ -8,9 +8,17 @@ from typing import Any
 from uuid import UUID
 
 from pandaprobe.integrations._base import BaseIntegrationAdapter
-from pandaprobe.integrations.langgraph.utils import extract_name, safe_output
+from pandaprobe.integrations.langgraph.utils import (
+    extract_name,
+    normalize_langchain_input,
+    normalize_langchain_output,
+    normalize_llm_generation_output,
+    normalize_type_to_role,
+    safe_output,
+)
 from pandaprobe.schemas import SpanData, SpanKind, SpanStatusCode, TraceData, TraceStatus
 from pandaprobe.tracing.session import get_current_session_id
+from pandaprobe.validation import extract_last_user_message
 
 logger = logging.getLogger("pandaprobe")
 
@@ -70,7 +78,8 @@ class LangGraphCallbackHandler(BaseIntegrationAdapter, _LCBase):  # type: ignore
 
         if pid is None:
             self._root_run_id = rid
-            self._trace_input = safe_output(inputs)
+            normalized = normalize_langchain_input(safe_output(inputs))
+            self._trace_input = extract_last_user_message(normalized)
             self._trace_started_at = datetime.now(timezone.utc)
             self._trace_name = name
 
@@ -80,7 +89,7 @@ class LangGraphCallbackHandler(BaseIntegrationAdapter, _LCBase):  # type: ignore
             parent_span_id=pid,
             name=name,
             kind=kind,
-            input=safe_output(inputs),
+            input=normalize_langchain_input(safe_output(inputs)),
             started_at=datetime.now(timezone.utc),
         )
         self._spans[rid] = span
@@ -90,12 +99,12 @@ class LangGraphCallbackHandler(BaseIntegrationAdapter, _LCBase):  # type: ignore
         span = self._spans.get(rid)
         if span is None:
             return
-        span.output = safe_output(outputs)
+        span.output = normalize_type_to_role(safe_output(outputs))
         span.status = SpanStatusCode.OK
         span.ended_at = datetime.now(timezone.utc)
 
         if rid == self._root_run_id:
-            self._trace_output = safe_output(outputs)
+            self._trace_output = normalize_langchain_output(safe_output(outputs))
             self._finalize_trace()
 
     def on_chain_error(self, error: BaseException, *, run_id: UUID, **kwargs: Any) -> None:
@@ -141,6 +150,39 @@ class LangGraphCallbackHandler(BaseIntegrationAdapter, _LCBase):  # type: ignore
         )
         self._spans[rid] = span
 
+    def on_chat_model_start(
+        self,
+        serialized: dict[str, Any] | None,
+        messages: list[list[Any]],
+        *,
+        run_id: UUID,
+        parent_run_id: UUID | None = None,
+        name: str | None = None,
+        **kwargs: Any,
+    ) -> None:
+        rid = str(run_id)
+        pid = str(parent_run_id) if parent_run_id else None
+        self._parents[rid] = pid
+        name = name or extract_name(serialized, "llm")
+        invocation_params = kwargs.get("invocation_params") or {}
+        model = invocation_params.get("model") or invocation_params.get("model_name")
+
+        serialized_msgs: list[Any] = []
+        if messages and messages[0]:
+            for msg in messages[0]:
+                serialized_msgs.append(safe_output(msg))
+
+        span = SpanData(
+            span_id=rid,
+            parent_span_id=pid,
+            name=name,
+            kind=SpanKind.LLM,
+            input=normalize_type_to_role({"messages": serialized_msgs}),
+            model=model,
+            started_at=datetime.now(timezone.utc),
+        )
+        self._spans[rid] = span
+
     def on_llm_end(self, response: Any, *, run_id: UUID, **kwargs: Any) -> None:
         rid = str(run_id)
         span = self._spans.get(rid)
@@ -148,8 +190,9 @@ class LangGraphCallbackHandler(BaseIntegrationAdapter, _LCBase):  # type: ignore
             return
 
         try:
-            if hasattr(response, "generations") and response.generations:
-                span.output = safe_output(response.generations)
+            normalized = normalize_llm_generation_output(response)
+            if normalized is not None:
+                span.output = normalized
             if hasattr(response, "llm_output") and response.llm_output:
                 token_usage = response.llm_output.get("token_usage")
                 if token_usage:
@@ -195,7 +238,7 @@ class LangGraphCallbackHandler(BaseIntegrationAdapter, _LCBase):  # type: ignore
             parent_span_id=pid,
             name=name,
             kind=SpanKind.TOOL,
-            input=safe_output(input_str),
+            input=normalize_type_to_role(safe_output(input_str)),
             started_at=datetime.now(timezone.utc),
         )
         self._spans[rid] = span
@@ -205,7 +248,7 @@ class LangGraphCallbackHandler(BaseIntegrationAdapter, _LCBase):  # type: ignore
         span = self._spans.get(rid)
         if span is None:
             return
-        span.output = safe_output(output)
+        span.output = normalize_type_to_role(safe_output(output))
         span.status = SpanStatusCode.OK
         span.ended_at = datetime.now(timezone.utc)
 
@@ -241,7 +284,7 @@ class LangGraphCallbackHandler(BaseIntegrationAdapter, _LCBase):  # type: ignore
             parent_span_id=pid,
             name=name,
             kind=SpanKind.RETRIEVER,
-            input=safe_output(query),
+            input=normalize_type_to_role(safe_output(query)),
             started_at=datetime.now(timezone.utc),
         )
         self._spans[rid] = span
@@ -251,7 +294,7 @@ class LangGraphCallbackHandler(BaseIntegrationAdapter, _LCBase):  # type: ignore
         span = self._spans.get(rid)
         if span is None:
             return
-        span.output = safe_output(documents)
+        span.output = normalize_type_to_role(safe_output(documents))
         span.status = SpanStatusCode.OK
         span.ended_at = datetime.now(timezone.utc)
 
