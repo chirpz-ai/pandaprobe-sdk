@@ -9,6 +9,7 @@ from uuid import uuid4
 
 from pandaprobe.schemas import SpanData, SpanKind, SpanStatusCode
 from pandaprobe.tracing.context import get_span_stack
+from pandaprobe.validation import validate_span_input, validate_span_output
 
 if TYPE_CHECKING:
     from pandaprobe.tracing.context import TraceContext
@@ -18,6 +19,11 @@ logger = logging.getLogger("pandaprobe")
 
 class SpanContext:
     """Context manager for an individual span.
+
+    For LLM spans (kind="LLM"), input must be
+    ``{"messages": [{"role": "...", "content": "..."}]}`` (full conversation
+    history) and output must be ``{"messages": [{"role": "...", "content": "..."}]}``.
+    Other span kinds accept arbitrary input/output.
 
     Automatically manages timing, parent-child relationships via the span
     stack (contextvar), and error capture.
@@ -97,9 +103,13 @@ class SpanContext:
     # ------------------------------------------------------------------
 
     def set_input(self, input: Any) -> None:
+        if self._kind == SpanKind.LLM:
+            validate_span_input(input)
         self._input = input
 
     def set_output(self, output: Any) -> None:
+        if self._kind == SpanKind.LLM:
+            validate_span_output(output)
         self._output = output
 
     def set_token_usage(self, *, prompt_tokens: int = 0, completion_tokens: int = 0, **extra: int) -> None:
