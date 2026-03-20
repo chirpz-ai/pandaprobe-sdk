@@ -87,6 +87,7 @@ uv run python examples/openai/01_chat_completion.py
 | `sessions/01_multi_turn.py` | Multi-turn conversation grouped under a session with `pandaprobe.session()`, with scoring per turn | `OPENAI_API_KEY` |
 | `sessions/02_session_with_decorators.py` | Dynamic session switching with `pandaprobe.session()` + `@pandaprobe.trace` | `OPENAI_API_KEY` |
 | `sessions/03_session_with_wrapper.py` | Session propagation through `wrap_openai` via `pandaprobe.session()` | `OPENAI_API_KEY` |
+| `sessions/04_session_with_langgraph.py` | Multi-turn LangGraph chatbot with session grouping via `pandaprobe.session()` + `LangGraphCallbackHandler` | `OPENAI_API_KEY` |
 
 ## Session API
 
