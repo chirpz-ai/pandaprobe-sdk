@@ -236,7 +236,7 @@ def _reduce_openai_stream(span_ctx: Any, chunks: list[Any]) -> None:
             }
 
     if content_parts:
-        span_ctx.set_output("".join(content_parts))
+        span_ctx.set_output({"messages": [{"role": "assistant", "content": "".join(content_parts)}]})
     if model:
         span_ctx.set_model(model)
     if usage:
@@ -257,9 +257,9 @@ def _finish_span_from_chat_response(span_ctx: Any, response: Any) -> None:
         if hasattr(response, "choices") and response.choices:
             choice = response.choices[0]
             if hasattr(choice, "message"):
-                span_ctx.set_output(safe_serialize(choice.message))
+                span_ctx.set_output({"messages": [safe_serialize(choice.message)]})
             elif hasattr(choice, "text"):
-                span_ctx.set_output(choice.text)
+                span_ctx.set_output({"messages": [{"role": "assistant", "content": choice.text}]})
         if hasattr(response, "model"):
             span_ctx.set_model(response.model)
         if hasattr(response, "usage") and response.usage:
@@ -279,7 +279,7 @@ def _finish_span_legacy(span_ctx: Any, response: Any) -> None:
         return
     try:
         if hasattr(response, "choices") and response.choices:
-            span_ctx.set_output(safe_serialize(response.choices[0].text))
+            span_ctx.set_output({"messages": [{"role": "assistant", "content": safe_serialize(response.choices[0].text)}]})
         if hasattr(response, "model"):
             span_ctx.set_model(response.model)
         if hasattr(response, "usage") and response.usage:
