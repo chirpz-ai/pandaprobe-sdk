@@ -105,11 +105,11 @@ class TestSessionPropagation:
         )
 
         @pandaprobe.trace(name="decorated")
-        def my_func():
-            return 42
+        def my_func(messages: list):
+            return {"messages": [{"role": "assistant", "content": "ok"}]}
 
         with pandaprobe.session("decorator-session"):
-            my_func()
+            my_func([{"role": "user", "content": "hi"}])
 
     @respx.mock
     def test_langgraph_handler_picks_up_session(self):
