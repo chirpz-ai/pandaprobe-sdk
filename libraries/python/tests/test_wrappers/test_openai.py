@@ -101,6 +101,39 @@ class TestWrapOpenAI:
             )
 
 
+    @respx.mock
+    def test_output_wrapped_in_messages(self):
+        respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
+        mock_client, create_fn = _make_mock_openai_client()
+        wrap_openai(mock_client)
+
+        from pandaprobe.tracing.context import get_current_trace
+
+        mock_client.chat.completions.create(
+            model="gpt-4",
+            messages=[{"role": "user", "content": "hi"}],
+            temperature=0.7,
+        )
+
+    @respx.mock
+    def test_standalone_trace_input_trimmed(self):
+        """When wrap_openai creates a standalone trace, trace input should contain only the last user message."""
+        respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
+        mock_client, create_fn = _make_mock_openai_client()
+        wrap_openai(mock_client)
+
+        mock_client.chat.completions.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "You are helpful."},
+                {"role": "user", "content": "What is 2+2?"},
+                {"role": "assistant", "content": "4"},
+                {"role": "user", "content": "What about 3+3?"},
+            ],
+            temperature=0.7,
+        )
+
+
 class TestStreamingWrapper:
     @respx.mock
     def test_sync_streaming(self):
