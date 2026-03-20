@@ -91,12 +91,24 @@ def start_trace(
 ):
     """Start a new trace and return a :class:`TraceContext` context manager.
 
+    Input must be ``{"messages": [{"role": "user", "content": "..."}]}``
+    containing only the current turn's user message.
+    Output must be ``{"messages": [{"role": "assistant", "content": "..."}]}``.
+
     Convenience wrapper that resolves the global client automatically::
 
-        with pandaprobe.start_trace("rag-pipeline", input={"q": query}) as t:
-            with t.span("retrieval", kind="RETRIEVER") as s:
+        with pandaprobe.start_trace(
+            "my-trace",
+            input={"messages": [{"role": "user", "content": "hello"}]},
+        ) as t:
+            with t.span("llm-call", kind="LLM") as s:
+                s.set_input({"messages": [
+                    {"role": "system", "content": "You are helpful."},
+                    {"role": "user", "content": "hello"},
+                ]})
                 ...
-            t.set_output(result)
+                s.set_output({"messages": [{"role": "assistant", "content": "world"}]})
+            t.set_output({"messages": [{"role": "assistant", "content": "world"}]})
     """
     client = get_client()
     if client is None:
