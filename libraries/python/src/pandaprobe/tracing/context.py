@@ -10,6 +10,7 @@ from uuid import uuid4
 
 from pandaprobe.schemas import SpanKind, TraceData, TraceStatus
 from pandaprobe.tracing.session import get_current_session_id
+from pandaprobe.validation import validate_trace_input, validate_trace_output
 
 if TYPE_CHECKING:
     from pandaprobe.client import Client
@@ -34,12 +35,24 @@ def get_span_stack() -> list[str]:
 class TraceContext:
     """Context manager that wraps a trace lifecycle.
 
+    Input must be ``{"messages": [{"role": "user", "content": "..."}]}``
+    containing only the current turn's user message.
+    Output must be ``{"messages": [{"role": "assistant", "content": "..."}]}``.
+
     Usage::
 
-        with client.trace("my-trace", input={"q": "hi"}) as t:
+        with client.trace(
+            "my-trace",
+            input={"messages": [{"role": "user", "content": "hello"}]},
+        ) as t:
             with t.span("llm-call", kind="LLM") as s:
+                s.set_input({"messages": [
+                    {"role": "system", "content": "You are helpful."},
+                    {"role": "user", "content": "hello"},
+                ]})
                 ...
-            t.set_output(result)
+                s.set_output({"messages": [{"role": "assistant", "content": "hi!"}]})
+            t.set_output({"messages": [{"role": "assistant", "content": "hi!"}]})
     """
 
     def __init__(
@@ -58,6 +71,7 @@ class TraceContext:
         self._trace_id = str(uuid4())
         self._name = name
         self._input = input
+        validate_trace_input(input)
         self._output: Any = None
         self._session_id = session_id if session_id is not None else get_current_session_id()
         self._user_id = user_id
@@ -137,9 +151,11 @@ class TraceContext:
     # ------------------------------------------------------------------
 
     def set_output(self, output: Any) -> None:
+        validate_trace_output(output)
         self._output = output
 
     def set_input(self, input: Any) -> None:
+        validate_trace_input(input)
         self._input = input
 
     def set_metadata(self, metadata: dict[str, Any]) -> None:
