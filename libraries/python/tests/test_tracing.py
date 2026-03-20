@@ -20,18 +20,30 @@ class TestTraceContext:
     @respx.mock
     def test_basic_trace(self, client):
         respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
-        with client.trace("test-trace", input={"q": "hello"}) as t:
+        with client.trace("test-trace", input={"messages": [{"role": "user", "content": "hello"}]}) as t:
             assert get_current_trace() is t
-            t.set_output({"a": "world"})
+            t.set_output({"messages": [{"role": "assistant", "content": "world"}]})
 
         assert get_current_trace() is None
+
+    @respx.mock
+    def test_invalid_trace_input_raises(self, client):
+        with pytest.raises(ValueError, match="trace input"):
+            client.trace("bad-input", input="not valid")
+
+    @respx.mock
+    def test_invalid_trace_output_raises(self, client):
+        respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
+        with pytest.raises(ValueError, match="trace output"):
+            with client.trace("bad-output") as t:
+                t.set_output("not valid")
 
     @respx.mock
     def test_trace_with_spans(self, client):
         respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
         with client.trace("multi-span") as t:
             with t.span("span-1", kind="LLM") as s1:
-                s1.set_output("result1")
+                s1.set_output({"messages": [{"role": "assistant", "content": "result1"}]})
                 s1.set_token_usage(prompt_tokens=5, completion_tokens=10)
             with t.span("span-2", kind="TOOL") as s2:
                 s2.set_output("result2")
