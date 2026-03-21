@@ -22,15 +22,11 @@ All examples require:
 export PANDAPROBE_API_KEY="sk_pp_..."
 export PANDAPROBE_PROJECT_NAME="my-project"
 export PANDAPROBE_ENDPOINT="http://localhost:8000"
+export OPENAI_API_KEY="sk-..."
 ```
 
 The SDK auto-initializes from these environment variables — no `pandaprobe.init()` call is needed.
 
-To disable tracing:
-
-```bash
-export PANDAPROBE_ENABLED=false
-```
 
 To enable debug logging:
 
@@ -38,10 +34,10 @@ To enable debug logging:
 export PANDAPROBE_DEBUG=true
 ```
 
-OpenAI-based examples additionally require:
+To disable tracing:
 
 ```bash
-export OPENAI_API_KEY="sk-..."
+export PANDAPROBE_ENABLED=false
 ```
 
 ### 3. Run any example
@@ -53,41 +49,35 @@ uv run python examples/openai/01_chat_completion.py
 
 ## Examples
 
+### Context Managers
+
+| Example | Description |
+|---|---|
+| `context_managers/01_rag_pipeline.py` | RAG pipeline with retrieval + LLM generation + scoring via `pandaprobe.start_trace()` and `trace.span()` |
+| `context_managers/02_multi_turn.py` | Multi-turn tutoring agent with session grouping via `pandaprobe.session()` |
+
 ### Decorators
 
-| Example | Description | Env Vars |
-|---|---|---|
-| `decorators/01_trace_and_span.py` | `@trace` + `@span` wrapping a real OpenAI call inside a support agent flow | `OPENAI_API_KEY` |
-| `decorators/02_no_flush.py` | Decorator example with no explicit `flush()` — relies on `atexit` handler | `OPENAI_API_KEY` |
+| Example | Description |
+|---|---|
+| `decorators/01_support_agent.py` | Customer support agent with retrieval + LLM via `@pandaprobe.trace` and `@pandaprobe.span` |
+| `decorators/02_multi_turn.py` | Multi-turn topic assistant with session grouping via `pandaprobe.session()` + `@pandaprobe.trace` |
 
 ### OpenAI Wrapper
 
-| Example | Description | Env Vars |
-|---|---|---|
-| `openai/01_chat_completion.py` | `wrap_openai` with a standard chat completion | `OPENAI_API_KEY` |
-| `openai/02_streaming.py` | `wrap_openai` with a streaming chat completion | `OPENAI_API_KEY` |
-
-### Context Managers
-
-| Example | Description | Env Vars |
-|---|---|---|
-| `context_managers/01_rag_pipeline.py` | `pandaprobe.start_trace()` / `trace.span()` building a RAG pipeline with real OpenAI + scoring | `OPENAI_API_KEY` |
+| Example | Description |
+|---|---|
+| `openai/01_chat_completion.py` | Basic chat completion with automatic tracing via `wrap_openai` |
+| `openai/02_streaming.py` | Streaming chat completion with automatic tracing via `wrap_openai` |
+| `openai/03_multi_turn.py` | Multi-turn conversation with session grouping via `pandaprobe.session()` + `wrap_openai` |
 
 ### LangGraph
 
-| Example | Description | Env Vars |
-|---|---|---|
-| `langgraph/01_chatbot.py` | Simple `StateGraph` chatbot with `LangGraphCallbackHandler` | `OPENAI_API_KEY` |
-| `langgraph/02_tool_agent.py` | ReAct agent with tool calls (weather + population) traced via `LangGraphCallbackHandler` | `OPENAI_API_KEY` |
-
-### Sessions
-
-| Example | Description | Env Vars |
-|---|---|---|
-| `sessions/01_multi_turn.py` | Multi-turn conversation grouped under a session with `pandaprobe.session()`, with scoring per turn | `OPENAI_API_KEY` |
-| `sessions/02_session_with_decorators.py` | Dynamic session switching with `pandaprobe.session()` + `@pandaprobe.trace` | `OPENAI_API_KEY` |
-| `sessions/03_session_with_wrapper.py` | Session propagation through `wrap_openai` via `pandaprobe.session()` | `OPENAI_API_KEY` |
-| `sessions/04_session_with_langgraph.py` | Multi-turn LangGraph chatbot with session grouping via `pandaprobe.session()` + `LangGraphCallbackHandler` | `OPENAI_API_KEY` |
+| Example | Description |
+|---|---|
+| `langgraph/01_chatbot.py` | Simple chatbot with `LangGraphCallbackHandler` |
+| `langgraph/02_tool_agent.py` | ReAct agent with weather + population tools via `LangGraphCallbackHandler` |
+| `langgraph/03_multi_turn.py` | Multi-turn travel advisor with session grouping via `pandaprobe.session()` + `LangGraphCallbackHandler` |
 
 ## Session API
 
@@ -120,4 +110,4 @@ After running an example, check your PandaProbe backend to verify:
 - **LLM spans** capture model name, token usage, and input/output
 - **Tool spans** (LangGraph examples) capture tool name and results
 - **Scores** are attached to the correct traces
-- **Sessions** group related traces together
+- **Sessions** group related traces together (multi-turn examples)
