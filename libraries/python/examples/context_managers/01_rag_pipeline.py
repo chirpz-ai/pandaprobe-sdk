@@ -1,11 +1,11 @@
-"""Context manager tracing — RAG pipeline with real OpenAI call + scoring.
+"""Context manager tracing — RAG pipeline with retrieval + LLM + scoring.
 
-Demonstrates client.trace() and trace.span() for manual instrumentation,
-plus client.score() to evaluate the trace after completion.
+Demonstrates pandaprobe.start_trace() and trace.span() for manual
+instrumentation, plus pandaprobe.score() to evaluate the trace after completion.
 
 Required env vars:
     export PANDAPROBE_API_KEY="sk_pp_..."
-    export PANDAPROBE_PROJECT_NAME="context-manager-example"
+    export PANDAPROBE_PROJECT_NAME="my-project"
     export PANDAPROBE_ENDPOINT="http://localhost:8000"
     export OPENAI_API_KEY="sk-..."
 
@@ -19,7 +19,6 @@ import openai
 
 import pandaprobe
 
-pp_client = pandaprobe.Client(debug=True)
 oai_client = openai.OpenAI()
 
 DOCUMENTS = [
@@ -53,7 +52,7 @@ DOCUMENTS = [
 if __name__ == "__main__":
     query = "What are some popular Python web frameworks?"
 
-    with pp_client.trace("rag-pipeline", input={"query": query}, tags=["rag", "example"]) as trace:
+    with pandaprobe.start_trace("rag-pipeline", input={"messages": [{"role": "user", "content": query}]}, tags=["rag", "example"]) as trace:
         with trace.span("document-retrieval", kind="RETRIEVER") as retriever:
             retriever.set_input({"query": query, "top_k": 3})
 
@@ -85,30 +84,30 @@ if __name__ == "__main__":
             )
 
             answer = response.choices[0].message.content
-            llm.set_output(answer)
+            llm.set_output({"messages": [{"role": "assistant", "content": answer}]})
             llm.set_token_usage(
                 prompt_tokens=response.usage.prompt_tokens,
                 completion_tokens=response.usage.completion_tokens,
             )
             llm.set_model_parameters({"temperature": 1, "max_tokens": 200})
 
-        trace.set_output({"answer": answer})
+        trace.set_output({"messages": [{"role": "assistant", "content": answer}]})
 
     print(f"Query: {query}")
     print(f"Retrieved {len(results)} documents")
     print(f"\nAnswer:\n{answer}")
     print(f"\nTrace ID: {trace.trace_id}")
 
-    pp_client.flush()
+    pandaprobe.flush()
     time.sleep(2)
 
-    pp_client.score(
+    pandaprobe.score(
         trace_id=trace.trace_id,
         name="relevance",
         value="true",
         data_type="BOOLEAN",
         reason="Answer directly addresses the question using retrieved context about Python frameworks.",
     )
-    pp_client.flush()
-    pp_client.shutdown()
+    pandaprobe.flush()
+    pandaprobe.shutdown()
     print("\nTrace + score sent to PandaProbe backend.")
