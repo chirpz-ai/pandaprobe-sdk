@@ -107,8 +107,6 @@ class TestWrapOpenAI:
         mock_client, create_fn = _make_mock_openai_client()
         wrap_openai(mock_client)
 
-        from pandaprobe.tracing.context import get_current_trace
-
         mock_client.chat.completions.create(
             model="gpt-4",
             messages=[{"role": "user", "content": "hi"}],

@@ -100,7 +100,6 @@ class TestTraceDecorator:
         def chat(messages: list):
             return {"messages": [{"role": "assistant", "content": "reply"}]}
 
-        from pandaprobe.tracing.context import get_current_trace
         original_trace = pandaprobe.client.get_client().trace
 
         def spy_trace(name, **kw):
