@@ -125,3 +125,5 @@ class TestModuleLevelImports:
         assert hasattr(pandaprobe, "score")
         assert hasattr(pandaprobe, "set_session")
         assert hasattr(pandaprobe, "session")
+        assert hasattr(pandaprobe, "set_user")
+        assert hasattr(pandaprobe, "user")
