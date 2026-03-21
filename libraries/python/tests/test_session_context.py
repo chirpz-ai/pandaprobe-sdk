@@ -105,9 +105,7 @@ class TestSessionPropagation:
     @respx.mock
     def test_decorator_picks_up_session(self):
         respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
-        pandaprobe.init(
-            api_key="sk_pp_test", project_name="proj", endpoint="http://testserver", flush_interval=60.0
-        )
+        pandaprobe.init(api_key="sk_pp_test", project_name="proj", endpoint="http://testserver", flush_interval=60.0)
 
         @pandaprobe.trace(name="decorated")
         def my_func(messages: list):
@@ -121,9 +119,7 @@ class TestSessionPropagation:
         from uuid import uuid4
 
         respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
-        pandaprobe.init(
-            api_key="sk_pp_test", project_name="proj", endpoint="http://testserver", flush_interval=60.0
-        )
+        pandaprobe.init(api_key="sk_pp_test", project_name="proj", endpoint="http://testserver", flush_interval=60.0)
         from pandaprobe.integrations.langgraph import LangGraphCallbackHandler
 
         pandaprobe.set_session("lg-session")
@@ -209,9 +205,7 @@ class TestUserIdPropagation:
     @respx.mock
     def test_decorator_picks_up_user_id(self):
         respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
-        pandaprobe.init(
-            api_key="sk_pp_test", project_name="proj", endpoint="http://testserver", flush_interval=60.0
-        )
+        pandaprobe.init(api_key="sk_pp_test", project_name="proj", endpoint="http://testserver", flush_interval=60.0)
 
         @pandaprobe.trace(name="decorated")
         def my_func(messages: list):
@@ -225,9 +219,7 @@ class TestUserIdPropagation:
         from uuid import uuid4
 
         respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
-        pandaprobe.init(
-            api_key="sk_pp_test", project_name="proj", endpoint="http://testserver", flush_interval=60.0
-        )
+        pandaprobe.init(api_key="sk_pp_test", project_name="proj", endpoint="http://testserver", flush_interval=60.0)
         from pandaprobe.integrations.langgraph import LangGraphCallbackHandler
 
         pandaprobe.set_user("lg-user")

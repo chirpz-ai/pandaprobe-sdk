@@ -108,5 +108,3 @@ class TestSpanStack:
                     assert get_span_stack() == [s1.span_id, s2.span_id]
                 assert get_span_stack() == [s1.span_id]
             assert get_span_stack() == []
-
-

@@ -237,9 +237,7 @@ class TestShutdownReliability:
     @respx.mock
     def test_shutdown_flushes_pending_items(self, config):
         """shutdown() must drain all queued items before returning."""
-        route = respx.post("http://testserver/traces").mock(
-            return_value=httpx.Response(202, json={"trace_id": "x"})
-        )
+        route = respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={"trace_id": "x"}))
         transport = Transport(config)
         for i in range(3):
             transport.enqueue_trace({"name": f"trace-{i}"})

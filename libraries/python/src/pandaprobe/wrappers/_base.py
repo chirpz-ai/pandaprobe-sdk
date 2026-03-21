@@ -81,7 +81,12 @@ def enter_llm_span(cleaned_kwargs: dict[str, Any], method_name: str, input_key: 
     if client is None or not client.enabled:
         return None
 
-    standalone = client.trace(method_name, input=extract_last_user_message(input_data), session_id=get_current_session_id(), user_id=get_current_user_id())
+    standalone = client.trace(
+        method_name,
+        input=extract_last_user_message(input_data),
+        session_id=get_current_session_id(),
+        user_id=get_current_user_id(),
+    )
     standalone.__enter__()
 
     span_ctx = standalone.span(method_name, kind=SpanKind.LLM, model=cleaned_kwargs.get("model"))

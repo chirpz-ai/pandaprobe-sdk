@@ -52,7 +52,9 @@ DOCUMENTS = [
 if __name__ == "__main__":
     query = "What are some popular Python web frameworks?"
 
-    with pandaprobe.start_trace("rag-pipeline", input={"messages": [{"role": "user", "content": query}]}, tags=["rag", "example"]) as trace:
+    with pandaprobe.start_trace(
+        "rag-pipeline", input={"messages": [{"role": "user", "content": query}]}, tags=["rag", "example"]
+    ) as trace:
         with trace.span("document-retrieval", kind="RETRIEVER") as retriever:
             retriever.set_input({"query": query, "top_k": 3})
 

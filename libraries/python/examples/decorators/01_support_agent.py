@@ -32,17 +32,19 @@ def run_agent(messages: dict) -> dict:
     query = messages["messages"][-1]["content"]
     context = search_knowledge_base(query)
     answer = generate_response(
-        {"messages": [
-            {
-                "role": "system",
-                "content": (
-                    "You are a helpful customer support assistant. "
-                    "Answer the user's question using only the provided context. "
-                    "If the context doesn't help, say you don't know."
-                ),
-            },
-            {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {query}"},
-        ]}
+        {
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a helpful customer support assistant. "
+                        "Answer the user's question using only the provided context. "
+                        "If the context doesn't help, say you don't know."
+                    ),
+                },
+                {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {query}"},
+            ]
+        }
     )
     return answer
 

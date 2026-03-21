@@ -100,7 +100,6 @@ class TestWrapOpenAI:
                 messages=[{"role": "user", "content": "hi"}],
             )
 
-
     @respx.mock
     def test_output_wrapped_in_messages(self):
         respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))

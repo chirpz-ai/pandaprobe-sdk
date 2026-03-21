@@ -82,21 +82,15 @@ class TestValidateMessagesFormat:
 
     def test_role_not_string(self):
         with pytest.raises(ValueError, match="must be a string"):
-            validate_messages_format(
-                {"messages": [{"role": 123, "content": "hi"}]}, "test"
-            )
+            validate_messages_format({"messages": [{"role": 123, "content": "hi"}]}, "test")
 
     def test_content_not_string_or_none(self):
         with pytest.raises(ValueError, match="must be a string or None"):
-            validate_messages_format(
-                {"messages": [{"role": "user", "content": 123}]}, "test"
-            )
+            validate_messages_format({"messages": [{"role": "user", "content": 123}]}, "test")
 
     def test_list_items_rejected(self):
         with pytest.raises(ValueError, match="must be a dict"):
-            validate_messages_format(
-                {"messages": [["user", "hello"]]}, "test"
-            )
+            validate_messages_format({"messages": [["user", "hello"]]}, "test")
 
     def test_label_included_in_error(self):
         with pytest.raises(ValueError, match="trace input"):

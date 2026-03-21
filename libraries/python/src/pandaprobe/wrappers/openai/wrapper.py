@@ -279,7 +279,9 @@ def _finish_span_legacy(span_ctx: Any, response: Any) -> None:
         return
     try:
         if hasattr(response, "choices") and response.choices:
-            span_ctx.set_output({"messages": [{"role": "assistant", "content": safe_serialize(response.choices[0].text)}]})
+            span_ctx.set_output(
+                {"messages": [{"role": "assistant", "content": safe_serialize(response.choices[0].text)}]}
+            )
         if hasattr(response, "model"):
             span_ctx.set_model(response.model)
         if hasattr(response, "usage") and response.usage:

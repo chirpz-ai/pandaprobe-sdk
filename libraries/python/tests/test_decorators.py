@@ -116,9 +116,7 @@ class TestTraceDecorator:
         ]
         chat(conversation)
 
-        assert captured["input"] == {
-            "messages": [{"role": "user", "content": "second question"}]
-        }
+        assert captured["input"] == {"messages": [{"role": "user", "content": "second question"}]}
 
 
 class TestSpanDecorator:

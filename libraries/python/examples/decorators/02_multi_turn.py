@@ -56,15 +56,21 @@ def run_conversation(topic: str, questions: list[str]) -> None:
 
 
 if __name__ == "__main__":
-    run_conversation("python", [
-        "What's a list comprehension?",
-        "Show me a simple example.",
-    ])
+    run_conversation(
+        "python",
+        [
+            "What's a list comprehension?",
+            "Show me a simple example.",
+        ],
+    )
 
-    run_conversation("javascript", [
-        "What's a Promise?",
-        "How does async/await relate to Promises?",
-    ])
+    run_conversation(
+        "javascript",
+        [
+            "What's a Promise?",
+            "How does async/await relate to Promises?",
+        ],
+    )
 
     pandaprobe.flush()
     pandaprobe.shutdown()

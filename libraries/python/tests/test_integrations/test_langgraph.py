@@ -234,7 +234,6 @@ class TestCallbackHandler:
         assert handler._tags == ["test"]
         assert handler._metadata == {"version": "1.0"}
 
-
     @respx.mock
     def test_on_chat_model_start(self):
         respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
@@ -287,9 +286,7 @@ class TestCallbackHandler:
             run_id=root_id,
         )
 
-        assert handler._trace_input == {
-            "messages": [{"role": "user", "content": "What about Germany?"}]
-        }
+        assert handler._trace_input == {"messages": [{"role": "user", "content": "What about Germany?"}]}
 
     @respx.mock
     def test_on_llm_end_normalized_output(self):
@@ -299,14 +296,11 @@ class TestCallbackHandler:
         root_id = uuid4()
         llm_id = uuid4()
         handler.on_chain_start({"name": "Graph"}, {"input": "hi"}, run_id=root_id)
-        handler.on_llm_start(
-            {"name": "ChatOpenAI"}, ["hi"], run_id=llm_id, parent_run_id=root_id
-        )
+        handler.on_llm_start({"name": "ChatOpenAI"}, ["hi"], run_id=llm_id, parent_run_id=root_id)
         handler.on_llm_end(_mock_llm_response("world"), run_id=llm_id)
 
         span = handler._spans[str(llm_id)]
         assert span.output == {"messages": [{"role": "assistant", "content": "world"}]}
-
 
     @respx.mock
     def test_on_chat_model_start_captures_model_parameters(self):

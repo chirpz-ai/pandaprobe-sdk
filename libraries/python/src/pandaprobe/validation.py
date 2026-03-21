@@ -9,9 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-_SCHEMA_EXAMPLE = (
-    '{"messages": [{"role": "user", "content": "hello"}]}'
-)
+_SCHEMA_EXAMPLE = '{"messages": [{"role": "user", "content": "hello"}]}'
 
 
 def validate_messages_format(data: Any, label: str) -> None:
@@ -43,8 +41,7 @@ def validate_messages_format(data: Any, label: str) -> None:
     messages = data["messages"]
     if not isinstance(messages, list):
         raise ValueError(
-            f"{label}['messages'] must be a list, got {type(messages).__name__}. "
-            f"Expected format: {_SCHEMA_EXAMPLE}"
+            f"{label}['messages'] must be a list, got {type(messages).__name__}. Expected format: {_SCHEMA_EXAMPLE}"
         )
 
     for i, msg in enumerate(messages):
@@ -54,25 +51,17 @@ def validate_messages_format(data: Any, label: str) -> None:
                 f"Each message must have at least 'role' and 'content' keys."
             )
         if "role" not in msg:
-            raise ValueError(
-                f"{label}['messages'][{i}] is missing required key 'role'. "
-                f"Got keys: {list(msg.keys())}."
-            )
+            raise ValueError(f"{label}['messages'][{i}] is missing required key 'role'. Got keys: {list(msg.keys())}.")
         if not isinstance(msg["role"], str):
-            raise ValueError(
-                f"{label}['messages'][{i}]['role'] must be a string, "
-                f"got {type(msg['role']).__name__}."
-            )
+            raise ValueError(f"{label}['messages'][{i}]['role'] must be a string, got {type(msg['role']).__name__}.")
         if "content" not in msg:
             raise ValueError(
-                f"{label}['messages'][{i}] is missing required key 'content'. "
-                f"Got keys: {list(msg.keys())}."
+                f"{label}['messages'][{i}] is missing required key 'content'. Got keys: {list(msg.keys())}."
             )
         content = msg["content"]
         if content is not None and not isinstance(content, str):
             raise ValueError(
-                f"{label}['messages'][{i}]['content'] must be a string or None, "
-                f"got {type(content).__name__}."
+                f"{label}['messages'][{i}]['content'] must be a string or None, got {type(content).__name__}."
             )
 
 
