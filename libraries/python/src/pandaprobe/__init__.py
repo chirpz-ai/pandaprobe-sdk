@@ -17,7 +17,9 @@ from pandaprobe.schemas import (
 )
 from pandaprobe.tracing.session import (
     reset_current_session_id,
+    reset_current_user_id,
     set_current_session_id,
+    set_current_user_id,
 )
 
 __all__ = [
@@ -37,6 +39,8 @@ __all__ = [
     "score",
     "set_session",
     "session",
+    "set_user",
+    "user",
 ]
 
 
@@ -157,3 +161,34 @@ def session(session_id: str):
         yield
     finally:
         reset_current_session_id(token)
+
+
+# ---------------------------------------------------------------------------
+# User ID propagation
+# ---------------------------------------------------------------------------
+
+
+def set_user(user_id: str) -> None:
+    """Set the user ID for the current context.
+
+    All traces created after this call (via decorators, wrappers, or
+    integrations) will inherit this user ID unless overridden explicitly.
+    """
+    set_current_user_id(user_id)
+
+
+@contextmanager
+def user(user_id: str):
+    """Context manager that sets a user ID for its scope.
+
+    Usage::
+
+        with pandaprobe.user("user-abc"):
+            run_agent(query)  # traces inherit user_id="user-abc"
+        # user_id is reset after the block
+    """
+    token = set_current_user_id(user_id)
+    try:
+        yield
+    finally:
+        reset_current_user_id(token)
