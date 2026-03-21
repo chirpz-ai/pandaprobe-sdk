@@ -17,8 +17,9 @@ from pandaprobe.integrations.langgraph.utils import (
     safe_output,
 )
 from pandaprobe.schemas import SpanData, SpanKind, SpanStatusCode, TraceData, TraceStatus
-from pandaprobe.tracing.session import get_current_session_id
+from pandaprobe.tracing.session import get_current_session_id, get_current_user_id
 from pandaprobe.validation import extract_last_user_message
+from pandaprobe.wrappers._base import SAFE_INVOCATION_PARAMS
 
 logger = logging.getLogger("pandaprobe")
 
@@ -138,7 +139,9 @@ class LangGraphCallbackHandler(BaseIntegrationAdapter, _LCBase):  # type: ignore
         pid = str(parent_run_id) if parent_run_id else None
         self._parents[rid] = pid
         name = name or extract_name(serialized, "llm")
-        model = (invocation_params or {}).get("model") or (invocation_params or {}).get("model_name")
+        params = invocation_params or {}
+        model = params.get("model") or params.get("model_name")
+        model_parameters = {k: v for k, v in params.items() if k in SAFE_INVOCATION_PARAMS}
         span = SpanData(
             span_id=rid,
             parent_span_id=pid,
@@ -146,6 +149,7 @@ class LangGraphCallbackHandler(BaseIntegrationAdapter, _LCBase):  # type: ignore
             kind=SpanKind.LLM,
             input=safe_output(prompts),
             model=model,
+            model_parameters=model_parameters or None,
             started_at=datetime.now(timezone.utc),
         )
         self._spans[rid] = span
@@ -164,8 +168,9 @@ class LangGraphCallbackHandler(BaseIntegrationAdapter, _LCBase):  # type: ignore
         pid = str(parent_run_id) if parent_run_id else None
         self._parents[rid] = pid
         name = name or extract_name(serialized, "llm")
-        invocation_params = kwargs.get("invocation_params") or {}
-        model = invocation_params.get("model") or invocation_params.get("model_name")
+        params = kwargs.get("invocation_params") or {}
+        model = params.get("model") or params.get("model_name")
+        model_parameters = {k: v for k, v in params.items() if k in SAFE_INVOCATION_PARAMS}
 
         serialized_msgs: list[Any] = []
         if messages and messages[0]:
@@ -179,6 +184,7 @@ class LangGraphCallbackHandler(BaseIntegrationAdapter, _LCBase):  # type: ignore
             kind=SpanKind.LLM,
             input=normalize_type_to_role({"messages": serialized_msgs}),
             model=model,
+            model_parameters=model_parameters or None,
             started_at=datetime.now(timezone.utc),
         )
         self._spans[rid] = span
@@ -308,6 +314,7 @@ class LangGraphCallbackHandler(BaseIntegrationAdapter, _LCBase):  # type: ignore
             client = self._resolve_client()
             spans = list(self._spans.values())
             session_id = self._session_id if self._session_id is not None else get_current_session_id()
+            user_id = self._user_id if self._user_id is not None else get_current_user_id()
             trace = TraceData(
                 name=self._trace_name,
                 status=TraceStatus.ERROR if error else TraceStatus.COMPLETED,
@@ -317,7 +324,7 @@ class LangGraphCallbackHandler(BaseIntegrationAdapter, _LCBase):  # type: ignore
                 started_at=self._trace_started_at or datetime.now(timezone.utc),
                 ended_at=datetime.now(timezone.utc),
                 session_id=session_id,
-                user_id=self._user_id,
+                user_id=user_id,
                 tags=list(self._tags),
                 spans=spans,
             )
