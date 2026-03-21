@@ -88,7 +88,7 @@ def _sync_chat_wrapper(original):  # noqa: ANN001
 
 
 def _sync_blocking_chat(original, args, kwargs, cleaned):  # noqa: ANN001
-    span_ctx = enter_llm_span(cleaned, "openai.chat.completions.create")
+    span_ctx = enter_llm_span(cleaned, "openai-chat")
     try:
         response = original(*args, **kwargs)
         actual_response = _maybe_parse_raw(response)
@@ -102,7 +102,7 @@ def _sync_blocking_chat(original, args, kwargs, cleaned):  # noqa: ANN001
 
 
 def _sync_streaming_chat(original, args, kwargs, cleaned):  # noqa: ANN001
-    span_ctx = enter_llm_span(cleaned, "openai.chat.completions.create")
+    span_ctx = enter_llm_span(cleaned, "openai-chat")
     try:
         stream = original(*args, **kwargs)
         return _OpenAISyncStream(stream, span_ctx)
@@ -132,7 +132,7 @@ def _async_chat_wrapper(original):  # noqa: ANN001
 
 
 async def _async_blocking_chat(original, args, kwargs, cleaned):  # noqa: ANN001
-    span_ctx = enter_llm_span(cleaned, "openai.chat.completions.create")
+    span_ctx = enter_llm_span(cleaned, "openai-chat")
     try:
         response = await original(*args, **kwargs)
         actual_response = _maybe_parse_raw(response)
@@ -146,7 +146,7 @@ async def _async_blocking_chat(original, args, kwargs, cleaned):  # noqa: ANN001
 
 
 async def _async_streaming_chat(original, args, kwargs, cleaned):  # noqa: ANN001
-    span_ctx = enter_llm_span(cleaned, "openai.chat.completions.create")
+    span_ctx = enter_llm_span(cleaned, "openai-chat")
     try:
         stream = await original(*args, **kwargs)
         return _OpenAIAsyncStream(stream, span_ctx)
@@ -166,7 +166,7 @@ def _sync_legacy_wrapper(original):  # noqa: ANN001
     @functools.wraps(original)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         cleaned = strip_not_given(kwargs)
-        span_ctx = enter_llm_span(cleaned, "openai.completions.create", input_key="prompt")
+        span_ctx = enter_llm_span(cleaned, "openai-completion", input_key="prompt")
         try:
             response = original(*args, **kwargs)
             actual_response = _maybe_parse_raw(response)
@@ -185,7 +185,7 @@ def _async_legacy_wrapper(original):  # noqa: ANN001
     @functools.wraps(original)
     async def wrapper(*args: Any, **kwargs: Any) -> Any:
         cleaned = strip_not_given(kwargs)
-        span_ctx = enter_llm_span(cleaned, "openai.completions.create", input_key="prompt")
+        span_ctx = enter_llm_span(cleaned, "openai-completion", input_key="prompt")
         try:
             response = await original(*args, **kwargs)
             actual_response = _maybe_parse_raw(response)
