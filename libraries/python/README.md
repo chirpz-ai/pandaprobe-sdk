@@ -24,6 +24,8 @@ pip install pandaprobe[all]          # Everything
 export PANDAPROBE_API_KEY="sk_pp_..."
 export PANDAPROBE_PROJECT_NAME="my-project"
 export PANDAPROBE_ENDPOINT="my-pandaprobe-endpoint"
+export PANDAPROBE_ENVIRONMENT="production"   # optional
+export PANDAPROBE_RELEASE="v1.2.0"           # optional
 ```
 
 The SDK auto-initializes from these environment variables on first use — no explicit `init()` call is needed. To disable tracing, set `PANDAPROBE_ENABLED=false`.
@@ -76,24 +78,26 @@ result = graph.invoke(
 )
 ```
 
-### 5. Session management
+### 5. Session and user tracking
 
-Group related traces under a session ID using the universal session API:
+Group related traces under a session and/or user using the universal context API:
 
 ```python
 import pandaprobe
 
-# Context manager — session is scoped to the block
+# Context managers — scoped to the block
 with pandaprobe.session("conversation-123"):
-    run_agent("What is recursion?")
-    run_agent("Can you give me an example?")
+    with pandaprobe.user("user-abc"):
+        run_agent("What is recursion?")
+        run_agent("Can you give me an example?")
 
-# Imperative — useful for dynamic session switching
+# Imperative — useful for dynamic switching
 pandaprobe.set_session("conversation-456")
+pandaprobe.set_user("user-xyz")
 run_agent("New topic")
 ```
 
-The session ID propagates across all SDK layers (decorators, wrappers, integrations, context managers).
+Both propagate across all SDK layers (decorators, wrappers, integrations, context managers). Explicit parameters (`session_id=`, `user_id=`) take precedence over the context.
 
 ### 6. Programmatic scoring
 
@@ -123,7 +127,9 @@ pandaprobe.shutdown()
 | `PANDAPROBE_API_KEY` | *(required)* | API key |
 | `PANDAPROBE_PROJECT_NAME` | *(required)* | Project name |
 | `PANDAPROBE_ENDPOINT` | `http://localhost:8000` | Backend URL |
-| `PANDAPROBE_ENABLED` | `true` | Enable/disable SDK (gatekeeper for auto-init) |
+| `PANDAPROBE_ENVIRONMENT` | `None` | Environment tag (e.g. `production`, `staging`) |
+| `PANDAPROBE_RELEASE` | `None` | Release/version tag (e.g. `v1.2.0`) |
+| `PANDAPROBE_ENABLED` | `true` | Enable/disable SDK |
 | `PANDAPROBE_BATCH_SIZE` | `10` | Traces per flush batch |
 | `PANDAPROBE_FLUSH_INTERVAL` | `5.0` | Seconds between flushes |
 | `PANDAPROBE_DEBUG` | `false` | Verbose logging |
