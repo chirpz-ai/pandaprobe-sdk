@@ -308,6 +308,63 @@ class TestCallbackHandler:
         assert span.output == {"messages": [{"role": "assistant", "content": "world"}]}
 
 
+    @respx.mock
+    def test_on_chat_model_start_captures_model_parameters(self):
+        respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
+        handler = LangGraphCallbackHandler()
+
+        root_id = uuid4()
+        llm_id = uuid4()
+        handler.on_chain_start({"name": "Graph"}, {"input": "hi"}, run_id=root_id)
+
+        from types import SimpleNamespace
+
+        msg = SimpleNamespace(type="human", content="hi")
+        handler.on_chat_model_start(
+            {"name": "ChatOpenAI"},
+            [[msg]],
+            run_id=llm_id,
+            parent_run_id=root_id,
+            name="ChatOpenAI",
+            invocation_params={
+                "model": "gpt-4o-mini",
+                "temperature": 0.3,
+                "max_tokens": 200,
+                "api_key": "secret",
+            },
+        )
+
+        span = handler._spans[str(llm_id)]
+        assert span.model == "gpt-4o-mini"
+        assert span.model_parameters == {"temperature": 0.3, "max_tokens": 200}
+        assert "api_key" not in (span.model_parameters or {})
+
+    @respx.mock
+    def test_on_llm_start_captures_model_parameters(self):
+        respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
+        handler = LangGraphCallbackHandler()
+
+        root_id = uuid4()
+        llm_id = uuid4()
+        handler.on_chain_start({"name": "Graph"}, {"input": "hi"}, run_id=root_id)
+        handler.on_llm_start(
+            {"name": "OpenAI"},
+            ["hello"],
+            run_id=llm_id,
+            parent_run_id=root_id,
+            invocation_params={
+                "model": "gpt-4o",
+                "temperature": 0.7,
+                "seed": 42,
+                "api_key": "secret",
+            },
+        )
+
+        span = handler._spans[str(llm_id)]
+        assert span.model == "gpt-4o"
+        assert span.model_parameters == {"temperature": 0.7, "seed": 42}
+
+
 def _mock_llm_response(text: str):
     """Create a mock LLM response object."""
     from types import SimpleNamespace
