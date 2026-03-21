@@ -5,7 +5,7 @@ chunks and reduces them into a single LLM span with the full output.
 
 Required env vars:
     export PANDAPROBE_API_KEY="sk_pp_..."
-    export PANDAPROBE_PROJECT_NAME="openai-streaming-example"
+    export PANDAPROBE_PROJECT_NAME="my-project"
     export PANDAPROBE_ENDPOINT="http://localhost:8000"
     export OPENAI_API_KEY="sk-..."
 
@@ -17,8 +17,6 @@ import openai
 
 import pandaprobe
 from pandaprobe.wrappers import wrap_openai
-
-pandaprobe.init(debug=True)
 
 client = wrap_openai(openai.OpenAI())
 
@@ -42,6 +40,6 @@ if __name__ == "__main__":
 
     print("\n")
 
-    pandaprobe.get_client().flush()
-    pandaprobe.get_client().shutdown()
+    pandaprobe.flush()
+    pandaprobe.shutdown()
     print("Trace sent to PandaProbe backend.")

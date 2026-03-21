@@ -5,7 +5,7 @@ The wrapper automatically creates an LLM span capturing model, tokens, and I/O.
 
 Required env vars:
     export PANDAPROBE_API_KEY="sk_pp_..."
-    export PANDAPROBE_PROJECT_NAME="openai-chat-example"
+    export PANDAPROBE_PROJECT_NAME="my-project"
     export PANDAPROBE_ENDPOINT="http://localhost:8000"
     export OPENAI_API_KEY="sk-..."
 
@@ -17,8 +17,6 @@ import openai
 
 import pandaprobe
 from pandaprobe.wrappers import wrap_openai
-
-pandaprobe.init(debug=True)
 
 client = wrap_openai(openai.OpenAI())
 
@@ -37,6 +35,6 @@ if __name__ == "__main__":
     print(f"Tokens: {response.usage.prompt_tokens} prompt, {response.usage.completion_tokens} completion")
     print(f"\nResponse:\n{response.choices[0].message.content}")
 
-    pandaprobe.get_client().flush()
-    pandaprobe.get_client().shutdown()
+    pandaprobe.flush()
+    pandaprobe.shutdown()
     print("\nTrace sent to PandaProbe backend.")
