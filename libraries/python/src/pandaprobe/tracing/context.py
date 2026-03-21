@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 from pandaprobe.schemas import SpanKind, TraceData, TraceStatus
-from pandaprobe.tracing.session import get_current_session_id
+from pandaprobe.tracing.session import get_current_session_id, get_current_user_id
 from pandaprobe.validation import validate_trace_input, validate_trace_output
 
 if TYPE_CHECKING:
@@ -74,7 +74,7 @@ class TraceContext:
         validate_trace_input(input)
         self._output: Any = None
         self._session_id = session_id if session_id is not None else get_current_session_id()
-        self._user_id = user_id
+        self._user_id = user_id if user_id is not None else get_current_user_id()
         self._tags = tags or []
         self._metadata = metadata or {}
         self._status: TraceStatus = TraceStatus.COMPLETED
