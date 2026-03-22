@@ -2,7 +2,7 @@
 
 The standard schema requires ``input`` and ``output`` to be a dict with a
 ``messages`` key whose value is a list of message objects.  Each message must
-have at least ``role`` (str) and ``content`` (str | None).
+have at least ``role`` (str) and ``content`` (str, list, or None).
 """
 
 from __future__ import annotations
@@ -19,7 +19,8 @@ def validate_messages_format(data: Any, label: str) -> None:
     - ``None`` is accepted silently (no-op).
     - Otherwise *data* must be a ``dict`` with a ``"messages"`` key whose
       value is a ``list`` of dicts, each containing ``"role"`` (str) and
-      ``"content"`` (str or None).
+      ``"content"`` (str, list, or None).  A ``list`` content is used by
+      the Responses API to represent structured content parts.
 
     Raises ``ValueError`` with a clear message on failure.
     """
@@ -59,9 +60,9 @@ def validate_messages_format(data: Any, label: str) -> None:
                 f"{label}['messages'][{i}] is missing required key 'content'. Got keys: {list(msg.keys())}."
             )
         content = msg["content"]
-        if content is not None and not isinstance(content, str):
+        if content is not None and not isinstance(content, (str, list)):
             raise ValueError(
-                f"{label}['messages'][{i}]['content'] must be a string or None, got {type(content).__name__}."
+                f"{label}['messages'][{i}]['content'] must be a string, list, or None, got {type(content).__name__}."
             )
 
 
