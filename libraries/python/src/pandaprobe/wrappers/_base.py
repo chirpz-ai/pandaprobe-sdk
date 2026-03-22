@@ -1,8 +1,8 @@
-"""Shared utilities for all LLM client wrappers.
+"""Shared, provider-agnostic utilities for all LLM client wrappers.
 
-This module contains **provider-agnostic** helpers.  Provider-specific logic
-(e.g. stripping OpenAI sentinel types) belongs in the provider's own
-sub-package under ``wrappers/<provider>/``.
+Provider-specific logic belongs in its own sub-package under
+``wrappers/<provider>/``.  For example, OpenAI helpers live in
+``wrappers/openai/utils.py``.
 """
 
 from __future__ import annotations
@@ -19,8 +19,10 @@ from pandaprobe.validation import extract_last_user_message
 
 logger = logging.getLogger("pandaprobe")
 
-# Parameters that are safe to capture from any LLM API call.
-# Prevents accidentally leaking sensitive data like api_key.
+# ---------------------------------------------------------------------------
+# Safe parameter whitelists
+# ---------------------------------------------------------------------------
+
 SAFE_INVOCATION_PARAMS: set[str] = {
     "temperature",
     "top_p",
@@ -58,6 +60,11 @@ def safe_serialize(obj: Any) -> Any:
     if hasattr(obj, "__dict__"):
         return {k: safe_serialize(v) for k, v in obj.__dict__.items() if not k.startswith("_")}
     return repr(obj)
+
+
+# ---------------------------------------------------------------------------
+# Span lifecycle helpers
+# ---------------------------------------------------------------------------
 
 
 def enter_llm_span(cleaned_kwargs: dict[str, Any], method_name: str, input_key: str = "messages"):
@@ -106,6 +113,11 @@ def close_llm_span(span_ctx: Any) -> None:
     if standalone is not None:
         standalone.set_output(span_ctx._output)
         standalone.__exit__(None, None, None)
+
+
+# ---------------------------------------------------------------------------
+# Stream reducer base classes
+# ---------------------------------------------------------------------------
 
 
 class SyncStreamReducer:
