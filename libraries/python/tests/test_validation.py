@@ -29,6 +29,21 @@ class TestValidateMessagesFormat:
             "test",
         )
 
+    def test_content_list_passes(self):
+        validate_messages_format(
+            {
+                "messages": [
+                    {
+                        "role": "assistant",
+                        "content": [
+                            {"type": "output_text", "text": "hello", "annotations": []},
+                        ],
+                    }
+                ]
+            },
+            "test",
+        )
+
     def test_multiple_messages(self):
         validate_messages_format(
             {
@@ -84,8 +99,8 @@ class TestValidateMessagesFormat:
         with pytest.raises(ValueError, match="must be a string"):
             validate_messages_format({"messages": [{"role": 123, "content": "hi"}]}, "test")
 
-    def test_content_not_string_or_none(self):
-        with pytest.raises(ValueError, match="must be a string or None"):
+    def test_content_invalid_type_rejected(self):
+        with pytest.raises(ValueError, match="must be a string, list, or None"):
             validate_messages_format({"messages": [{"role": "user", "content": 123}]}, "test")
 
     def test_list_items_rejected(self):
