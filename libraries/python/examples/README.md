@@ -67,9 +67,10 @@ uv run python examples/openai/01_chat_completion.py
 
 | Example | Description |
 |---|---|
-| `openai/01_chat_completion.py` | Basic chat completion with automatic tracing via `wrap_openai` |
+| `openai/01_chat_completion.py` | Chat Completions API with automatic tracing via `wrap_openai` |
 | `openai/02_streaming.py` | Streaming chat completion with automatic tracing via `wrap_openai` |
 | `openai/03_multi_turn.py` | Multi-turn conversation with session grouping via `pandaprobe.session()` + `wrap_openai` |
+| `openai/04_responses_api.py` | Responses API with reasoning summaries and automatic tracing via `wrap_openai` |
 
 ### LangGraph
 

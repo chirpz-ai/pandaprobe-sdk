@@ -68,7 +68,7 @@ if __name__ == "__main__":
 
         context = "\n".join(doc["text"] for doc in results)
 
-        with trace.span("llm-generation", kind="LLM", model="gpt-4o-mini") as llm:
+        with trace.span("llm-generation", kind="LLM", model="gpt-5.4-nano") as llm:
             messages = [
                 {
                     "role": "system",
@@ -79,10 +79,10 @@ if __name__ == "__main__":
             llm.set_input({"messages": messages})
 
             response = oai_client.chat.completions.create(
-                model="gpt-4o-mini",
+                model="gpt-5.4-nano",
                 messages=messages,
-                temperature=1,
-                max_tokens=200,
+                reasoning_effort="low",
+                max_completion_tokens=200,
             )
 
             answer = response.choices[0].message.content
@@ -91,7 +91,7 @@ if __name__ == "__main__":
                 prompt_tokens=response.usage.prompt_tokens,
                 completion_tokens=response.usage.completion_tokens,
             )
-            llm.set_model_parameters({"temperature": 1, "max_tokens": 200})
+            llm.set_model_parameters({"reasoning_effort": "low", "max_completion_tokens": 200})
 
         trace.set_output({"messages": [{"role": "assistant", "content": answer}]})
 

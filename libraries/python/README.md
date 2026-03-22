@@ -59,10 +59,18 @@ import openai
 
 client = wrap_openai(openai.OpenAI())
 
-# Every call is now automatically traced:
+# Chat Completions API — automatically traced:
 response = client.chat.completions.create(
-    model="gpt-4",
+    model="gpt-5.4-nano",
     messages=[{"role": "user", "content": "Hello"}],
+)
+
+# Responses API — also automatically traced, including reasoning summaries
+# and built-in tool calls (web_search, function_call, etc.) as child spans:
+response = client.responses.create(
+    model="gpt-5.4-nano",
+    input="Explain recursion in one sentence.",
+    reasoning={"effort": "low", "summary": "auto"},
 )
 ```
 

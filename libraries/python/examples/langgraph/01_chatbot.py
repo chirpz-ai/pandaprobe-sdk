@@ -23,7 +23,7 @@ from typing_extensions import TypedDict
 import pandaprobe
 from pandaprobe.integrations.langgraph import LangGraphCallbackHandler
 
-llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.3)
+llm = ChatOpenAI(model="gpt-5.4-nano", model_kwargs={"reasoning_effort": "low"})
 
 
 class State(TypedDict):

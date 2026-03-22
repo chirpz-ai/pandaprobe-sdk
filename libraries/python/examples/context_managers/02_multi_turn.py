@@ -32,14 +32,14 @@ def chat_turn(conversation: list[dict], user_message: str) -> tuple[str, str]:
         "tutor-agent",
         input={"messages": [{"role": "user", "content": user_message}]},
     ) as trace:
-        with trace.span("openai-chat", kind="LLM", model="gpt-4o-mini") as llm:
+        with trace.span("openai-chat", kind="LLM", model="gpt-5.4-nano") as llm:
             llm.set_input({"messages": conversation})
 
             response = oai_client.chat.completions.create(
-                model="gpt-4o-mini",
+                model="gpt-5.4-nano",
                 messages=conversation,
-                temperature=0.5,
-                max_tokens=200,
+                reasoning_effort="low",
+                max_completion_tokens=200,
             )
 
             assistant_message = response.choices[0].message.content

@@ -59,14 +59,14 @@ def search_knowledge_base(query: str) -> str:
     return "No relevant articles found."
 
 
-@pandaprobe.span(name="generate-response", kind="LLM", model="gpt-4o-mini")
+@pandaprobe.span(name="generate-response", kind="LLM", model="gpt-5.4-nano")
 def generate_response(messages: dict) -> dict:
     """Call OpenAI to generate an answer grounded in the retrieved context."""
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-5.4-nano",
         messages=messages["messages"],
-        temperature=0.3,
-        max_tokens=200,
+        reasoning_effort="low",
+        max_completion_tokens=200,
     )
     content = response.choices[0].message.content
     return {"messages": [{"role": "assistant", "content": content}]}

@@ -27,10 +27,10 @@ oai_client = openai.OpenAI()
 def chat(messages: list) -> dict:
     """Single chat turn traced via decorator — session comes from ContextVar."""
     response = oai_client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-5.4-nano",
         messages=messages,
-        temperature=0.5,
-        max_tokens=150,
+        reasoning_effort="low",
+        max_completion_tokens=150,
     )
 
     reply = response.choices[0].message.content
