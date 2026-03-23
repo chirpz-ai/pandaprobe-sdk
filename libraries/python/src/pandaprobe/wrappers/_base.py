@@ -67,13 +67,13 @@ def safe_serialize(obj: Any) -> Any:
 # ---------------------------------------------------------------------------
 
 
-def enter_llm_span(cleaned_kwargs: dict[str, Any], method_name: str, input_key: str = "messages"):
+def enter_llm_span(cleaned_kwargs: dict[str, Any], method_name: str):
     """Open an LLM span, creating a standalone trace if none is active.
 
     This is the shared entry-point used by every wrapper provider.
     Returns a SpanContext (or None if the SDK is disabled).
     """
-    input_data = safe_serialize({input_key: cleaned_kwargs.get(input_key, cleaned_kwargs.get("prompt", []))})
+    input_data = safe_serialize({"messages": cleaned_kwargs.get("messages", [])})
     model_params = extract_model_params(cleaned_kwargs)
     trace_ctx = get_current_trace()
 

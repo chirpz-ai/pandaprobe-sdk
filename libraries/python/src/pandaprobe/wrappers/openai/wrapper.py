@@ -34,7 +34,6 @@ def wrap_openai(client: T) -> T:
     Returns the same client instance (mutated).
     """
     _patch_chat_completions(client)
-    _patch_legacy_completions(client)
     _patch_responses(client)
     return client
 
@@ -72,20 +71,6 @@ def _patch_responses(client: Any) -> None:
     else:
         client.responses.create = _sync_responses_wrapper(original)
 
-
-def _patch_legacy_completions(client: Any) -> None:
-    if not hasattr(client, "completions") or not hasattr(client.completions, "create"):
-        return
-    if hasattr(client, "chat") and client.completions is getattr(client.chat, "completions", None):
-        return
-
-    import asyncio
-
-    original = client.completions.create
-    if asyncio.iscoroutinefunction(original):
-        client.completions.create = _async_legacy_wrapper(original)
-    else:
-        client.completions.create = _sync_legacy_wrapper(original)
 
 
 # ---------------------------------------------------------------------------
@@ -175,48 +160,6 @@ async def _async_streaming_chat(original, args, kwargs, cleaned):  # noqa: ANN00
             span_ctx.__exit__(type(exc), exc, exc.__traceback__)
         raise
 
-
-# ---------------------------------------------------------------------------
-# Legacy completions
-# ---------------------------------------------------------------------------
-
-
-def _sync_legacy_wrapper(original):  # noqa: ANN001
-    @functools.wraps(original)
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
-        cleaned = strip_not_given(kwargs)
-        span_ctx = enter_llm_span(cleaned, "openai-completion", input_key="prompt")
-        try:
-            response = original(*args, **kwargs)
-            actual_response = _maybe_parse_raw(response)
-            _finish_span_legacy(span_ctx, actual_response)
-            return response
-        except Exception as exc:
-            if span_ctx:
-                span_ctx.set_error(str(exc))
-                span_ctx.__exit__(type(exc), exc, exc.__traceback__)
-            raise
-
-    return wrapper
-
-
-def _async_legacy_wrapper(original):  # noqa: ANN001
-    @functools.wraps(original)
-    async def wrapper(*args: Any, **kwargs: Any) -> Any:
-        cleaned = strip_not_given(kwargs)
-        span_ctx = enter_llm_span(cleaned, "openai-completion", input_key="prompt")
-        try:
-            response = await original(*args, **kwargs)
-            actual_response = _maybe_parse_raw(response)
-            _finish_span_legacy(span_ctx, actual_response)
-            return response
-        except Exception as exc:
-            if span_ctx:
-                span_ctx.set_error(str(exc))
-                span_ctx.__exit__(type(exc), exc, exc.__traceback__)
-            raise
-
-    return wrapper
 
 
 # ---------------------------------------------------------------------------
@@ -344,29 +287,6 @@ def _finish_span_from_chat_response(span_ctx: Any, response: Any) -> None:
 
     close_llm_span(span_ctx)
 
-
-def _finish_span_legacy(span_ctx: Any, response: Any) -> None:
-    if span_ctx is None:
-        return
-    try:
-        if hasattr(response, "choices") and response.choices:
-            span_ctx.set_output(
-                {"messages": [{"role": "assistant", "content": safe_serialize(response.choices[0].text)}]}
-            )
-        if hasattr(response, "model"):
-            span_ctx.set_model(response.model)
-        if hasattr(response, "usage") and response.usage:
-            usage = response.usage
-            extra = _extract_token_details(usage)
-            span_ctx.set_token_usage(
-                prompt_tokens=getattr(usage, "prompt_tokens", 0) or 0,
-                completion_tokens=getattr(usage, "completion_tokens", 0) or 0,
-                **extra,
-            )
-    except Exception as exc:
-        logger.debug("Error extracting OpenAI legacy response data: %s", exc)
-
-    close_llm_span(span_ctx)
 
 
 def _maybe_parse_raw(response: Any) -> Any:
