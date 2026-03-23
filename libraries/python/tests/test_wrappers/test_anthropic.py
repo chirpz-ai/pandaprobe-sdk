@@ -478,3 +478,86 @@ class TestAnthropicThinking:
             messages=[{"role": "user", "content": "Complex problem"}],
         )
         assert result is response
+
+
+class TestStreamManagerDoubleClose:
+    """Verify that stream wrappers don't close the span twice."""
+
+    @respx.mock
+    def test_sync_stream_manager_no_double_close(self):
+        """_SyncStreamWrapper._extract_final should prevent __exit__ from re-closing."""
+        respx.post("http://testserver/traces").mock(
+            return_value=httpx.Response(202, json={}),
+        )
+
+        usage = SimpleNamespace(
+            input_tokens=10,
+            output_tokens=50,
+            cache_read_input_tokens=0,
+            cache_creation_input_tokens=0,
+        )
+        final_msg = SimpleNamespace(
+            id="msg-stream",
+            type="message",
+            role="assistant",
+            content=[SimpleNamespace(type="text", text="Hello")],
+            model="claude-sonnet-4-6",
+            stop_reason="end_turn",
+            usage=usage,
+        )
+
+        class FakeTextStream:
+            def __init__(self):
+                self._items = ["Hello"]
+
+            def __iter__(self):
+                return iter(self._items)
+
+        class FakeMessageStream:
+            def __init__(self):
+                self.text_stream = FakeTextStream()
+
+            def get_final_message(self):
+                return final_msg
+
+            def get_final_text(self):
+                return "Hello"
+
+        class FakeStreamCM:
+            """Mimics the context manager returned by anthropic messages.stream()."""
+
+            def __enter__(self):
+                return FakeMessageStream()
+
+            def __exit__(self, *exc_info):
+                pass
+
+        create_fn = MagicMock()
+        stream_fn = MagicMock(return_value=FakeStreamCM())
+        messages = SimpleNamespace(create=create_fn, stream=stream_fn)
+        mock_client = SimpleNamespace(messages=messages)
+
+        wrap_anthropic(mock_client)
+
+        from pandaprobe.wrappers._base import close_llm_span
+        from unittest.mock import patch
+
+        close_calls: list[object] = []
+        original_close = close_llm_span
+
+        def tracking_close(span_ctx):
+            close_calls.append(span_ctx)
+            original_close(span_ctx)
+
+        with patch("pandaprobe.wrappers.anthropic.wrapper.close_llm_span", tracking_close):
+            with mock_client.messages.stream(
+                model="claude-sonnet-4-6",
+                max_tokens=1024,
+                messages=[{"role": "user", "content": "Hi"}],
+            ) as stream:
+                texts = list(stream.text_stream)
+                assert texts == ["Hello"]
+
+        assert len(close_calls) == 1, (
+            f"close_llm_span should be called exactly once, got {len(close_calls)}"
+        )

@@ -181,7 +181,7 @@ class _SyncStreamManager:
         try:
             self._inner_manager = self._original(*self._args, **self._kwargs)
             self._inner_stream = self._inner_manager.__enter__()
-            return _SyncStreamWrapper(self._inner_stream, self._span_ctx)
+            return _SyncStreamWrapper(self._inner_stream, self._span_ctx, owner=self)
         except Exception as exc:
             if self._span_ctx:
                 self._span_ctx.set_error(str(exc))
@@ -206,9 +206,10 @@ class _SyncStreamManager:
 class _SyncStreamWrapper:
     """Wraps the inner ``MessageStream`` to capture text and finalize the span."""
 
-    def __init__(self, stream: Any, span_ctx: Any) -> None:
+    def __init__(self, stream: Any, span_ctx: Any, owner: Any = None) -> None:
         self._stream = stream
         self._span_ctx = span_ctx
+        self._owner = owner
         self._first_text = True
 
     @property
@@ -230,6 +231,8 @@ class _SyncStreamWrapper:
             final = self._stream.get_final_message()
             _finish_anthropic_span(self._span_ctx, final)
             self._span_ctx = None
+            if self._owner is not None:
+                self._owner._span_ctx = None
         except Exception:
             pass
 
@@ -272,7 +275,7 @@ class _AsyncStreamManager:
         try:
             self._inner_manager = self._original(*self._args, **self._kwargs)
             self._inner_stream = await self._inner_manager.__aenter__()
-            return _AsyncStreamWrapper(self._inner_stream, self._span_ctx)
+            return _AsyncStreamWrapper(self._inner_stream, self._span_ctx, owner=self)
         except Exception as exc:
             if self._span_ctx:
                 self._span_ctx.set_error(str(exc))
@@ -297,9 +300,10 @@ class _AsyncStreamManager:
 class _AsyncStreamWrapper:
     """Wraps the inner ``AsyncMessageStream`` to capture text and finalize the span."""
 
-    def __init__(self, stream: Any, span_ctx: Any) -> None:
+    def __init__(self, stream: Any, span_ctx: Any, owner: Any = None) -> None:
         self._stream = stream
         self._span_ctx = span_ctx
+        self._owner = owner
         self._first_text = True
 
     @property
@@ -321,6 +325,8 @@ class _AsyncStreamWrapper:
             final = await self._stream.get_final_message()
             _finish_anthropic_span(self._span_ctx, final)
             self._span_ctx = None
+            if self._owner is not None:
+                self._owner._span_ctx = None
         except Exception:
             pass
 
