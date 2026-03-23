@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 from typing import Any, Callable
 from uuid import UUID
 
@@ -16,6 +17,7 @@ logger = logging.getLogger("pandaprobe")
 # Module-level singleton
 # ---------------------------------------------------------------------------
 
+_init_lock = threading.Lock()
 _global_client: Client | None = None
 _auto_init_attempted: bool = False
 
@@ -38,21 +40,22 @@ def init(
     Returns the newly created :class:`Client` instance.
     """
     global _global_client
-    if _global_client is not None:
-        _global_client.shutdown()
-    _global_client = Client(
-        api_key=api_key,
-        project_name=project_name,
-        endpoint=endpoint,
-        environment=environment,
-        release=release,
-        enabled=enabled,
-        batch_size=batch_size,
-        flush_interval=flush_interval,
-        max_queue_size=max_queue_size,
-        debug=debug,
-    )
-    return _global_client
+    with _init_lock:
+        if _global_client is not None:
+            _global_client.shutdown()
+        _global_client = Client(
+            api_key=api_key,
+            project_name=project_name,
+            endpoint=endpoint,
+            environment=environment,
+            release=release,
+            enabled=enabled,
+            batch_size=batch_size,
+            flush_interval=flush_interval,
+            max_queue_size=max_queue_size,
+            debug=debug,
+        )
+        return _global_client
 
 
 def get_client() -> Client | None:
@@ -63,10 +66,13 @@ def get_client() -> Client | None:
     ``PANDAPROBE_ENABLED`` (defaults to ``true``).
     """
     global _global_client, _auto_init_attempted
-    if _global_client is None and not _auto_init_attempted:
-        _auto_init_attempted = True
-        _global_client = _try_auto_init()
-    return _global_client
+    if _global_client is not None:
+        return _global_client
+    with _init_lock:
+        if _global_client is None and not _auto_init_attempted:
+            _auto_init_attempted = True
+            _global_client = _try_auto_init()
+        return _global_client
 
 
 def _try_auto_init() -> Client | None:
