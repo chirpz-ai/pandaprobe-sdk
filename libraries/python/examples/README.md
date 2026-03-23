@@ -87,7 +87,8 @@ uv run python examples/openai/01_chat_completion.py
 
 | Example | Description |
 |---|---|
-| `anthropic/01_chat_completion.py` | messages.create with automatic tracing via `wrap_anthropic` |
+| `anthropic/01_chat_completion.py` | messages.create with extended thinking and automatic tracing via `wrap_anthropic` |
+| `anthropic/02_multi_turn.py` | Multi-turn conversation with extended thinking and session grouping via `pandaprobe.session()` + `wrap_anthropic` |
 
 ### LangGraph
 
