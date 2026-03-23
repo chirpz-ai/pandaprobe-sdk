@@ -33,8 +33,10 @@ dependencies = [
 
 [project.optional-dependencies]
 openai = ["openai>=1.0.0"]
+gemini = ["google-genai>=1.0.0"]
+anthropic = ["anthropic>=0.80.0"]
 langgraph = ["langgraph>=0.2.0", "langchain-core>=0.3.0"]
-all = ["pandaprobe[openai,langgraph]"]
+all = ["pandaprobe[openai,gemini,anthropic,langgraph]"]
 examples = ["pandaprobe[all]", "langchain-openai>=0.2.0"]
 dev = [
     "pytest>=8.0",
