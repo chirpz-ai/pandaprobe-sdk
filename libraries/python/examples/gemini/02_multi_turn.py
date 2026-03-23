@@ -39,9 +39,7 @@ if __name__ == "__main__":
     with pandaprobe.session(session_id):
         for question in questions:
             print(f"User: {question}")
-            conversation.append(
-                types.Content(role="user", parts=[types.Part.from_text(text=question)])
-            )
+            conversation.append(types.Content(role="user", parts=[types.Part.from_text(text=question)]))
 
             response = client.models.generate_content(
                 model="gemini-3.1-flash-lite-preview",
@@ -55,9 +53,7 @@ if __name__ == "__main__":
             )
 
             reply = response.text
-            conversation.append(
-                types.Content(role="model", parts=[types.Part.from_text(text=reply)])
-            )
+            conversation.append(types.Content(role="model", parts=[types.Part.from_text(text=reply)]))
             print(f"Bot:  {reply}\n")
 
     pandaprobe.flush()
