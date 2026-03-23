@@ -12,6 +12,8 @@ With optional integrations:
 
 ```bash
 pip install pandaprobe[openai]       # OpenAI wrapper
+pip install pandaprobe[gemini]       # Google Gemini wrapper
+pip install pandaprobe[anthropic]    # Anthropic wrapper
 pip install pandaprobe[langgraph]    # LangGraph integration
 pip install pandaprobe[all]          # Everything
 ```
@@ -74,7 +76,37 @@ response = client.responses.create(
 )
 ```
 
-### 4. LangGraph integration
+### 4. Gemini wrapper (automatic LLM tracing)
+
+```python
+from pandaprobe.wrappers import wrap_gemini
+from google import genai
+
+client = wrap_gemini(genai.Client())
+
+response = client.models.generate_content(
+    model="gemini-2.5-flash",
+    contents="Explain recursion in one sentence.",
+)
+```
+
+### 5. Anthropic wrapper (automatic LLM tracing)
+
+```python
+from pandaprobe.wrappers import wrap_anthropic
+import anthropic
+
+client = wrap_anthropic(anthropic.Anthropic())
+
+response = client.messages.create(
+    model="claude-sonnet-4-20250514",
+    max_tokens=150,
+    system="You are a concise assistant.",
+    messages=[{"role": "user", "content": "Explain recursion in one sentence."}],
+)
+```
+
+### 6. LangGraph integration
 
 ```python
 from pandaprobe.integrations.langgraph import LangGraphCallbackHandler
@@ -86,7 +118,7 @@ result = graph.invoke(
 )
 ```
 
-### 5. Session and user tracking
+### 7. Session and user tracking
 
 Group related traces under a session and/or user using the universal context API:
 
@@ -107,7 +139,7 @@ run_agent("New topic")
 
 Both propagate across all SDK layers (decorators, wrappers, integrations, context managers). Explicit parameters (`session_id=`, `user_id=`) take precedence over the context.
 
-### 6. Programmatic scoring
+### 8. Programmatic scoring
 
 ```python
 pandaprobe.score(
@@ -119,7 +151,7 @@ pandaprobe.score(
 )
 ```
 
-### 7. Flushing
+### 9. Flushing
 
 For short-lived scripts, call `pandaprobe.flush()` before exiting to ensure all traces are sent. For long-running processes, the SDK flushes automatically via a background thread and an `atexit` handler.
 

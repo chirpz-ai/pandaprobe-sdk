@@ -22,7 +22,11 @@ All examples require:
 export PANDAPROBE_API_KEY="sk_pp_..."
 export PANDAPROBE_PROJECT_NAME="my-project"
 export PANDAPROBE_ENDPOINT="http://localhost:8000"
+
+# Provider keys (set whichever you need):
 export OPENAI_API_KEY="sk-..."
+export GOOGLE_API_KEY="..."
+export ANTHROPIC_API_KEY="sk-ant-..."
 ```
 
 The SDK auto-initializes from these environment variables — no `pandaprobe.init()` call is needed.
@@ -71,6 +75,19 @@ uv run python examples/openai/01_chat_completion.py
 | `openai/02_streaming.py` | Streaming chat completion with automatic tracing via `wrap_openai` |
 | `openai/03_multi_turn.py` | Multi-turn conversation with session grouping via `pandaprobe.session()` + `wrap_openai` |
 | `openai/04_responses_api.py` | Responses API with reasoning summaries and automatic tracing via `wrap_openai` |
+
+### Gemini Wrapper
+
+| Example | Description |
+|---|---|
+| `gemini/01_chat_completion.py` | generate_content with automatic tracing via `wrap_gemini` |
+| `gemini/02_multi_turn.py` | Multi-turn conversation with session grouping via `pandaprobe.session()` + `wrap_gemini` |
+
+### Anthropic Wrapper
+
+| Example | Description |
+|---|---|
+| `anthropic/01_chat_completion.py` | messages.create with automatic tracing via `wrap_anthropic` |
 
 ### LangGraph
 
