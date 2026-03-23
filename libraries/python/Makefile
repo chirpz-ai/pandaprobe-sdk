@@ -4,7 +4,7 @@ install:
 	uv pip install -e .
 
 install-dev:
-	uv pip install -e ".[dev,openai,langgraph]"
+	uv pip install -e ".[dev,openai,gemini,anthropic,langgraph]"
 
 sync:
 	uv sync --all-extras
