@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import logging
+import threading
 from typing import Any, Callable
 from uuid import UUID
 
-from pandaprobe.config import SdkConfig, resolve_config
+from pandaprobe.config import SdkConfig, _env_bool, resolve_config
 from pandaprobe.schemas import ScoreData, ScoreDataType, TraceData
 from pandaprobe.transport import Transport
 
@@ -16,7 +17,9 @@ logger = logging.getLogger("pandaprobe")
 # Module-level singleton
 # ---------------------------------------------------------------------------
 
+_init_lock = threading.Lock()
 _global_client: Client | None = None
+_auto_init_attempted: bool = False
 
 
 def init(
@@ -37,26 +40,54 @@ def init(
     Returns the newly created :class:`Client` instance.
     """
     global _global_client
-    if _global_client is not None:
-        _global_client.shutdown()
-    _global_client = Client(
-        api_key=api_key,
-        project_name=project_name,
-        endpoint=endpoint,
-        environment=environment,
-        release=release,
-        enabled=enabled,
-        batch_size=batch_size,
-        flush_interval=flush_interval,
-        max_queue_size=max_queue_size,
-        debug=debug,
-    )
-    return _global_client
+    with _init_lock:
+        if _global_client is not None:
+            _global_client.shutdown()
+        _global_client = Client(
+            api_key=api_key,
+            project_name=project_name,
+            endpoint=endpoint,
+            environment=environment,
+            release=release,
+            enabled=enabled,
+            batch_size=batch_size,
+            flush_interval=flush_interval,
+            max_queue_size=max_queue_size,
+            debug=debug,
+        )
+        return _global_client
 
 
 def get_client() -> Client | None:
-    """Return the current global client, or ``None`` if not initialised."""
-    return _global_client
+    """Return the current global client.
+
+    On first call, if no client has been created via :func:`init`, attempts
+    auto-initialization from environment variables.  Auto-init is gated by
+    ``PANDAPROBE_ENABLED`` (defaults to ``true``).
+    """
+    global _global_client, _auto_init_attempted
+    if _global_client is not None:
+        return _global_client
+    with _init_lock:
+        if _global_client is None and not _auto_init_attempted:
+            _auto_init_attempted = True
+            _global_client = _try_auto_init()
+        return _global_client
+
+
+def _try_auto_init() -> Client | None:
+    """Attempt to create a Client from environment variables.
+
+    Returns ``None`` silently when ``PANDAPROBE_ENABLED=false`` or when
+    required env vars (API key / project name) are missing.
+    """
+    if not _env_bool("PANDAPROBE_ENABLED", True):
+        return None
+    try:
+        return Client()
+    except ValueError as exc:
+        logger.debug("PandaProbe auto-init skipped: %s", exc)
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -180,16 +211,6 @@ class Client:
             metadata=metadata or {},
         )
         self._transport.enqueue_score(score.to_api_dict())
-
-    # ------------------------------------------------------------------
-    # Session helper
-    # ------------------------------------------------------------------
-
-    def session(self, session_id: str):
-        """Return a :class:`SessionManager` that attaches *session_id* to traces."""
-        from pandaprobe.tracing.session import SessionManager
-
-        return SessionManager(client=self, session_id=session_id)
 
     # ------------------------------------------------------------------
     # Lifecycle

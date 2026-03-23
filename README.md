@@ -17,13 +17,19 @@ pip install pandaprobe
 
 ### Quick Start
 
+Set environment variables:
+
+```bash
+export PANDAPROBE_API_KEY="sk_pp_..."
+export PANDAPROBE_PROJECT_NAME="my-project"
+```
+
+Then use the SDK — auto-initialization happens on first use:
+
 ```python
 import pandaprobe
 
-# Initialize the SDK
-pandaprobe.init(api_key="sk_pp_...", project_name="my-project")
-
-# Option 1: Decorator-based tracing
+# Decorator-based tracing
 @pandaprobe.trace(name="my-agent")
 def run_agent(query: str):
     @pandaprobe.span(name="llm-call", kind="LLM")
@@ -31,13 +37,17 @@ def run_agent(query: str):
         return openai_client.chat.completions.create(...)
     return call_llm(query)
 
-# Option 2: OpenAI wrapper (automatic LLM tracing)
+# OpenAI wrapper (automatic LLM tracing)
 from pandaprobe.wrappers import wrap_openai
 client = wrap_openai(openai.OpenAI())
 
-# Option 3: LangGraph integration
+# LangGraph integration
 from pandaprobe.integrations.langgraph import LangGraphCallbackHandler
 result = graph.invoke(input, config={"callbacks": [LangGraphCallbackHandler()]})
+
+# Session management (works across all layers)
+with pandaprobe.session("conversation-123"):
+    run_agent("Hello!")
 ```
 
 See [`libraries/python/README.md`](libraries/python/README.md) for full documentation.
@@ -46,7 +56,7 @@ See [`libraries/python/README.md`](libraries/python/README.md) for full document
 
 ```bash
 # Python SDK
-make py-install-dev   # Install with dev dependencies
+make py-install       # Install all deps (providers, examples, dev tools)
 make py-lint          # Run linter (ruff)
 make py-format        # Auto-format
 make py-test          # Run tests

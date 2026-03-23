@@ -1,14 +1,12 @@
 """Background transport layer for the PandaProbe SDK.
 
-Owns an httpx async client running in a dedicated daemon thread with its own
-event loop.  A thread-safe :pyclass:`queue.Queue` bridges the caller's thread
-and the background loop.  Items are batched and flushed periodically or when
-the batch reaches the configured size.
+Manages a background thread with a synchronous httpx client
+and a thread-safe queue to batch and send items efficiently,
+ensuring reliable shutdown without async-related race conditions.
 """
 
 from __future__ import annotations
 
-import asyncio
 import atexit
 import logging
 import queue
@@ -25,14 +23,10 @@ from pandaprobe.config import SdkConfig
 
 logger = logging.getLogger("pandaprobe")
 
-# Sentinel pushed into the queue to signal the worker to stop.
 _SHUTDOWN = object()
 _FLUSH = object()
 
-# HTTP status codes that should never be retried.
 _NO_RETRY_STATUSES = {401, 403, 422}
-
-# HTTP status codes that indicate a retriable server error.
 _RETRIABLE_STATUSES = {429, 500, 502, 503, 504}
 
 MAX_RETRIES = 3
@@ -64,7 +58,6 @@ class Transport:
             "User-Agent": f"pandaprobe-python/{__version__}",
         }
 
-        self._loop: asyncio.AbstractEventLoop | None = None
         self._thread: threading.Thread | None = None
         self._shutdown_event = threading.Event()
         self._flush_event = threading.Event()
@@ -137,62 +130,60 @@ class Transport:
                 pass
 
     def _start_worker(self) -> None:
-        self._loop = asyncio.new_event_loop()
         self._thread = threading.Thread(target=self._run_loop, daemon=True, name="pandaprobe-transport")
         self._thread.start()
 
     def _run_loop(self) -> None:
-        assert self._loop is not None
-        asyncio.set_event_loop(self._loop)
-        self._loop.run_until_complete(self._worker())
-
-    async def _worker(self) -> None:
-        async with httpx.AsyncClient(
+        """Background thread entry point.  Runs a synchronous worker loop."""
+        http = httpx.Client(
             timeout=httpx.Timeout(connect=5.0, read=30.0, write=10.0, pool=5.0),
-        ) as http:
-            batch: list[_QueueItem] = []
-            last_flush = time.monotonic()
+        )
+        try:
+            self._worker(http)
+        finally:
+            http.close()
 
+    def _worker(self, http: httpx.Client) -> None:
+        batch: list[_QueueItem] = []
+        last_flush = time.monotonic()
+
+        while True:
+            deadline = last_flush + self._config.flush_interval
             while True:
-                # Drain the queue, waiting up to flush_interval for new items.
-                deadline = last_flush + self._config.flush_interval
-                while True:
-                    wait = max(0.0, deadline - time.monotonic())
-                    try:
-                        item = await asyncio.get_event_loop().run_in_executor(
-                            None, lambda: self._queue.get(timeout=wait if wait > 0 else 0.01)
-                        )
-                    except queue.Empty:
-                        break
+                wait = max(0.0, deadline - time.monotonic())
+                try:
+                    item = self._queue.get(timeout=wait if wait > 0 else 0.01)
+                except queue.Empty:
+                    break
 
-                    if item is _SHUTDOWN:
-                        if batch:
-                            await self._flush_batch(http, batch)
-                            batch.clear()
-                        self._flush_event.set()
-                        return
+                if item is _SHUTDOWN:
+                    if batch:
+                        self._flush_batch(http, batch)
+                        batch.clear()
+                    self._flush_event.set()
+                    return
 
-                    if item is _FLUSH:
-                        if batch:
-                            await self._flush_batch(http, batch)
-                            batch.clear()
-                            last_flush = time.monotonic()
-                        self._flush_event.set()
-                        continue
+                if item is _FLUSH:
+                    if batch:
+                        self._flush_batch(http, batch)
+                        batch.clear()
+                        last_flush = time.monotonic()
+                    self._flush_event.set()
+                    continue
 
-                    batch.append(item)
-                    if len(batch) >= self._config.batch_size:
-                        break
+                batch.append(item)
+                if len(batch) >= self._config.batch_size:
+                    break
 
-                if batch:
-                    await self._flush_batch(http, batch)
-                    batch.clear()
-                    last_flush = time.monotonic()
+            if batch:
+                self._flush_batch(http, batch)
+                batch.clear()
+                last_flush = time.monotonic()
 
-    async def _flush_batch(self, http: httpx.AsyncClient, batch: list[_QueueItem]) -> None:
+    def _flush_batch(self, http: httpx.Client, batch: list[_QueueItem]) -> None:
         for item in batch:
             try:
-                await self._send(http, item)
+                self._send(http, item)
             except Exception as exc:
                 logger.error("PandaProbe transport error: %s", exc)
                 if self._on_error:
@@ -201,16 +192,16 @@ class Transport:
                     except Exception:
                         pass
 
-    async def _send(self, http: httpx.AsyncClient, item: _QueueItem) -> None:
+    def _send(self, http: httpx.Client, item: _QueueItem) -> None:
         url, method, body = self._build_request(item)
         headers = {**self._base_headers, "X-Request-ID": str(uuid4())}
 
         for attempt in range(MAX_RETRIES + 1):
             try:
                 if method == "POST":
-                    resp = await http.post(url, json=body, headers=headers)
+                    resp = http.post(url, json=body, headers=headers)
                 elif method == "PATCH":
-                    resp = await http.patch(url, json=body, headers=headers)
+                    resp = http.patch(url, json=body, headers=headers)
                 else:
                     raise ValueError(f"Unsupported method: {method}")
 
@@ -240,7 +231,7 @@ class Transport:
                         attempt + 1,
                         MAX_RETRIES,
                     )
-                    await asyncio.sleep(backoff)
+                    time.sleep(backoff)
                     continue
 
                 logger.error("PandaProbe %s %s → %s: %s", method, url, resp.status_code, resp.text[:500])
@@ -256,7 +247,7 @@ class Transport:
                         attempt + 1,
                         MAX_RETRIES,
                     )
-                    await asyncio.sleep(backoff)
+                    time.sleep(backoff)
                 else:
                     logger.error("PandaProbe connection error after %d retries: %s", MAX_RETRIES, exc)
                     raise

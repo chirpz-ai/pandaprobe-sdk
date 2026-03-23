@@ -1,8 +1,8 @@
-"""Shared utilities for all LLM client wrappers.
+"""Shared, provider-agnostic utilities for all LLM client wrappers.
 
-This module contains **provider-agnostic** helpers.  Provider-specific logic
-(e.g. stripping OpenAI sentinel types) belongs in the provider's own
-sub-package under ``wrappers/<provider>/``.
+Provider-specific logic belongs in its own sub-package under
+``wrappers/<provider>/``.  For example, OpenAI helpers live in
+``wrappers/openai/utils.py``.
 """
 
 from __future__ import annotations
@@ -11,12 +11,18 @@ import logging
 from datetime import datetime, timezone
 from typing import Any
 
+from pandaprobe.client import get_client
 from pandaprobe.schemas import SpanKind
+from pandaprobe.tracing.context import get_current_trace
+from pandaprobe.tracing.session import get_current_session_id, get_current_user_id
+from pandaprobe.validation import extract_last_user_message
 
 logger = logging.getLogger("pandaprobe")
 
-# Parameters that are safe to capture from any LLM API call.
-# Prevents accidentally leaking sensitive data like api_key.
+# ---------------------------------------------------------------------------
+# Safe parameter whitelists
+# ---------------------------------------------------------------------------
+
 SAFE_INVOCATION_PARAMS: set[str] = {
     "temperature",
     "top_p",
@@ -56,15 +62,18 @@ def safe_serialize(obj: Any) -> Any:
     return repr(obj)
 
 
-def enter_llm_span(cleaned_kwargs: dict[str, Any], method_name: str, input_key: str = "messages"):
+# ---------------------------------------------------------------------------
+# Span lifecycle helpers
+# ---------------------------------------------------------------------------
+
+
+def enter_llm_span(cleaned_kwargs: dict[str, Any], method_name: str):
     """Open an LLM span, creating a standalone trace if none is active.
 
     This is the shared entry-point used by every wrapper provider.
     Returns a SpanContext (or None if the SDK is disabled).
     """
-    from pandaprobe.tracing.context import get_current_trace
-
-    input_data = safe_serialize({input_key: cleaned_kwargs.get(input_key, cleaned_kwargs.get("prompt", []))})
+    input_data = safe_serialize({"messages": cleaned_kwargs.get("messages", [])})
     model_params = extract_model_params(cleaned_kwargs)
     trace_ctx = get_current_trace()
 
@@ -75,13 +84,16 @@ def enter_llm_span(cleaned_kwargs: dict[str, Any], method_name: str, input_key: 
         span_ctx.set_model_parameters(model_params)
         return span_ctx
 
-    from pandaprobe.client import get_client
-
     client = get_client()
     if client is None or not client.enabled:
         return None
 
-    standalone = client.trace(method_name, input=input_data)
+    standalone = client.trace(
+        method_name,
+        input=extract_last_user_message(input_data),
+        session_id=get_current_session_id(),
+        user_id=get_current_user_id(),
+    )
     standalone.__enter__()
 
     span_ctx = standalone.span(method_name, kind=SpanKind.LLM, model=cleaned_kwargs.get("model"))
@@ -101,6 +113,23 @@ def close_llm_span(span_ctx: Any) -> None:
     if standalone is not None:
         standalone.set_output(span_ctx._output)
         standalone.__exit__(None, None, None)
+
+
+def error_llm_span(span_ctx: Any, exc: BaseException) -> None:
+    """Record an error and close the span (and standalone trace if applicable)."""
+    if span_ctx is None:
+        return
+    span_ctx.set_error(str(exc))
+    span_ctx.__exit__(type(exc), exc, exc.__traceback__)
+    standalone = getattr(span_ctx, "_standalone_trace", None)
+    if standalone is not None:
+        standalone.set_output(span_ctx._output)
+        standalone.__exit__(type(exc), exc, exc.__traceback__)
+
+
+# ---------------------------------------------------------------------------
+# Stream reducer base classes
+# ---------------------------------------------------------------------------
 
 
 class SyncStreamReducer:

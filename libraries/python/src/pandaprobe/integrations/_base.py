@@ -39,6 +39,8 @@ class BaseIntegrationAdapter:
         client = get_client()
         if client is None:
             raise RuntimeError(
-                "No PandaProbe client available. Call pandaprobe.init() first or pass client= to the adapter."
+                "No PandaProbe client available. "
+                "Set PANDAPROBE_API_KEY and PANDAPROBE_PROJECT_NAME environment variables, "
+                "or call pandaprobe.init() first, or pass client= to the adapter."
             )
         return client

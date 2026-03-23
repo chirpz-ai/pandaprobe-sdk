@@ -1,23 +1,21 @@
-"""Decorator-based tracing with real OpenAI calls.
+"""Decorator tracing — customer support agent with retrieval + LLM.
 
 Demonstrates @pandaprobe.trace and @pandaprobe.span decorators wrapping
-real functions — including a live OpenAI LLM call.
+a support agent flow: keyword retrieval followed by a live OpenAI call.
 
 Required env vars:
     export PANDAPROBE_API_KEY="sk_pp_..."
-    export PANDAPROBE_PROJECT_NAME="decorator-example"
+    export PANDAPROBE_PROJECT_NAME="my-project"
     export PANDAPROBE_ENDPOINT="http://localhost:8000"
     export OPENAI_API_KEY="sk-..."
 
 Run:
-    uv run python examples/decorators/01_trace_and_span.py
+    uv run python examples/decorators/01_support_agent.py
 """
 
 import openai
 
 import pandaprobe
-
-pandaprobe.init(debug=True)
 
 KNOWLEDGE_BASE = {
     "password": "To reset your password, click 'Forgot password' on the login page and follow the email link.",
@@ -29,10 +27,23 @@ client = openai.OpenAI()
 
 
 @pandaprobe.trace(name="customer-support-agent", tags=["support", "example"])
-def run_agent(query: str) -> str:
+def run_agent(messages: list) -> dict:
     """A simple support agent: retrieve context, then generate an answer via OpenAI."""
+    query = messages[-1]["content"]
     context = search_knowledge_base(query)
-    answer = generate_response(query, context)
+    answer = generate_response(
+        [
+            {
+                "role": "system",
+                "content": (
+                    "You are a helpful customer support assistant. "
+                    "Answer the user's question using only the provided context. "
+                    "If the context doesn't help, say you don't know."
+                ),
+            },
+            {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {query}"},
+        ]
+    )
     return answer
 
 
@@ -46,32 +57,25 @@ def search_knowledge_base(query: str) -> str:
     return "No relevant articles found."
 
 
-@pandaprobe.span(name="generate-response", kind="LLM", model="gpt-4o-mini")
-def generate_response(query: str, context: str) -> str:
+@pandaprobe.span(name="generate-response", kind="LLM", model="gpt-5.4-nano")
+def generate_response(messages: list) -> dict:
     """Call OpenAI to generate an answer grounded in the retrieved context."""
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {
-                "role": "system",
-                "content": (
-                    "You are a helpful customer support assistant. "
-                    "Answer the user's question using only the provided context. "
-                    "If the context doesn't help, say you don't know."
-                ),
-            },
-            {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {query}"},
-        ],
-        temperature=0.3,
-        max_tokens=200,
+        model="gpt-5.4-nano",
+        messages=messages,
+        reasoning_effort="low",
+        max_completion_tokens=200,
     )
-    return response.choices[0].message.content
+    content = response.choices[0].message.content
+    return {"messages": [{"role": "assistant", "content": content}]}
 
 
 if __name__ == "__main__":
-    result = run_agent("How do I reset my password?")
-    print(f"\nAgent response:\n{result}")
+    query = "How do I reset my password?"
+    result = run_agent([{"role": "user", "content": query}])
+    answer = result["messages"][0]["content"]
+    print(f"\nAgent response:\n{answer}")
 
-    pandaprobe.get_client().flush()
-    pandaprobe.get_client().shutdown()
+    pandaprobe.flush()
+    pandaprobe.shutdown()
     print("\nTrace sent to PandaProbe backend.")

@@ -8,7 +8,13 @@ import inspect
 import logging
 from typing import Any, Callable, TypeVar
 
+from pandaprobe.client import get_client
 from pandaprobe.schemas import SpanKind
+from pandaprobe.tracing.context import get_current_trace
+from pandaprobe.validation import (
+    extract_last_assistant_message,
+    extract_last_user_message,
+)
 
 logger = logging.getLogger("pandaprobe")
 
@@ -34,6 +40,10 @@ def trace(
     The function's arguments become the trace *input* and the return value
     becomes the trace *output*.  Works with both sync and async functions.
 
+    Trace input should contain only the current turn's user message in
+    ``{"messages": [{"role": "user", "content": "..."}]}`` format.
+    Output should be ``{"messages": [{"role": "assistant", "content": "..."}]}``.
+
     Can be used with or without parentheses::
 
         @pandaprobe.trace
@@ -50,42 +60,44 @@ def trace(
 
             @functools.wraps(fn)
             async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
-                client = _get_client()
+                client = get_client()
                 if client is None or not client.enabled:
                     return await fn(*args, **kwargs)
 
                 fn_input = _capture_input(fn, args, kwargs)
+                trace_input = extract_last_user_message(fn_input)
                 async with client.trace(
                     trace_name,
-                    input=fn_input,
+                    input=trace_input,
                     session_id=session_id,
                     user_id=user_id,
                     tags=tags,
                     metadata=metadata,
                 ) as ctx:
                     result = await fn(*args, **kwargs)
-                    ctx.set_output(result)
+                    ctx.set_output(extract_last_assistant_message(result))
                     return result
 
             return async_wrapper
 
         @functools.wraps(fn)
         def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
-            client = _get_client()
+            client = get_client()
             if client is None or not client.enabled:
                 return fn(*args, **kwargs)
 
             fn_input = _capture_input(fn, args, kwargs)
+            trace_input = extract_last_user_message(fn_input)
             with client.trace(
                 trace_name,
-                input=fn_input,
+                input=trace_input,
                 session_id=session_id,
                 user_id=user_id,
                 tags=tags,
                 metadata=metadata,
             ) as ctx:
                 result = fn(*args, **kwargs)
-                ctx.set_output(result)
+                ctx.set_output(extract_last_assistant_message(result))
                 return result
 
         return sync_wrapper
@@ -110,6 +122,10 @@ def span(
 ) -> Any:
     """Decorator that wraps a function in a :class:`SpanContext`.
 
+    For LLM spans (kind="LLM"), input/output must follow the messages
+    schema: ``{"messages": [{"role": "...", "content": "..."}]}``.
+    Other span kinds accept arbitrary input/output.
+
     Automatically parents to the current trace / enclosing span.
     Works with both sync and async functions.
     """
@@ -121,7 +137,7 @@ def span(
 
             @functools.wraps(fn)
             async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
-                trace_ctx = _get_current_trace()
+                trace_ctx = get_current_trace()
                 if trace_ctx is None:
                     return await fn(*args, **kwargs)
 
@@ -136,7 +152,7 @@ def span(
 
         @functools.wraps(fn)
         def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
-            trace_ctx = _get_current_trace()
+            trace_ctx = get_current_trace()
             if trace_ctx is None:
                 return fn(*args, **kwargs)
 
@@ -157,18 +173,6 @@ def span(
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-
-def _get_client():
-    from pandaprobe.client import get_client
-
-    return get_client()
-
-
-def _get_current_trace():
-    from pandaprobe.tracing.context import get_current_trace
-
-    return get_current_trace()
 
 
 def _capture_input(fn: Callable[..., Any], args: tuple, kwargs: dict[str, Any]) -> dict[str, Any]:

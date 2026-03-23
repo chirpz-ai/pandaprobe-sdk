@@ -12,30 +12,27 @@ With optional integrations:
 
 ```bash
 pip install pandaprobe[openai]       # OpenAI wrapper
+pip install pandaprobe[gemini]       # Google Gemini wrapper
+pip install pandaprobe[anthropic]    # Anthropic wrapper
 pip install pandaprobe[langgraph]    # LangGraph integration
 pip install pandaprobe[all]          # Everything
 ```
 
 ## Quick Start
 
-### 1. Initialize the SDK
-
-```python
-import pandaprobe
-
-pandaprobe.init(
-    api_key="sk_pp_...",
-    project_name="my-project",
-    endpoint="http://localhost:8000",
-)
-```
-
-Or set environment variables:
+### 1. Set environment variables
 
 ```bash
 export PANDAPROBE_API_KEY="sk_pp_..."
 export PANDAPROBE_PROJECT_NAME="my-project"
+export PANDAPROBE_ENDPOINT="my-pandaprobe-endpoint"
+export PANDAPROBE_ENVIRONMENT="production"   # optional
+export PANDAPROBE_RELEASE="v1.2.0"           # optional
 ```
+
+The SDK auto-initializes from these environment variables on first use — no explicit `init()` call is needed. To disable tracing, set `PANDAPROBE_ENABLED=false`.
+
+You can still use `pandaprobe.init(...)` for programmatic configuration if preferred.
 
 ### 2. Decorator-based tracing (custom agents)
 
@@ -64,14 +61,52 @@ import openai
 
 client = wrap_openai(openai.OpenAI())
 
-# Every call is now automatically traced:
+# Chat Completions API — automatically traced:
 response = client.chat.completions.create(
-    model="gpt-4",
+    model="gpt-5.4-nano",
     messages=[{"role": "user", "content": "Hello"}],
+)
+
+# Responses API — also automatically traced, including reasoning summaries
+# and built-in tool calls (web_search, function_call, etc.) as child spans:
+response = client.responses.create(
+    model="gpt-5.4-nano",
+    input="Explain recursion in one sentence.",
+    reasoning={"effort": "low", "summary": "auto"},
 )
 ```
 
-### 4. LangGraph integration
+### 4. Gemini wrapper (automatic LLM tracing)
+
+```python
+from pandaprobe.wrappers import wrap_gemini
+from google import genai
+
+client = wrap_gemini(genai.Client())
+
+response = client.models.generate_content(
+    model="gemini-2.5-flash",
+    contents="Explain recursion in one sentence.",
+)
+```
+
+### 5. Anthropic wrapper (automatic LLM tracing)
+
+```python
+from pandaprobe.wrappers import wrap_anthropic
+import anthropic
+
+client = wrap_anthropic(anthropic.Anthropic())
+
+response = client.messages.create(
+    model="claude-sonnet-4-20250514",
+    max_tokens=150,
+    system="You are a concise assistant.",
+    messages=[{"role": "user", "content": "Explain recursion in one sentence."}],
+)
+```
+
+### 6. LangGraph integration
 
 ```python
 from pandaprobe.integrations.langgraph import LangGraphCallbackHandler
@@ -83,16 +118,46 @@ result = graph.invoke(
 )
 ```
 
-### 5. Programmatic scoring
+### 7. Session and user tracking
+
+Group related traces under a session and/or user using the universal context API:
 
 ```python
-client.score(
+import pandaprobe
+
+# Context managers — scoped to the block
+with pandaprobe.session("conversation-123"):
+    with pandaprobe.user("user-abc"):
+        run_agent("What is recursion?")
+        run_agent("Can you give me an example?")
+
+# Imperative — useful for dynamic switching
+pandaprobe.set_session("conversation-456")
+pandaprobe.set_user("user-xyz")
+run_agent("New topic")
+```
+
+Both propagate across all SDK layers (decorators, wrappers, integrations, context managers). Explicit parameters (`session_id=`, `user_id=`) take precedence over the context.
+
+### 8. Programmatic scoring
+
+```python
+pandaprobe.score(
     trace_id="...",
     name="user_satisfaction",
     value="0.9",
     data_type="NUMERIC",
     reason="User clicked thumbs up",
 )
+```
+
+### 9. Flushing
+
+For short-lived scripts, call `pandaprobe.flush()` before exiting to ensure all traces are sent. For long-running processes, the SDK flushes automatically via a background thread and an `atexit` handler.
+
+```python
+pandaprobe.flush()
+pandaprobe.shutdown()
 ```
 
 ## Configuration
@@ -102,7 +167,9 @@ client.score(
 | `PANDAPROBE_API_KEY` | *(required)* | API key |
 | `PANDAPROBE_PROJECT_NAME` | *(required)* | Project name |
 | `PANDAPROBE_ENDPOINT` | `http://localhost:8000` | Backend URL |
-| `PANDAPROBE_ENABLED` | `true` | Disable SDK silently |
+| `PANDAPROBE_ENVIRONMENT` | `None` | Environment tag (e.g. `production`, `staging`) |
+| `PANDAPROBE_RELEASE` | `None` | Release/version tag (e.g. `v1.2.0`) |
+| `PANDAPROBE_ENABLED` | `true` | Enable/disable SDK |
 | `PANDAPROBE_BATCH_SIZE` | `10` | Traces per flush batch |
 | `PANDAPROBE_FLUSH_INTERVAL` | `5.0` | Seconds between flushes |
 | `PANDAPROBE_DEBUG` | `false` | Verbose logging |
@@ -110,7 +177,7 @@ client.score(
 ## Development
 
 ```bash
-make py-install-dev   # Install with dev deps
+make py-install       # Install all deps (providers, examples, dev tools)
 make py-lint          # Run linter
 make py-format        # Auto-format
 make py-test          # Run tests

@@ -4,14 +4,12 @@ Real end-to-end examples that call live services and send traces to the PandaPro
 
 ## Setup
 
-### 1. Install the SDK with example dependencies
+### 1. Install the SDK with all dependencies
 
 From the repo root:
 
 ```bash
-make py-sync
-# or install example extras specifically:
-cd libraries/python && uv pip install -e ".[examples]"
+make py-install
 ```
 
 ### 2. Export environment variables
@@ -22,12 +20,26 @@ All examples require:
 export PANDAPROBE_API_KEY="sk_pp_..."
 export PANDAPROBE_PROJECT_NAME="my-project"
 export PANDAPROBE_ENDPOINT="http://localhost:8000"
+
+# Provider keys (set whichever you need):
+export OPENAI_API_KEY="sk-..."
+export GOOGLE_API_KEY="..."
+export ANTHROPIC_API_KEY="sk-ant-..."
 ```
 
-OpenAI-based examples additionally require:
+The SDK auto-initializes from these environment variables — no `pandaprobe.init()` call is needed.
+
+
+To enable debug logging:
 
 ```bash
-export OPENAI_API_KEY="sk-..."
+export PANDAPROBE_DEBUG=true
+```
+
+To disable tracing:
+
+```bash
+export PANDAPROBE_ENABLED=false
 ```
 
 ### 3. Run any example
@@ -39,37 +51,72 @@ uv run python examples/openai/01_chat_completion.py
 
 ## Examples
 
+### Context Managers
+
+| Example | Description |
+|---|---|
+| `context_managers/01_rag_pipeline.py` | RAG pipeline with retrieval + LLM generation + scoring via `pandaprobe.start_trace()` and `trace.span()` |
+| `context_managers/02_multi_turn.py` | Multi-turn tutoring agent with session grouping via `pandaprobe.session()` |
+
 ### Decorators
 
-| Example | Description | Env Vars |
-|---|---|---|
-| `decorators/01_trace_and_span.py` | `@trace` + `@span` wrapping a real OpenAI call inside a support agent flow | `OPENAI_API_KEY` |
+| Example | Description |
+|---|---|
+| `decorators/01_support_agent.py` | Customer support agent with retrieval + LLM via `@pandaprobe.trace` and `@pandaprobe.span` |
+| `decorators/02_multi_turn.py` | Multi-turn topic assistant with session grouping via `pandaprobe.session()` + `@pandaprobe.trace` |
 
 ### OpenAI Wrapper
 
-| Example | Description | Env Vars |
-|---|---|---|
-| `openai/01_chat_completion.py` | `wrap_openai` with a standard chat completion | `OPENAI_API_KEY` |
-| `openai/02_streaming.py` | `wrap_openai` with a streaming chat completion | `OPENAI_API_KEY` |
+| Example | Description |
+|---|---|
+| `openai/01_chat_completion.py` | Chat Completions API with automatic tracing via `wrap_openai` |
+| `openai/02_streaming.py` | Streaming chat completion with automatic tracing via `wrap_openai` |
+| `openai/03_multi_turn.py` | Multi-turn conversation with session grouping via `pandaprobe.session()` + `wrap_openai` |
+| `openai/04_responses_api.py` | Responses API with reasoning summaries and automatic tracing via `wrap_openai` |
 
-### Context Managers
+### Gemini Wrapper
 
-| Example | Description | Env Vars |
-|---|---|---|
-| `context_managers/01_rag_pipeline.py` | Manual `client.trace()` / `trace.span()` building a RAG pipeline with real OpenAI + scoring | `OPENAI_API_KEY` |
+| Example | Description |
+|---|---|
+| `gemini/01_chat_completion.py` | generate_content with automatic tracing via `wrap_gemini` |
+| `gemini/02_multi_turn.py` | Multi-turn conversation with session grouping via `pandaprobe.session()` + `wrap_gemini` |
+
+### Anthropic Wrapper
+
+| Example | Description |
+|---|---|
+| `anthropic/01_chat_completion.py` | messages.create with extended thinking and automatic tracing via `wrap_anthropic` |
+| `anthropic/02_multi_turn.py` | Multi-turn conversation with extended thinking and session grouping via `pandaprobe.session()` + `wrap_anthropic` |
 
 ### LangGraph
 
-| Example | Description | Env Vars |
-|---|---|---|
-| `langgraph/01_chatbot.py` | Simple `StateGraph` chatbot with `LangGraphCallbackHandler` | `OPENAI_API_KEY` |
-| `langgraph/02_tool_agent.py` | ReAct agent with tool calls (weather + calculator) traced via `LangGraphCallbackHandler` | `OPENAI_API_KEY` |
+| Example | Description |
+|---|---|
+| `langgraph/01_chatbot.py` | Simple chatbot with `LangGraphCallbackHandler` |
+| `langgraph/02_tool_agent.py` | ReAct agent with weather + population tools via `LangGraphCallbackHandler` |
+| `langgraph/03_multi_turn.py` | Multi-turn travel advisor with session grouping via `pandaprobe.session()` + `LangGraphCallbackHandler` |
 
-### Sessions
+## Session API
 
-| Example | Description | Env Vars |
-|---|---|---|
-| `sessions/01_multi_turn.py` | Multi-turn conversation grouped under a session, with scoring per turn | `OPENAI_API_KEY` |
+The SDK provides a universal `session_id` propagation mechanism that works across all layers:
+
+```python
+import pandaprobe
+
+# Option 1: Context manager (recommended for scoped usage)
+with pandaprobe.session("conversation-123"):
+    # All traces created here inherit session_id="conversation-123"
+    run_agent(query)
+
+# Option 2: Imperative setter (for dynamic switching)
+pandaprobe.set_session("conversation-456")
+run_agent(query)
+```
+
+Session precedence (highest to lowest):
+1. Explicit parameter (`session_id="..."` passed directly)
+2. Context var (`pandaprobe.session()` / `pandaprobe.set_session()`)
+3. None
 
 ## What to Look For
 
@@ -80,4 +127,4 @@ After running an example, check your PandaProbe backend to verify:
 - **LLM spans** capture model name, token usage, and input/output
 - **Tool spans** (LangGraph examples) capture tool name and results
 - **Scores** are attached to the correct traces
-- **Sessions** group related traces together
+- **Sessions** group related traces together (multi-turn examples)
