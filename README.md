@@ -56,7 +56,7 @@ See [`libraries/python/README.md`](libraries/python/README.md) for full document
 
 ```bash
 # Python SDK
-make py-install-dev   # Install with dev dependencies
+make py-install       # Install all deps (providers, examples, dev tools)
 make py-lint          # Run linter (ruff)
 make py-format        # Auto-format
 make py-test          # Run tests

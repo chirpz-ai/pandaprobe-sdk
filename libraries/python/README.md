@@ -177,7 +177,7 @@ pandaprobe.shutdown()
 ## Development
 
 ```bash
-make py-install-dev   # Install with dev deps
+make py-install       # Install all deps (providers, examples, dev tools)
 make py-lint          # Run linter
 make py-format        # Auto-format
 make py-test          # Run tests

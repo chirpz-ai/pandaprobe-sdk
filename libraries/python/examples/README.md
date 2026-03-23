@@ -4,14 +4,12 @@ Real end-to-end examples that call live services and send traces to the PandaPro
 
 ## Setup
 
-### 1. Install the SDK with example dependencies
+### 1. Install the SDK with all dependencies
 
 From the repo root:
 
 ```bash
-make py-sync
-# or install example extras specifically:
-cd libraries/python && uv pip install -e ".[examples]"
+make py-install
 ```
 
 ### 2. Export environment variables
