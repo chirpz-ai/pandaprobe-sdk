@@ -16,8 +16,6 @@ from pandaprobe.validation import (
     extract_last_user_message,
     validate_span_input,
     validate_span_output,
-    validate_trace_input,
-    validate_trace_output,
 )
 
 logger = logging.getLogger("pandaprobe")
@@ -69,7 +67,6 @@ def trace(
                     return await fn(*args, **kwargs)
 
                 fn_input = _capture_input(fn, args, kwargs)
-                validate_trace_input(fn_input)
                 trace_input = extract_last_user_message(fn_input)
                 async with client.trace(
                     trace_name,
@@ -80,7 +77,6 @@ def trace(
                     metadata=metadata,
                 ) as ctx:
                     result = await fn(*args, **kwargs)
-                    validate_trace_output(result)
                     ctx.set_output(extract_last_assistant_message(result))
                     return result
 
@@ -93,7 +89,6 @@ def trace(
                 return fn(*args, **kwargs)
 
             fn_input = _capture_input(fn, args, kwargs)
-            validate_trace_input(fn_input)
             trace_input = extract_last_user_message(fn_input)
             with client.trace(
                 trace_name,
@@ -104,7 +99,6 @@ def trace(
                 metadata=metadata,
             ) as ctx:
                 result = fn(*args, **kwargs)
-                validate_trace_output(result)
                 ctx.set_output(extract_last_assistant_message(result))
                 return result
 
