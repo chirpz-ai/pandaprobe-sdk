@@ -1,4 +1,4 @@
-.PHONY: install install-dev sync lock lint format format-check test test-cov build clean
+.PHONY: install install-dev sync lock lint format format-check test test-cov build clean nuke-venv
 
 install:
 	uv pip install -e .
@@ -32,3 +32,7 @@ build:
 
 clean:
 	rm -rf dist/ build/ *.egg-info src/*.egg-info .pytest_cache .ruff_cache
+
+# iCloud / cloud sync can leave read-only bits that break plain `rm -rf .venv`.
+nuke-venv:
+	@if [ -d .venv ]; then chmod -R u+w .venv && rm -rf .venv && echo "Removed .venv"; else echo "No .venv to remove"; fi
