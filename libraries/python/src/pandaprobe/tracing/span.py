@@ -9,7 +9,7 @@ from uuid import uuid4
 
 from pandaprobe.schemas import SpanData, SpanKind, SpanStatusCode
 from pandaprobe.tracing.context import get_span_stack
-from pandaprobe.validation import validate_span_input, validate_span_output
+from pandaprobe.validation import warn_if_invalid_messages
 
 if TYPE_CHECKING:
     from pandaprobe.tracing.context import TraceContext
@@ -104,12 +104,12 @@ class SpanContext:
 
     def set_input(self, input: Any) -> None:
         if self._kind == SpanKind.LLM:
-            validate_span_input(input)
+            warn_if_invalid_messages(input, "LLM span input")
         self._input = input
 
     def set_output(self, output: Any) -> None:
         if self._kind == SpanKind.LLM:
-            validate_span_output(output)
+            warn_if_invalid_messages(output, "LLM span output")
         self._output = output
 
     def set_token_usage(self, *, prompt_tokens: int = 0, completion_tokens: int = 0, **extra: int) -> None:

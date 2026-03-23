@@ -10,7 +10,7 @@ from uuid import uuid4
 
 from pandaprobe.schemas import SpanKind, TraceData, TraceStatus
 from pandaprobe.tracing.session import get_current_session_id, get_current_user_id
-from pandaprobe.validation import validate_trace_input, validate_trace_output
+from pandaprobe.validation import warn_if_invalid_messages
 
 if TYPE_CHECKING:
     from pandaprobe.client import Client
@@ -71,7 +71,7 @@ class TraceContext:
         self._trace_id = str(uuid4())
         self._name = name
         self._input = input
-        validate_trace_input(input)
+        warn_if_invalid_messages(input, "trace input")
         self._output: Any = None
         self._session_id = session_id if session_id is not None else get_current_session_id()
         self._user_id = user_id if user_id is not None else get_current_user_id()
@@ -151,11 +151,11 @@ class TraceContext:
     # ------------------------------------------------------------------
 
     def set_output(self, output: Any) -> None:
-        validate_trace_output(output)
+        warn_if_invalid_messages(output, "trace output")
         self._output = output
 
     def set_input(self, input: Any) -> None:
-        validate_trace_input(input)
+        warn_if_invalid_messages(input, "trace input")
         self._input = input
 
     def set_metadata(self, metadata: dict[str, Any]) -> None:
