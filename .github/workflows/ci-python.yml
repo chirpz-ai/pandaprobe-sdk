@@ -33,7 +33,7 @@ jobs:
           enable-cache: true
 
       - name: Install dependencies
-        run: make sync
+        run: make install
 
       - name: Check formatting
         run: make format-check
@@ -60,7 +60,7 @@ jobs:
           enable-cache: true
 
       - name: Install dependencies
-        run: make sync
+        run: make install
 
       - name: Test
         run: make test-cov
