@@ -27,7 +27,7 @@ if __name__ == "__main__":
         instructions="You are a concise assistant. Reason and answer the question.",
         input="with the rapid development of AI, what are the potential risks for humanity in the next 10 years?",
         reasoning={"effort": "medium", "summary": "auto"},
-        max_output_tokens=500,
+        max_output_tokens=200,
     )
 
     print(f"Model: {response.model}")
