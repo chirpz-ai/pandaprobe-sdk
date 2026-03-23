@@ -558,6 +558,4 @@ class TestStreamManagerDoubleClose:
                 texts = list(stream.text_stream)
                 assert texts == ["Hello"]
 
-        assert len(close_calls) == 1, (
-            f"close_llm_span should be called exactly once, got {len(close_calls)}"
-        )
+        assert len(close_calls) == 1, f"close_llm_span should be called exactly once, got {len(close_calls)}"

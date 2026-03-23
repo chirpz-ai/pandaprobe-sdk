@@ -72,7 +72,6 @@ def _patch_responses(client: Any) -> None:
         client.responses.create = _sync_responses_wrapper(original)
 
 
-
 # ---------------------------------------------------------------------------
 # Sync wrappers
 # ---------------------------------------------------------------------------
@@ -159,7 +158,6 @@ async def _async_streaming_chat(original, args, kwargs, cleaned):  # noqa: ANN00
             span_ctx.set_error(str(exc))
             span_ctx.__exit__(type(exc), exc, exc.__traceback__)
         raise
-
 
 
 # ---------------------------------------------------------------------------
@@ -286,7 +284,6 @@ def _finish_span_from_chat_response(span_ctx: Any, response: Any) -> None:
         logger.debug("Error extracting OpenAI response data: %s", exc)
 
     close_llm_span(span_ctx)
-
 
 
 def _maybe_parse_raw(response: Any) -> Any:
