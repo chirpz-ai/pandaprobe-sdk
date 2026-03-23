@@ -233,7 +233,8 @@ class _SyncStreamWrapper:
         return self._stream.get_final_text()
 
     def __iter__(self):
-        return self._stream.__iter__()
+        yield from self._stream
+        self._extract_final()
 
     def __next__(self):
         return next(self._stream)
@@ -323,8 +324,10 @@ class _AsyncStreamWrapper:
     async def get_final_text(self):
         return await self._stream.get_final_text()
 
-    def __aiter__(self):
-        return self._stream.__aiter__()
+    async def __aiter__(self):
+        async for event in self._stream:
+            yield event
+        await self._extract_final()
 
     async def __anext__(self):
         return await self._stream.__anext__()
@@ -347,15 +350,10 @@ class _AnthropicAsyncStream(AsyncStreamReducer):
 
 def _reduce_anthropic_stream(span_ctx: Any, chunks: list[Any]) -> None:
     """Reduce Anthropic streaming events into final span data."""
-    accumulated = _try_accumulate(chunks)
-    if accumulated is not None:
-        _finish_anthropic_span(span_ctx, accumulated)
-        return
-
     text_parts: list[str] = []
     thinking_parts: list[str] = []
     model: str | None = None
-    usage: dict[str, int] | None = None
+    usage: dict[str, int] = {}
 
     for event in chunks:
         event_type = getattr(event, "type", "")
@@ -366,7 +364,13 @@ def _reduce_anthropic_stream(span_ctx: Any, chunks: list[Any]) -> None:
                 model = getattr(msg, "model", None)
                 u = getattr(msg, "usage", None)
                 if u:
-                    usage = {"prompt_tokens": getattr(u, "input_tokens", 0) or 0}
+                    usage["prompt_tokens"] = getattr(u, "input_tokens", 0) or 0
+                    cache_read = getattr(u, "cache_read_input_tokens", 0) or 0
+                    if cache_read:
+                        usage["cache_read_tokens"] = cache_read
+                    cache_creation = getattr(u, "cache_creation_input_tokens", 0) or 0
+                    if cache_creation:
+                        usage["cache_creation_tokens"] = cache_creation
 
         elif event_type == "content_block_delta":
             delta = getattr(event, "delta", None)
@@ -388,11 +392,7 @@ def _reduce_anthropic_stream(span_ctx: Any, chunks: list[Any]) -> None:
         elif event_type == "message_delta":
             u = getattr(event, "usage", None)
             if u:
-                output_tokens = getattr(u, "output_tokens", 0) or 0
-                if usage is not None:
-                    usage["completion_tokens"] = output_tokens
-                else:
-                    usage = {"prompt_tokens": 0, "completion_tokens": output_tokens}
+                usage["completion_tokens"] = getattr(u, "output_tokens", 0) or 0
 
     if text_parts:
         span_ctx.set_output(
@@ -406,22 +406,6 @@ def _reduce_anthropic_stream(span_ctx: Any, chunks: list[Any]) -> None:
         span_ctx.set_token_usage(**usage)
 
     close_llm_span(span_ctx)
-
-
-def _try_accumulate(chunks: list[Any]) -> Any:
-    """Try to reconstruct a full Message using Anthropic's SDK accumulator."""
-    try:
-        from anthropic.lib.streaming._messages import accumulate_event
-    except ImportError:
-        return None
-
-    message = None
-    for event in chunks:
-        try:
-            message = accumulate_event(event=event, current_snapshot=message)
-        except Exception:
-            return None
-    return message
 
 
 # ---------------------------------------------------------------------------
