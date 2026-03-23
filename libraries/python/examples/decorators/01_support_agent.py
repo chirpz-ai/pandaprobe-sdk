@@ -27,24 +27,22 @@ client = openai.OpenAI()
 
 
 @pandaprobe.trace(name="customer-support-agent", tags=["support", "example"])
-def run_agent(messages: dict) -> dict:
+def run_agent(messages: list) -> dict:
     """A simple support agent: retrieve context, then generate an answer via OpenAI."""
-    query = messages["messages"][-1]["content"]
+    query = messages[-1]["content"]
     context = search_knowledge_base(query)
     answer = generate_response(
-        {
-            "messages": [
-                {
-                    "role": "system",
-                    "content": (
-                        "You are a helpful customer support assistant. "
-                        "Answer the user's question using only the provided context. "
-                        "If the context doesn't help, say you don't know."
-                    ),
-                },
-                {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {query}"},
-            ]
-        }
+        [
+            {
+                "role": "system",
+                "content": (
+                    "You are a helpful customer support assistant. "
+                    "Answer the user's question using only the provided context. "
+                    "If the context doesn't help, say you don't know."
+                ),
+            },
+            {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {query}"},
+        ]
     )
     return answer
 
@@ -60,11 +58,11 @@ def search_knowledge_base(query: str) -> str:
 
 
 @pandaprobe.span(name="generate-response", kind="LLM", model="gpt-5.4-nano")
-def generate_response(messages: dict) -> dict:
+def generate_response(messages: list) -> dict:
     """Call OpenAI to generate an answer grounded in the retrieved context."""
     response = client.chat.completions.create(
         model="gpt-5.4-nano",
-        messages=messages["messages"],
+        messages=messages,
         reasoning_effort="low",
         max_completion_tokens=200,
     )
@@ -74,7 +72,7 @@ def generate_response(messages: dict) -> dict:
 
 if __name__ == "__main__":
     query = "How do I reset my password?"
-    result = run_agent({"messages": [{"role": "user", "content": query}]})
+    result = run_agent([{"role": "user", "content": query}])
     answer = result["messages"][0]["content"]
     print(f"\nAgent response:\n{answer}")
 
