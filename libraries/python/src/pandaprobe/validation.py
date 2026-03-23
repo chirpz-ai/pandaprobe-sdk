@@ -69,31 +69,6 @@ def validate_messages_format(data: Any, label: str) -> None:
             )
 
 
-# ---------------------------------------------------------------------------
-# Convenience wrappers
-# ---------------------------------------------------------------------------
-
-
-def validate_trace_input(value: Any) -> None:
-    """Validate trace-level input (last user message only)."""
-    validate_messages_format(value, "trace input")
-
-
-def validate_trace_output(value: Any) -> None:
-    """Validate trace-level output (assistant response)."""
-    validate_messages_format(value, "trace output")
-
-
-def validate_span_input(value: Any) -> None:
-    """Validate span-level input (full conversation history for LLM spans)."""
-    validate_messages_format(value, "span input")
-
-
-def validate_span_output(value: Any) -> None:
-    """Validate span-level output (model response for LLM spans)."""
-    validate_messages_format(value, "span output")
-
-
 def warn_if_invalid_messages(data: Any, label: str) -> None:
     """Log a warning if *data* doesn't follow the messages schema.
 

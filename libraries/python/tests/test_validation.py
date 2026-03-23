@@ -6,10 +6,6 @@ from pandaprobe.validation import (
     extract_last_assistant_message,
     extract_last_user_message,
     validate_messages_format,
-    validate_span_input,
-    validate_span_output,
-    validate_trace_input,
-    validate_trace_output,
 )
 
 
@@ -110,36 +106,6 @@ class TestValidateMessagesFormat:
     def test_label_included_in_error(self):
         with pytest.raises(ValueError, match="trace input"):
             validate_messages_format("bad", "trace input")
-
-
-class TestConvenienceWrappers:
-    def test_validate_trace_input_delegates(self):
-        validate_trace_input({"messages": [{"role": "user", "content": "hi"}]})
-
-    def test_validate_trace_output_delegates(self):
-        validate_trace_output({"messages": [{"role": "assistant", "content": "hi"}]})
-
-    def test_validate_span_input_delegates(self):
-        validate_span_input({"messages": [{"role": "user", "content": "hi"}]})
-
-    def test_validate_span_output_delegates(self):
-        validate_span_output({"messages": [{"role": "assistant", "content": "hi"}]})
-
-    def test_trace_input_raises_on_bad_data(self):
-        with pytest.raises(ValueError, match="trace input"):
-            validate_trace_input("bad")
-
-    def test_trace_output_raises_on_bad_data(self):
-        with pytest.raises(ValueError, match="trace output"):
-            validate_trace_output("bad")
-
-    def test_span_input_raises_on_bad_data(self):
-        with pytest.raises(ValueError, match="span input"):
-            validate_span_input({"no_messages": True})
-
-    def test_span_output_raises_on_bad_data(self):
-        with pytest.raises(ValueError, match="span output"):
-            validate_span_output(42)
 
 
 class TestExtractLastUserMessage:
