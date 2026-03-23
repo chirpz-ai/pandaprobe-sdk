@@ -1,8 +1,10 @@
 """Tests for pandaprobe.tracing (context, span, session)."""
 
+import logging
+
+import httpx
 import pytest
 import respx
-import httpx
 
 from pandaprobe.client import Client
 from pandaprobe.schemas import SpanStatusCode, TraceStatus
@@ -27,16 +29,24 @@ class TestTraceContext:
         assert get_current_trace() is None
 
     @respx.mock
-    def test_invalid_trace_input_raises(self, client):
-        with pytest.raises(ValueError, match="trace input"):
-            client.trace("bad-input", input="not valid")
+    def test_invalid_trace_input_warns(self, client, caplog):
+        """Non-conforming input should warn but not raise."""
+        respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
+        with caplog.at_level(logging.WARNING, logger="pandaprobe"):
+            with client.trace("bad-input", input="not valid") as t:
+                t.set_output({"messages": [{"role": "assistant", "content": "ok"}]})
+        assert "trace input" in caplog.text
+        assert t._input == "not valid"
 
     @respx.mock
-    def test_invalid_trace_output_raises(self, client):
+    def test_invalid_trace_output_warns(self, client, caplog):
+        """Non-conforming output should warn but not raise."""
         respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
-        with pytest.raises(ValueError, match="trace output"):
+        with caplog.at_level(logging.WARNING, logger="pandaprobe"):
             with client.trace("bad-output") as t:
                 t.set_output("not valid")
+        assert "trace output" in caplog.text
+        assert t._output == "not valid"
 
     @respx.mock
     def test_trace_with_spans(self, client):

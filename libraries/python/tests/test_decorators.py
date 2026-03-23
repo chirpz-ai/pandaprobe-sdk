@@ -1,5 +1,7 @@
 """Tests for pandaprobe.decorators."""
 
+import logging
+
 import httpx
 import pytest
 import respx
@@ -69,26 +71,32 @@ class TestTraceDecorator:
             failing([{"role": "user", "content": "x"}])
 
     @respx.mock
-    def test_trace_invalid_input_raises(self):
+    def test_trace_invalid_input_warns(self, caplog):
+        """Non-conforming input warns but the function still executes."""
         respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
 
         @trace(name="bad-input")
         def bad_fn(query: str):
             return {"messages": [{"role": "assistant", "content": "ok"}]}
 
-        with pytest.raises(ValueError, match="trace input"):
-            bad_fn("raw string")
+        with caplog.at_level(logging.WARNING, logger="pandaprobe"):
+            result = bad_fn("raw string")
+        assert result == {"messages": [{"role": "assistant", "content": "ok"}]}
+        assert "trace input" in caplog.text
 
     @respx.mock
-    def test_trace_invalid_output_raises(self):
+    def test_trace_invalid_output_warns(self, caplog):
+        """Non-conforming output warns but the function still executes."""
         respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
 
         @trace(name="bad-output")
         def bad_fn(messages: list):
             return "raw string"
 
-        with pytest.raises(ValueError, match="trace output"):
-            bad_fn([{"role": "user", "content": "hello"}])
+        with caplog.at_level(logging.WARNING, logger="pandaprobe"):
+            result = bad_fn([{"role": "user", "content": "hello"}])
+        assert result == "raw string"
+        assert "trace output" in caplog.text
 
     @respx.mock
     def test_trace_trims_input_to_last_user_message(self):
