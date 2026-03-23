@@ -14,8 +14,6 @@ from pandaprobe.tracing.context import get_current_trace
 from pandaprobe.validation import (
     extract_last_assistant_message,
     extract_last_user_message,
-    validate_span_input,
-    validate_span_output,
 )
 
 logger = logging.getLogger("pandaprobe")
@@ -134,8 +132,6 @@ def span(
 
     def decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
         span_name = name or fn.__name__
-        resolved_kind = SpanKind(kind) if isinstance(kind, str) else kind
-        is_llm = resolved_kind == SpanKind.LLM
 
         if asyncio.iscoroutinefunction(fn):
 
@@ -146,13 +142,9 @@ def span(
                     return await fn(*args, **kwargs)
 
                 fn_input = _capture_input(fn, args, kwargs)
-                if is_llm:
-                    validate_span_input(fn_input)
                 async with trace_ctx.span(span_name, kind=kind, model=model, metadata=metadata) as s:
                     s.set_input(fn_input)
                     result = await fn(*args, **kwargs)
-                    if is_llm:
-                        validate_span_output(result)
                     s.set_output(result)
                     return result
 
@@ -165,13 +157,9 @@ def span(
                 return fn(*args, **kwargs)
 
             fn_input = _capture_input(fn, args, kwargs)
-            if is_llm:
-                validate_span_input(fn_input)
             with trace_ctx.span(span_name, kind=kind, model=model, metadata=metadata) as s:
                 s.set_input(fn_input)
                 result = fn(*args, **kwargs)
-                if is_llm:
-                    validate_span_output(result)
                 s.set_output(result)
                 return result
 
