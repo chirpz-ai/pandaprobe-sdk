@@ -10,6 +10,7 @@ from pandaprobe.wrappers._base import (
     AsyncStreamReducer,
     SyncStreamReducer,
     close_llm_span,
+    error_llm_span,
     safe_serialize,
 )
 from pandaprobe.wrappers.gemini.utils import convert_config_to_dict, enter_gemini_span
@@ -105,9 +106,7 @@ def _sync_blocking_generate(original, args, kwargs, cleaned):  # noqa: ANN001
         _finish_gemini_span(span_ctx, response)
         return response
     except Exception as exc:
-        if span_ctx:
-            span_ctx.set_error(str(exc))
-            span_ctx.__exit__(type(exc), exc, exc.__traceback__)
+        error_llm_span(span_ctx, exc)
         raise
 
 
@@ -117,9 +116,7 @@ def _sync_streaming_generate(original, args, kwargs, cleaned):  # noqa: ANN001
         stream = original(*args, **kwargs)
         return _GeminiSyncStream(stream, span_ctx)
     except Exception as exc:
-        if span_ctx:
-            span_ctx.set_error(str(exc))
-            span_ctx.__exit__(type(exc), exc, exc.__traceback__)
+        error_llm_span(span_ctx, exc)
         raise
 
 
@@ -153,9 +150,7 @@ async def _async_blocking_generate(original, args, kwargs, cleaned):  # noqa: AN
         _finish_gemini_span(span_ctx, response)
         return response
     except Exception as exc:
-        if span_ctx:
-            span_ctx.set_error(str(exc))
-            span_ctx.__exit__(type(exc), exc, exc.__traceback__)
+        error_llm_span(span_ctx, exc)
         raise
 
 
@@ -165,9 +160,7 @@ async def _async_streaming_generate(original, args, kwargs, cleaned):  # noqa: A
         stream = await original(*args, **kwargs)
         return _GeminiAsyncStream(stream, span_ctx)
     except Exception as exc:
-        if span_ctx:
-            span_ctx.set_error(str(exc))
-            span_ctx.__exit__(type(exc), exc, exc.__traceback__)
+        error_llm_span(span_ctx, exc)
         raise
 
 

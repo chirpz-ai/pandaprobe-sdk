@@ -115,6 +115,18 @@ def close_llm_span(span_ctx: Any) -> None:
         standalone.__exit__(None, None, None)
 
 
+def error_llm_span(span_ctx: Any, exc: BaseException) -> None:
+    """Record an error and close the span (and standalone trace if applicable)."""
+    if span_ctx is None:
+        return
+    span_ctx.set_error(str(exc))
+    span_ctx.__exit__(type(exc), exc, exc.__traceback__)
+    standalone = getattr(span_ctx, "_standalone_trace", None)
+    if standalone is not None:
+        standalone.set_output(span_ctx._output)
+        standalone.__exit__(type(exc), exc, exc.__traceback__)
+
+
 # ---------------------------------------------------------------------------
 # Stream reducer base classes
 # ---------------------------------------------------------------------------

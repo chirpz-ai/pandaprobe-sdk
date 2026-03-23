@@ -14,6 +14,7 @@ from pandaprobe.wrappers._base import (
     SyncStreamReducer,
     close_llm_span,
     enter_llm_span,
+    error_llm_span,
     safe_serialize,
 )
 from pandaprobe.wrappers.openai.utils import enter_responses_span, strip_not_given
@@ -98,9 +99,7 @@ def _sync_blocking_chat(original, args, kwargs, cleaned):  # noqa: ANN001
         _finish_span_from_chat_response(span_ctx, actual_response)
         return response
     except Exception as exc:
-        if span_ctx:
-            span_ctx.set_error(str(exc))
-            span_ctx.__exit__(type(exc), exc, exc.__traceback__)
+        error_llm_span(span_ctx, exc)
         raise
 
 
@@ -110,9 +109,7 @@ def _sync_streaming_chat(original, args, kwargs, cleaned):  # noqa: ANN001
         stream = original(*args, **kwargs)
         return _OpenAISyncStream(stream, span_ctx)
     except Exception as exc:
-        if span_ctx:
-            span_ctx.set_error(str(exc))
-            span_ctx.__exit__(type(exc), exc, exc.__traceback__)
+        error_llm_span(span_ctx, exc)
         raise
 
 
@@ -142,9 +139,7 @@ async def _async_blocking_chat(original, args, kwargs, cleaned):  # noqa: ANN001
         _finish_span_from_chat_response(span_ctx, actual_response)
         return response
     except Exception as exc:
-        if span_ctx:
-            span_ctx.set_error(str(exc))
-            span_ctx.__exit__(type(exc), exc, exc.__traceback__)
+        error_llm_span(span_ctx, exc)
         raise
 
 
@@ -154,9 +149,7 @@ async def _async_streaming_chat(original, args, kwargs, cleaned):  # noqa: ANN00
         stream = await original(*args, **kwargs)
         return _OpenAIAsyncStream(stream, span_ctx)
     except Exception as exc:
-        if span_ctx:
-            span_ctx.set_error(str(exc))
-            span_ctx.__exit__(type(exc), exc, exc.__traceback__)
+        error_llm_span(span_ctx, exc)
         raise
 
 
@@ -331,9 +324,7 @@ def _sync_blocking_response(original, args, kwargs, cleaned):  # noqa: ANN001
         _finish_from_response(span_ctx, response)
         return response
     except Exception as exc:
-        if span_ctx:
-            span_ctx.set_error(str(exc))
-            span_ctx.__exit__(type(exc), exc, exc.__traceback__)
+        error_llm_span(span_ctx, exc)
         raise
 
 
@@ -343,9 +334,7 @@ def _sync_streaming_response(original, args, kwargs, cleaned):  # noqa: ANN001
         stream = original(*args, **kwargs)
         return _ResponsesSyncStream(stream, span_ctx)
     except Exception as exc:
-        if span_ctx:
-            span_ctx.set_error(str(exc))
-            span_ctx.__exit__(type(exc), exc, exc.__traceback__)
+        error_llm_span(span_ctx, exc)
         raise
 
 
@@ -356,9 +345,7 @@ async def _async_blocking_response(original, args, kwargs, cleaned):  # noqa: AN
         _finish_from_response(span_ctx, response)
         return response
     except Exception as exc:
-        if span_ctx:
-            span_ctx.set_error(str(exc))
-            span_ctx.__exit__(type(exc), exc, exc.__traceback__)
+        error_llm_span(span_ctx, exc)
         raise
 
 
@@ -368,9 +355,7 @@ async def _async_streaming_response(original, args, kwargs, cleaned):  # noqa: A
         stream = await original(*args, **kwargs)
         return _ResponsesAsyncStream(stream, span_ctx)
     except Exception as exc:
-        if span_ctx:
-            span_ctx.set_error(str(exc))
-            span_ctx.__exit__(type(exc), exc, exc.__traceback__)
+        error_llm_span(span_ctx, exc)
         raise
 
 

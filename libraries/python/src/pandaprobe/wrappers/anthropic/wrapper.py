@@ -11,6 +11,7 @@ from pandaprobe.wrappers._base import (
     AsyncStreamReducer,
     SyncStreamReducer,
     close_llm_span,
+    error_llm_span,
     safe_serialize,
 )
 from pandaprobe.wrappers.anthropic.utils import enter_anthropic_span, strip_not_given
@@ -89,9 +90,7 @@ def _sync_blocking_create(original, args, kwargs, cleaned):  # noqa: ANN001
         _finish_anthropic_span(span_ctx, response)
         return response
     except Exception as exc:
-        if span_ctx:
-            span_ctx.set_error(str(exc))
-            span_ctx.__exit__(type(exc), exc, exc.__traceback__)
+        error_llm_span(span_ctx, exc)
         raise
 
 
@@ -101,9 +100,7 @@ def _sync_streaming_create(original, args, kwargs, cleaned):  # noqa: ANN001
         stream = original(*args, **kwargs)
         return _AnthropicSyncStream(stream, span_ctx)
     except Exception as exc:
-        if span_ctx:
-            span_ctx.set_error(str(exc))
-            span_ctx.__exit__(type(exc), exc, exc.__traceback__)
+        error_llm_span(span_ctx, exc)
         raise
 
 
@@ -132,9 +129,7 @@ async def _async_blocking_create(original, args, kwargs, cleaned):  # noqa: ANN0
         _finish_anthropic_span(span_ctx, response)
         return response
     except Exception as exc:
-        if span_ctx:
-            span_ctx.set_error(str(exc))
-            span_ctx.__exit__(type(exc), exc, exc.__traceback__)
+        error_llm_span(span_ctx, exc)
         raise
 
 
@@ -144,9 +139,7 @@ async def _async_streaming_create(original, args, kwargs, cleaned):  # noqa: ANN
         stream = await original(*args, **kwargs)
         return _AnthropicAsyncStream(stream, span_ctx)
     except Exception as exc:
-        if span_ctx:
-            span_ctx.set_error(str(exc))
-            span_ctx.__exit__(type(exc), exc, exc.__traceback__)
+        error_llm_span(span_ctx, exc)
         raise
 
 
@@ -183,10 +176,8 @@ class _SyncStreamManager:
             self._inner_stream = self._inner_manager.__enter__()
             return _SyncStreamWrapper(self._inner_stream, self._span_ctx, owner=self)
         except Exception as exc:
-            if self._span_ctx:
-                self._span_ctx.set_error(str(exc))
-                self._span_ctx.__exit__(type(exc), exc, exc.__traceback__)
-                self._span_ctx = None
+            error_llm_span(self._span_ctx, exc)
+            self._span_ctx = None
             raise
 
     def __exit__(self, *exc_info):
@@ -196,8 +187,7 @@ class _SyncStreamManager:
         finally:
             if self._span_ctx is not None:
                 if exc_info[0] is not None:
-                    self._span_ctx.set_error(str(exc_info[1]))
-                    self._span_ctx.__exit__(*exc_info)
+                    error_llm_span(self._span_ctx, exc_info[1])
                 else:
                     close_llm_span(self._span_ctx)
                 self._span_ctx = None
@@ -277,10 +267,8 @@ class _AsyncStreamManager:
             self._inner_stream = await self._inner_manager.__aenter__()
             return _AsyncStreamWrapper(self._inner_stream, self._span_ctx, owner=self)
         except Exception as exc:
-            if self._span_ctx:
-                self._span_ctx.set_error(str(exc))
-                self._span_ctx.__exit__(type(exc), exc, exc.__traceback__)
-                self._span_ctx = None
+            error_llm_span(self._span_ctx, exc)
+            self._span_ctx = None
             raise
 
     async def __aexit__(self, *exc_info):
@@ -290,8 +278,7 @@ class _AsyncStreamManager:
         finally:
             if self._span_ctx is not None:
                 if exc_info[0] is not None:
-                    self._span_ctx.set_error(str(exc_info[1]))
-                    self._span_ctx.__exit__(*exc_info)
+                    error_llm_span(self._span_ctx, exc_info[1])
                 else:
                     close_llm_span(self._span_ctx)
                 self._span_ctx = None
