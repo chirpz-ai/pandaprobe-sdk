@@ -7,7 +7,10 @@ have at least ``role`` (str) and ``content`` (str, list, or None).
 
 from __future__ import annotations
 
+import logging
 from typing import Any
+
+logger = logging.getLogger("pandaprobe")
 
 _SCHEMA_EXAMPLE = '{"messages": [{"role": "user", "content": "hello"}]}'
 
@@ -89,6 +92,27 @@ def validate_span_input(value: Any) -> None:
 def validate_span_output(value: Any) -> None:
     """Validate span-level output (model response for LLM spans)."""
     validate_messages_format(value, "span output")
+
+
+def warn_if_invalid_messages(data: Any, label: str) -> None:
+    """Log a warning if *data* doesn't follow the messages schema.
+
+    Unlike the ``validate_*`` family this **never raises** — it is designed
+    for the context layer where an observability SDK must not crash user code.
+    """
+    if data is None:
+        return
+    try:
+        validate_messages_format(data, label)
+    except (ValueError, TypeError) as exc:
+        logger.warning(
+            "PandaProbe: %s does not follow the messages schema and will be "
+            "stored as-is. Details: %s  "
+            "Expected format: %s",
+            label,
+            exc,
+            _SCHEMA_EXAMPLE,
+        )
 
 
 # ---------------------------------------------------------------------------
