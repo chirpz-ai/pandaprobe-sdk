@@ -7,6 +7,20 @@ from typing import Any
 
 logger = logging.getLogger("pandaprobe")
 
+_ROLE_MAP: dict[str, str] = {
+    "human": "user",
+    "ai": "assistant",
+    "HumanMessage": "user",
+    "AIMessage": "assistant",
+    "SystemMessage": "system",
+    "ToolMessage": "tool",
+}
+
+
+def _normalize_role(role: str) -> str:
+    """Map LangChain role names to the OpenAI-style equivalents."""
+    return _ROLE_MAP.get(role, role)
+
 
 def extract_name(serialized: dict[str, Any] | None, fallback: str = "unknown") -> str:
     """Extract a human-readable name from a LangChain serialized dict."""
@@ -55,10 +69,14 @@ def normalize_langchain_input(inputs: Any) -> Any:
     normalized: list[Any] = []
     for item in messages:
         if isinstance(item, (list, tuple)) and len(item) >= 2:
-            normalized.append({"role": item[0], "content": item[1]})
+            normalized.append({"role": _normalize_role(str(item[0])), "content": item[1]})
         elif isinstance(item, dict) and "type" in item and "content" in item:
             new_item = {k: v for k, v in item.items() if k != "type"}
-            new_item["role"] = item["type"]
+            new_item["role"] = _normalize_role(str(item["type"]))
+            normalized.append(new_item)
+        elif isinstance(item, dict) and "role" in item and isinstance(item["role"], str):
+            new_item = dict(item)
+            new_item["role"] = _normalize_role(item["role"])
             normalized.append(new_item)
         else:
             normalized.append(item)
@@ -82,24 +100,34 @@ def normalize_langchain_output(outputs: Any) -> Any:
         return outputs
 
     last_item = messages[-1]
-    if isinstance(last_item, dict) and "type" in last_item:
-        last_item = {k: v for k, v in last_item.items() if k != "type"}
-        last_item["role"] = messages[-1]["type"]
+    if isinstance(last_item, dict):
+        if "type" in last_item:
+            last_item = {k: v for k, v in last_item.items() if k != "type"}
+            last_item["role"] = _normalize_role(str(messages[-1]["type"]))
+        elif "role" in last_item and isinstance(last_item["role"], str):
+            last_item = dict(last_item)
+            last_item["role"] = _normalize_role(last_item["role"])
 
     return {"messages": [last_item]}
 
 
 def normalize_type_to_role(data: Any) -> Any:
-    """Recursively rename ``type`` to ``role`` in dicts that also have ``content``."""
+    """Recursively rename ``type`` to ``role`` and normalize role values in message dicts."""
     if isinstance(data, dict):
-        if "type" in data and "content" in data:
+        has_content = "content" in data
+        if "type" in data and has_content:
             new_dict: dict[str, Any] = {}
             for k, v in data.items():
                 if k == "type":
-                    new_dict["role"] = normalize_type_to_role(v)
+                    new_dict["role"] = _normalize_role(str(v))
                 else:
                     new_dict[k] = normalize_type_to_role(v)
             return new_dict
+        if "role" in data and has_content and isinstance(data["role"], str):
+            return {
+                k: (_normalize_role(v) if k == "role" else normalize_type_to_role(v))
+                for k, v in data.items()
+            }
         return {k: normalize_type_to_role(v) for k, v in data.items()}
     if isinstance(data, list):
         return [normalize_type_to_role(item) for item in data]
