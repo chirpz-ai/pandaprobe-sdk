@@ -240,7 +240,10 @@ class TestNormalizeContentsToMessages:
         msg = result["messages"][0]
         assert msg["role"] == "user"
         import base64
-        assert msg["content"] == [{"type": "image", "data": base64.b64encode(b"image-bytes").decode("utf-8"), "mime_type": "image/png"}]
+
+        assert msg["content"] == [
+            {"type": "image", "data": base64.b64encode(b"image-bytes").decode("utf-8"), "mime_type": "image/png"}
+        ]
 
     def test_file_data_part(self):
         file_d = SimpleNamespace(file_uri="gs://bucket/file.pdf", mime_type="application/pdf")
@@ -439,9 +442,7 @@ class TestWrapRunnerRunAsync:
     @respx.mock
     @pytest.mark.asyncio
     async def test_creates_trace_and_root_span(self):
-        route = respx.post("http://testserver/traces").mock(
-            return_value=httpx.Response(202, json={})
-        )
+        route = respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
         adapter = GoogleADKAdapter(session_id="sess-1", user_id="user-1", tags=["test"])
         _store_adapter(adapter)
 
@@ -546,8 +547,11 @@ class TestWrapAgentRunAsync:
         root_span_id = str(uuid4())
         from datetime import datetime, timezone
         from pandaprobe.schemas import SpanData
+
         root_span = SpanData(
-            span_id=root_span_id, name="test", kind=SpanKind.CHAIN,
+            span_id=root_span_id,
+            name="test",
+            kind=SpanKind.CHAIN,
             started_at=datetime.now(timezone.utc),
         )
         state.spans[root_span_id] = root_span
@@ -686,6 +690,7 @@ class TestWrapLlmCallAsync:
         parent_token = _set_current_span(str(uuid4()))
 
         try:
+
             async def mock_llm_call(*args, **kwargs):
                 raise ValueError("model error")
                 yield  # make it an async generator
@@ -718,13 +723,12 @@ class TestWrapToolRunAsync:
         parent_token = _set_current_span(agent_span_id)
 
         try:
+
             async def mock_tool_run(*args, **kwargs):
                 return {"result": "weather is sunny"}
 
             instance = SimpleNamespace(name="get_weather")
-            result = await _wrap_tool_run_async(
-                mock_tool_run, instance, (), {"args": {"city": "London"}}
-            )
+            result = await _wrap_tool_run_async(mock_tool_run, instance, (), {"args": {"city": "London"}})
 
             assert result == {"result": "weather is sunny"}
             assert len(state.spans) == 1
@@ -749,13 +753,12 @@ class TestWrapToolRunAsync:
         parent_token = _set_current_span(str(uuid4()))
 
         try:
+
             async def mock_tool_run(*args, **kwargs):
                 raise RuntimeError("tool failed")
 
             with pytest.raises(RuntimeError, match="tool failed"):
-                await _wrap_tool_run_async(
-                    mock_tool_run, SimpleNamespace(name="bad_tool"), (), {}
-                )
+                await _wrap_tool_run_async(mock_tool_run, SimpleNamespace(name="bad_tool"), (), {})
 
             span = list(state.spans.values())[0]
             assert span.status == SpanStatusCode.ERROR
@@ -769,12 +772,11 @@ class TestWrapToolRunAsync:
     async def test_no_state_passthrough(self):
         state_token = _set_trace_state(None)
         try:
+
             async def mock_tool_run(*args, **kwargs):
                 return "direct result"
 
-            result = await _wrap_tool_run_async(
-                mock_tool_run, SimpleNamespace(name="t"), (), {}
-            )
+            result = await _wrap_tool_run_async(mock_tool_run, SimpleNamespace(name="t"), (), {})
             assert result == "direct result"
         finally:
             _current_trace_state.reset(state_token)
@@ -789,9 +791,7 @@ class TestFullLifecycle:
     @respx.mock
     @pytest.mark.asyncio
     async def test_agent_llm_tool_lifecycle(self):
-        route = respx.post("http://testserver/traces").mock(
-            return_value=httpx.Response(202, json={})
-        )
+        route = respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
         adapter = GoogleADKAdapter(
             session_id="sess-lifecycle",
             user_id="user-lifecycle",

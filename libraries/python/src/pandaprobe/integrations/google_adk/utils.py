@@ -60,11 +60,7 @@ def _serialize_part(part: Any) -> dict[str, Any]:
         data = getattr(part.inline_data, "data", None)
         mime_type = getattr(part.inline_data, "mime_type", "application/octet-stream")
         if data is not None:
-            encoded = (
-                base64.b64encode(data).decode("utf-8")
-                if isinstance(data, bytes)
-                else str(data)
-            )
+            encoded = base64.b64encode(data).decode("utf-8") if isinstance(data, bytes) else str(data)
             return {"type": "image", "data": encoded, "mime_type": mime_type}
 
     if hasattr(part, "file_data") and part.file_data:
@@ -149,11 +145,13 @@ def _content_to_message(content: Any) -> dict[str, Any]:
         messages: list[dict[str, Any]] = []
         for tr in tool_results:
             resp = tr.get("response")
-            messages.append({
-                "role": "tool",
-                "name": tr.get("name", ""),
-                "content": json.dumps(resp) if isinstance(resp, dict) else str(resp or ""),
-            })
+            messages.append(
+                {
+                    "role": "tool",
+                    "name": tr.get("name", ""),
+                    "content": json.dumps(resp) if isinstance(resp, dict) else str(resp or ""),
+                }
+            )
         return messages  # type: ignore[return-value]
 
     msg: dict[str, Any] = {"role": role}
@@ -175,9 +173,7 @@ def _content_to_message(content: Any) -> dict[str, Any]:
     return msg
 
 
-def normalize_contents_to_messages(
-    contents: Any, system_instruction: Any = None
-) -> dict[str, Any]:
+def normalize_contents_to_messages(contents: Any, system_instruction: Any = None) -> dict[str, Any]:
     """Convert ADK's ``list[Content]`` to the standard messages schema.
 
     Optionally prepends a system message extracted from config.system_instruction.

@@ -37,12 +37,8 @@ _patched = False
 # Per-invocation trace state
 # ---------------------------------------------------------------------------
 
-_current_trace_state: ContextVar[_TraceState | None] = ContextVar(
-    "_pandaprobe_adk_trace_state", default=None
-)
-_current_span_id: ContextVar[str | None] = ContextVar(
-    "_pandaprobe_adk_current_span", default=None
-)
+_current_trace_state: ContextVar[_TraceState | None] = ContextVar("_pandaprobe_adk_trace_state", default=None)
+_current_span_id: ContextVar[str | None] = ContextVar("_pandaprobe_adk_current_span", default=None)
 
 
 @dataclass
@@ -232,9 +228,7 @@ async def _wrap_runner_run_async(wrapped: Any, instance: Any, args: Any, kwargs:
         trace_input_text = extract_text_from_content(new_message)
 
     if trace_input_text:
-        state.trace_input = extract_last_user_message(
-            {"messages": [{"role": "user", "content": trace_input_text}]}
-        )
+        state.trace_input = extract_last_user_message({"messages": [{"role": "user", "content": trace_input_text}]})
 
     root_span = SpanData(
         span_id=span_id,

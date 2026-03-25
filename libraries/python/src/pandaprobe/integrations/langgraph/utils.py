@@ -124,10 +124,7 @@ def normalize_type_to_role(data: Any) -> Any:
                     new_dict[k] = normalize_type_to_role(v)
             return new_dict
         if "role" in data and has_content and isinstance(data["role"], str):
-            return {
-                k: (_normalize_role(v) if k == "role" else normalize_type_to_role(v))
-                for k, v in data.items()
-            }
+            return {k: (_normalize_role(v) if k == "role" else normalize_type_to_role(v)) for k, v in data.items()}
         return {k: normalize_type_to_role(v) for k, v in data.items()}
     if isinstance(data, list):
         return [normalize_type_to_role(item) for item in data]

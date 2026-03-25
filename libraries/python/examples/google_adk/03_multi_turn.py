@@ -28,9 +28,7 @@ from pandaprobe.integrations.google_adk import GoogleADKAdapter
 agent = LlmAgent(
     name="travel_advisor",
     model="gemini-3.1-flash-lite-preview",
-    instruction=(
-        "You are a helpful travel advisor. Keep answers to 2-3 sentences."
-    ),
+    instruction=("You are a helpful travel advisor. Keep answers to 2-3 sentences."),
 )
 
 APP_NAME = "travel_advisor"
@@ -42,13 +40,9 @@ async def chat_turn(runner: Runner, message: str) -> str:
     """Send one user message and return the agent's text reply."""
     user_message = Content(role="user", parts=[Part(text=message)])
     response_text = ""
-    async for event in runner.run_async(
-        user_id=USER_ID, session_id=SESSION_ID, new_message=user_message
-    ):
+    async for event in runner.run_async(user_id=USER_ID, session_id=SESSION_ID, new_message=user_message):
         if event.is_final_response():
-            response_text = " ".join(
-                p.text for p in event.content.parts if p.text
-            )
+            response_text = " ".join(p.text for p in event.content.parts if p.text)
     return response_text
 
 
@@ -57,13 +51,9 @@ async def main():
     adapter.instrument()
 
     session_service = InMemorySessionService()
-    await session_service.create_session(
-        app_name=APP_NAME, user_id=USER_ID, session_id=SESSION_ID
-    )
+    await session_service.create_session(app_name=APP_NAME, user_id=USER_ID, session_id=SESSION_ID)
 
-    runner = Runner(
-        agent=agent, app_name=APP_NAME, session_service=session_service
-    )
+    runner = Runner(agent=agent, app_name=APP_NAME, session_service=session_service)
 
     questions = [
         "I'm planning a trip to Japan. What's the best time to visit?",

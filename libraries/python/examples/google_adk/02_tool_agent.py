@@ -71,22 +71,16 @@ async def main():
     adapter.instrument()
 
     session_service = InMemorySessionService()
-    await session_service.create_session(
-        app_name=APP_NAME, user_id=USER_ID, session_id=SESSION_ID
-    )
+    await session_service.create_session(app_name=APP_NAME, user_id=USER_ID, session_id=SESSION_ID)
 
-    runner = Runner(
-        agent=agent, app_name=APP_NAME, session_service=session_service
-    )
+    runner = Runner(agent=agent, app_name=APP_NAME, session_service=session_service)
 
     user_message = Content(
         role="user",
         parts=[Part(text="What's the weather like in London and what's its population?")],
     )
 
-    async for event in runner.run_async(
-        user_id=USER_ID, session_id=SESSION_ID, new_message=user_message
-    ):
+    async for event in runner.run_async(user_id=USER_ID, session_id=SESSION_ID, new_message=user_message):
         if event.is_final_response():
             text = " ".join(p.text for p in event.content.parts if p.text)
             print(f"Agent: {text}")
