@@ -44,10 +44,7 @@ def _normalize_content_blocks(content: Any) -> Any:
     if not isinstance(content, list):
         return content
 
-    filtered = [
-        block for block in content
-        if not (isinstance(block, dict) and block.get("type") == "thinking")
-    ]
+    filtered = [block for block in content if not (isinstance(block, dict) and block.get("type") == "thinking")]
 
     if not filtered:
         return content
@@ -196,10 +193,12 @@ def normalize_langchain_input(inputs: Any) -> Any:
     normalized: list[Any] = []
     for item in messages:
         if isinstance(item, (list, tuple)) and len(item) >= 2:
-            normalized.append({
-                "role": _normalize_role(str(item[0])),
-                "content": _normalize_content_blocks(item[1]),
-            })
+            normalized.append(
+                {
+                    "role": _normalize_role(str(item[0])),
+                    "content": _normalize_content_blocks(item[1]),
+                }
+            )
         elif isinstance(item, dict) and "type" in item and "content" in item:
             new_item = {k: v for k, v in item.items() if k != "type"}
             new_item["role"] = _normalize_role(str(item["type"]))
@@ -263,8 +262,10 @@ def normalize_type_to_role(data: Any) -> Any:
         if "role" in data and has_content and isinstance(data["role"], str):
             return {
                 k: (
-                    _normalize_role(v) if k == "role"
-                    else _normalize_content_blocks(normalize_type_to_role(v)) if k == "content"
+                    _normalize_role(v)
+                    if k == "role"
+                    else _normalize_content_blocks(normalize_type_to_role(v))
+                    if k == "content"
                     else normalize_type_to_role(v)
                 )
                 for k, v in data.items()

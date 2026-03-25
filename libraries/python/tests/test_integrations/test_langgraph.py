@@ -459,9 +459,7 @@ class TestExtractTokenUsage:
         import respx as respx_mod
 
         with respx_mod.mock:
-            respx_mod.post("http://testserver/traces").mock(
-                return_value=httpx.Response(202, json={})
-            )
+            respx_mod.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
             handler = LangGraphCallbackHandler()
             root_id = uuid4()
             llm_id = uuid4()
