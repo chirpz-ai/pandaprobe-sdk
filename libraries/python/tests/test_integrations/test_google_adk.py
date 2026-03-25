@@ -98,17 +98,25 @@ def _make_function_response_part(name: str, response: dict):
     )
 
 
-def _make_llm_request(model="gemini-2.5-flash", contents=None, system_instruction=None, temperature=None):
-    config = SimpleNamespace(
+def _make_llm_request(model="gemini-2.5-flash", contents=None, system_instruction=None, **config_overrides):
+    defaults = dict(
         model=model,
         system_instruction=system_instruction,
-        temperature=temperature,
+        temperature=None,
         top_p=None,
         top_k=None,
         max_output_tokens=None,
         stop_sequences=None,
         seed=None,
+        candidate_count=None,
+        presence_penalty=None,
+        frequency_penalty=None,
+        response_modalities=None,
+        response_mime_type=None,
+        thinking_config=None,
     )
+    defaults.update(config_overrides)
+    config = SimpleNamespace(**defaults)
     return SimpleNamespace(config=config, contents=contents or [])
 
 
@@ -309,7 +317,7 @@ class TestExtractTokenUsage:
         event = _make_event(usage_metadata=meta)
         result = extract_token_usage(event)
         assert result["prompt_tokens"] == 100
-        assert result["input_token_details"] == {"cache_read": 30}
+        assert result["cache_read_tokens"] == 30
 
     def test_thoughts_tokens(self):
         meta = SimpleNamespace(
@@ -322,7 +330,7 @@ class TestExtractTokenUsage:
         event = _make_event(usage_metadata=meta)
         result = extract_token_usage(event)
         assert result["completion_tokens"] == 50
-        assert result["output_token_details"] == {"reasoning": 200}
+        assert result["reasoning_tokens"] == 200
 
     def test_all_extended_usage(self):
         meta = SimpleNamespace(
@@ -338,8 +346,8 @@ class TestExtractTokenUsage:
             "prompt_tokens": 100,
             "completion_tokens": 50,
             "total_tokens": 350,
-            "input_token_details": {"cache_read": 20},
-            "output_token_details": {"reasoning": 180},
+            "cache_read_tokens": 20,
+            "reasoning_tokens": 180,
         }
 
 
@@ -363,6 +371,26 @@ class TestExtractModelParameters:
         result = extract_model_parameters(req)
         assert result == {"temperature": 0.7}
 
+    def test_extracts_multiple_params(self):
+        req = _make_llm_request(temperature=0.5, top_p=0.9, max_output_tokens=1024, presence_penalty=0.3)
+        result = extract_model_parameters(req)
+        assert result == {
+            "temperature": 0.5,
+            "top_p": 0.9,
+            "max_output_tokens": 1024,
+            "presence_penalty": 0.3,
+        }
+
+    def test_extracts_thinking_config(self):
+        req = _make_llm_request(temperature=0.7, thinking_config={"thinking_budget": 2048})
+        result = extract_model_parameters(req)
+        assert result == {"temperature": 0.7, "thinking_config": {"thinking_budget": 2048}}
+
+    def test_extracts_response_modalities(self):
+        req = _make_llm_request(response_modalities=["TEXT"])
+        result = extract_model_parameters(req)
+        assert result == {"response_modalities": ["TEXT"]}
+
     def test_no_config(self):
         req = SimpleNamespace(config=None)
         assert extract_model_parameters(req) is None
@@ -370,6 +398,20 @@ class TestExtractModelParameters:
     def test_no_params(self):
         req = _make_llm_request()
         assert extract_model_parameters(req) is None
+
+    def test_pydantic_model_dump(self):
+        """Config with model_dump() should be used preferentially."""
+
+        class PydanticLikeConfig:
+            def model_dump(self, exclude_none=False):
+                d = {"temperature": 0.8, "top_p": 0.95, "model": "gemini-2.5-flash", "system_instruction": "hi"}
+                if exclude_none:
+                    return d
+                return {**d, "top_k": None, "seed": None}
+
+        req = SimpleNamespace(config=PydanticLikeConfig(), contents=[])
+        result = extract_model_parameters(req)
+        assert result == {"temperature": 0.8, "top_p": 0.95}
 
 
 # ===================================================================
