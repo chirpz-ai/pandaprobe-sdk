@@ -70,7 +70,7 @@ class SpanData(BaseModel):
     input: Any | None = None
     output: Any | None = None
     model: str | None = Field(default=None, max_length=255)
-    token_usage: dict[str, int] | None = None
+    token_usage: dict[str, Any] | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
     started_at: datetime
     ended_at: datetime | None = None
