@@ -22,6 +22,133 @@ def _normalize_role(role: str) -> str:
     return _ROLE_MAP.get(role, role)
 
 
+def _normalize_content_blocks(content: Any) -> Any:
+    """Normalize provider-specific content block lists to a universal format.
+
+    Different LLM providers return message content in different formats when
+    thinking/reasoning is enabled:
+
+    * **Gemini** (``langchain-google-genai``): ``[{"type": "thinking", ...},
+      {"type": "text", "text": "...", "extras": {"signature": "..."}}]``
+    * **Anthropic** (``langchain-anthropic``): ``[{"type": "thinking",
+      "thinking": "..."}, {"type": "text", "text": "..."}]``
+    * **OpenAI**: plain string (no block list)
+
+    This function:
+    1. Strips ``{"type": "thinking", ...}`` blocks (reasoning is captured
+       separately via ``extract_reasoning_from_generation``).
+    2. If the remaining blocks are all text, collapses them to a plain string,
+       discarding provider metadata (e.g. Gemini's ``extras.signature``).
+    3. Passes through string content and mixed-type lists unchanged.
+    """
+    if not isinstance(content, list):
+        return content
+
+    filtered = [
+        block for block in content
+        if not (isinstance(block, dict) and block.get("type") == "thinking")
+    ]
+
+    if not filtered:
+        return content
+
+    text_parts: list[str] = []
+    for block in filtered:
+        if isinstance(block, str):
+            text_parts.append(block)
+        elif isinstance(block, dict) and block.get("type") == "text" and "text" in block:
+            text_parts.append(str(block["text"]))
+        else:
+            return filtered
+
+    if not text_parts:
+        return filtered
+    return " ".join(text_parts) if len(text_parts) > 1 else text_parts[0]
+
+
+_SAFE_MODEL_PARAM_KEYS: set[str] = {
+    "temperature",
+    "top_p",
+    "top_k",
+    "max_tokens",
+    "max_output_tokens",
+    "max_completion_tokens",
+    "stop",
+    "stop_sequences",
+    "seed",
+    "frequency_penalty",
+    "presence_penalty",
+    "response_format",
+    "reasoning_effort",
+    "thinking_level",
+    "thinking_budget",
+    "response_modalities",
+    "response_mime_type",
+}
+
+
+def _config_to_dict(config: Any) -> dict[str, Any]:
+    """Convert a config object or plain dict to a dict, dropping ``None`` values."""
+    if isinstance(config, dict):
+        return {k: v for k, v in config.items() if v is not None}
+    try:
+        if hasattr(config, "model_dump"):
+            return config.model_dump(exclude_none=True)
+    except Exception:
+        pass
+    try:
+        if hasattr(config, "__dict__"):
+            return {k: v for k, v in vars(config).items() if not k.startswith("_") and v is not None}
+    except Exception:
+        pass
+    return {}
+
+
+def extract_model_parameters(invocation_params: Any) -> dict[str, Any] | None:
+    """Extract whitelisted model parameters, dropping ``None`` values and secrets.
+
+    Mirrors the ADK ``extract_model_parameters`` pattern: converts the input
+    (dict or config object) via ``_config_to_dict``, then filters by
+    ``_SAFE_MODEL_PARAM_KEYS``.  Also captures ``thinking_config`` if present.
+    """
+    if not invocation_params:
+        return None
+    config_dict = _config_to_dict(invocation_params)
+    params: dict[str, Any] = {}
+    for key in _SAFE_MODEL_PARAM_KEYS:
+        val = config_dict.get(key)
+        if val is not None:
+            params[key] = val
+    thinking = config_dict.get("thinking_config")
+    if thinking:
+        params["thinking_config"] = thinking
+    return params if params else None
+
+
+def extract_token_usage(response: Any) -> dict[str, Any] | None:
+    """Extract token usage from LangChain's standardised ``usage_metadata``.
+
+    LangChain normalises token usage from all providers (OpenAI, Gemini,
+    Anthropic, etc.) into a consistent ``usage_metadata`` dict on the
+    generation message.  We record it as-is since the format is already
+    provider-agnostic.
+    """
+    try:
+        gen = response.generations[0][0]
+        msg = getattr(gen, "message", None)
+        if msg is None:
+            return None
+
+        meta = getattr(msg, "usage_metadata", None)
+        if not meta:
+            return None
+
+        md = _config_to_dict(meta)
+        return md if md else None
+    except Exception:
+        return None
+
+
 def extract_name(serialized: dict[str, Any] | None, fallback: str = "unknown") -> str:
     """Extract a human-readable name from a LangChain serialized dict."""
     if not serialized:
@@ -69,14 +196,20 @@ def normalize_langchain_input(inputs: Any) -> Any:
     normalized: list[Any] = []
     for item in messages:
         if isinstance(item, (list, tuple)) and len(item) >= 2:
-            normalized.append({"role": _normalize_role(str(item[0])), "content": item[1]})
+            normalized.append({
+                "role": _normalize_role(str(item[0])),
+                "content": _normalize_content_blocks(item[1]),
+            })
         elif isinstance(item, dict) and "type" in item and "content" in item:
             new_item = {k: v for k, v in item.items() if k != "type"}
             new_item["role"] = _normalize_role(str(item["type"]))
+            new_item["content"] = _normalize_content_blocks(new_item["content"])
             normalized.append(new_item)
         elif isinstance(item, dict) and "role" in item and isinstance(item["role"], str):
             new_item = dict(item)
             new_item["role"] = _normalize_role(item["role"])
+            if "content" in new_item:
+                new_item["content"] = _normalize_content_blocks(new_item["content"])
             normalized.append(new_item)
         else:
             normalized.append(item)
@@ -107,12 +240,14 @@ def normalize_langchain_output(outputs: Any) -> Any:
         elif "role" in last_item and isinstance(last_item["role"], str):
             last_item = dict(last_item)
             last_item["role"] = _normalize_role(last_item["role"])
+        if "content" in last_item:
+            last_item["content"] = _normalize_content_blocks(last_item["content"])
 
     return {"messages": [last_item]}
 
 
 def normalize_type_to_role(data: Any) -> Any:
-    """Recursively rename ``type`` to ``role`` and normalize role values in message dicts."""
+    """Recursively rename ``type`` to ``role``, normalize roles, and strip thinking blocks."""
     if isinstance(data, dict):
         has_content = "content" in data
         if "type" in data and has_content:
@@ -120,15 +255,61 @@ def normalize_type_to_role(data: Any) -> Any:
             for k, v in data.items():
                 if k == "type":
                     new_dict["role"] = _normalize_role(str(v))
+                elif k == "content":
+                    new_dict[k] = _normalize_content_blocks(normalize_type_to_role(v))
                 else:
                     new_dict[k] = normalize_type_to_role(v)
             return new_dict
         if "role" in data and has_content and isinstance(data["role"], str):
-            return {k: (_normalize_role(v) if k == "role" else normalize_type_to_role(v)) for k, v in data.items()}
+            return {
+                k: (
+                    _normalize_role(v) if k == "role"
+                    else _normalize_content_blocks(normalize_type_to_role(v)) if k == "content"
+                    else normalize_type_to_role(v)
+                )
+                for k, v in data.items()
+            }
         return {k: normalize_type_to_role(v) for k, v in data.items()}
     if isinstance(data, list):
         return [normalize_type_to_role(item) for item in data]
     return data
+
+
+def extract_reasoning_from_generation(response: Any) -> str | None:
+    """Extract reasoning/thinking text from a LangChain LLM response.
+
+    Handles two provider patterns:
+      - **Anthropic**: ``message.content`` is a list of blocks; those with
+        ``type == "thinking"`` contain the reasoning text.
+      - **OpenAI**: reasoning may appear in ``message.additional_kwargs``
+        under ``reasoning_content`` or ``reasoning``.
+    """
+    if not hasattr(response, "generations") or not response.generations:
+        return None
+    try:
+        gen = response.generations[0][0]
+        msg = getattr(gen, "message", None)
+        if msg is None:
+            return None
+
+        content = getattr(msg, "content", None)
+        if isinstance(content, list):
+            thinking_parts = []
+            for block in content:
+                if isinstance(block, dict) and block.get("type") == "thinking":
+                    text = block.get("thinking") or block.get("text")
+                    if text:
+                        thinking_parts.append(str(text))
+            if thinking_parts:
+                return "\n\n".join(thinking_parts)
+
+        additional = getattr(msg, "additional_kwargs", None) or {}
+        reasoning = additional.get("reasoning_content") or additional.get("reasoning")
+        if reasoning and isinstance(reasoning, str):
+            return reasoning
+    except Exception:
+        pass
+    return None
 
 
 def normalize_llm_generation_output(response: Any) -> Any | None:
