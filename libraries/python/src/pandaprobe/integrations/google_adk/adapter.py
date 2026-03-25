@@ -414,7 +414,7 @@ async def _wrap_llm_call_async(wrapped: Any, instance: Any, args: Any, kwargs: A
                 if thinking:
                     span.metadata["reasoning_summary"] = thinking
 
-            token_usage = extract_token_usage(content_source)
+            token_usage = extract_token_usage(last_event) or extract_token_usage(content_source)
             if token_usage:
                 span.token_usage = token_usage
 
