@@ -279,12 +279,18 @@ _SAFE_MODEL_PARAM_KEYS: set[str] = {
     "temperature",
     "top_p",
     "top_k",
+    "max_tokens",
     "max_output_tokens",
+    "max_completion_tokens",
+    "stop",
     "stop_sequences",
     "seed",
-    "candidate_count",
-    "presence_penalty",
     "frequency_penalty",
+    "presence_penalty",
+    "response_format",
+    "reasoning_effort",
+    "thinking_level",
+    "thinking_budget",
     "response_modalities",
     "response_mime_type",
 }
@@ -306,12 +312,7 @@ def _config_to_dict(config: Any) -> dict[str, Any]:
 
 
 def extract_model_parameters(llm_request: Any) -> dict[str, Any] | None:
-    """Extract safe model parameters from an ADK LlmRequest config.
-
-    Uses ``model_dump(exclude_none=True)`` for robust Pydantic extraction,
-    then filters to a whitelist of generation-related keys.  Also captures
-    ``thinking_config`` when present.
-    """
+    """Extract safe model parameters from an ADK LlmRequest config."""
     config = getattr(llm_request, "config", None)
     if not config:
         return None
