@@ -20,7 +20,7 @@ import uuid
 from google.adk.agents import LlmAgent
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
-from google.genai.types import Content, Part
+from google.genai.types import Content, GenerateContentConfig, Part, ThinkingConfig
 
 import pandaprobe
 from pandaprobe.integrations.google_adk import GoogleADKAdapter
@@ -28,7 +28,12 @@ from pandaprobe.integrations.google_adk import GoogleADKAdapter
 agent = LlmAgent(
     name="travel_advisor",
     model="gemini-3.1-flash-lite-preview",
-    instruction=("You are a helpful travel advisor. Keep answers to 2-3 sentences."),
+    instruction="You are a helpful travel advisor. Keep answers to 2-3 sentences.",
+    generate_content_config=GenerateContentConfig(
+        thinking_config=ThinkingConfig(thinking_level="low", include_thoughts=True),
+        temperature=1,
+        max_output_tokens=200,
+    ),
 )
 
 APP_NAME = "travel_advisor"
