@@ -80,6 +80,9 @@ class GoogleADKAdapter(BaseIntegrationAdapter):
         missing.  The method is idempotent — calling it multiple times is safe.
         """
         global _patched
+
+        _store_adapter(self)
+
         if _patched:
             return True
 
@@ -89,8 +92,6 @@ class GoogleADKAdapter(BaseIntegrationAdapter):
         except ImportError as exc:
             logger.warning("PandaProbe Google ADK integration: missing dependency — %s", exc)
             return False
-
-        _store_adapter(self)
 
         wraps = [
             ("google.adk.runners", "Runner.run_async", _wrap_runner_run_async),
