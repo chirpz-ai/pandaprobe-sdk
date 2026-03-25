@@ -601,6 +601,7 @@ class TestWrapAgentRunAsync:
             }
             assert state.chain_output == {
                 "messages": [
+                    {"role": "system", "content": "Be helpful."},
                     {"role": "user", "content": "Hello"},
                     {"role": "assistant", "content": "Hi there"},
                     {"role": "user", "content": "How are you?"},
