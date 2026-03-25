@@ -330,6 +330,8 @@ async def _wrap_agent_run_async(wrapped: Any, instance: Any, args: Any, kwargs: 
         if ctx and state.root_span_id:
             updated_messages = _build_messages_from_session(ctx)
             if updated_messages:
+                if isinstance(instruction, str) and instruction.strip():
+                    updated_messages = [{"role": "system", "content": instruction}] + updated_messages
                 state.chain_output = {"messages": updated_messages}
 
         if not has_error:
