@@ -427,12 +427,14 @@ class TestExtractTokenUsage:
         usage = extract_token_usage(resp)
         assert usage == {"input_tokens": 50, "output_tokens": 20, "total_tokens": 70}
 
-    def test_gemini_keeps_only_ints(self):
+    def test_gemini_with_details(self):
         resp = _mock_gemini_llm_response("hello")
         usage = extract_token_usage(resp)
-        assert usage == {"input_tokens": 431, "output_tokens": 196, "total_tokens": 627}
-        assert "input_token_details" not in usage
-        assert "output_token_details" not in usage
+        assert usage["input_tokens"] == 431
+        assert usage["output_tokens"] == 196
+        assert usage["total_tokens"] == 627
+        assert usage["input_token_details"] == {"cache_read": 0}
+        assert usage["output_token_details"] == {"reasoning": 161}
 
     def test_no_message(self):
         from types import SimpleNamespace
@@ -476,7 +478,7 @@ class TestExtractTokenUsage:
             assert span.token_usage is not None
             assert span.token_usage["input_tokens"] == 431
             assert span.token_usage["output_tokens"] == 196
-            assert "input_token_details" not in span.token_usage
+            assert span.token_usage["output_token_details"] == {"reasoning": 161}
 
 
 # ---------------------------------------------------------------------------
