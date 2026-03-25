@@ -39,7 +39,7 @@ def chat(messages: list) -> dict:
 
 def run_conversation(topic: str, questions: list[str]) -> None:
     """Run a multi-turn conversation under a unique session ID."""
-    session_id = f"{topic}-{uuid.uuid4().hex[:8]}"
+    session_id = str(uuid.uuid4())
     print(f"\n--- Session: {session_id} (topic: {topic}) ---")
 
     system = f"You are a helpful assistant specializing in {topic}. Keep answers to 1-2 sentences."

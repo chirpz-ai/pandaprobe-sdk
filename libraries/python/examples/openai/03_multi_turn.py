@@ -24,7 +24,7 @@ from pandaprobe.wrappers import wrap_openai
 client = wrap_openai(openai.OpenAI())
 
 if __name__ == "__main__":
-    session_id = f"geography-{uuid.uuid4().hex[:8]}"
+    session_id = str(uuid.uuid4())
     print(f"Session: {session_id}\n")
 
     conversation = [{"role": "system", "content": "You are a concise geography assistant."}]

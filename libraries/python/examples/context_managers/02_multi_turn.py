@@ -56,7 +56,7 @@ def chat_turn(conversation: list[dict], user_message: str) -> tuple[str, str]:
 
 
 if __name__ == "__main__":
-    session_id = f"tutoring-{uuid.uuid4().hex[:8]}"
+    session_id = str(uuid.uuid4())
     conversation = [{"role": "system", "content": SYSTEM_PROMPT}]
 
     questions = [

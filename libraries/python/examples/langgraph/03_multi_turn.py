@@ -58,7 +58,7 @@ def chat_turn(user_message: str, history: list, handler: LangGraphCallbackHandle
 
 
 if __name__ == "__main__":
-    session_id = f"travel-advisor-{uuid.uuid4().hex[:8]}"
+    session_id = str(uuid.uuid4())
     print(f"Session: {session_id}\n")
 
     history: list = [("system", "You are a helpful travel advisor. Keep answers to 2-3 sentences.")]
