@@ -21,7 +21,7 @@ class TestSdkConfig:
 
     def test_defaults(self):
         cfg = SdkConfig(api_key="sk_pp_abc", project_name="proj")
-        assert cfg.endpoint == "http://localhost:8000"
+        assert cfg.endpoint == "https://api.pandaprobe.com"
         assert cfg.batch_size == 10
         assert cfg.flush_interval == 5.0
         assert cfg.max_queue_size == 1000

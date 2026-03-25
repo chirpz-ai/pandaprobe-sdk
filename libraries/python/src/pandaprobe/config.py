@@ -44,7 +44,7 @@ class SdkConfig:
 
     api_key: str | None = None
     project_name: str | None = None
-    endpoint: str = "http://localhost:8000"
+    endpoint: str = "https://api.pandaprobe.com"
     environment: str | None = None
     release: str | None = None
     enabled: bool = True
