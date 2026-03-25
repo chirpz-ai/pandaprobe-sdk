@@ -213,21 +213,22 @@ def normalize_llm_response_to_messages(content: Any) -> dict[str, Any]:
     return {"messages": [msg]}
 
 
-def extract_token_usage(event_or_response: Any) -> dict[str, Any] | None:
+def extract_token_usage(event_or_response: Any) -> dict[str, int] | None:
     """Extract token usage from an ADK event or LlmResponse.
 
-    Maps ADK field names to PandaProbe's standard:
-      - prompt_token_count        -> prompt_tokens
-      - candidates_token_count    -> completion_tokens
-      - total_token_count         -> total_tokens
-      - cached_content_token_count -> input_token_details.cache_read
-      - thoughts_token_count       -> output_token_details.reasoning
+    Maps ADK field names to PandaProbe's flat ``dict[str, int]`` standard
+    (matching the Gemini / OpenAI / Anthropic wrappers):
+      - prompt_token_count         -> prompt_tokens
+      - candidates_token_count     -> completion_tokens
+      - total_token_count          -> total_tokens
+      - cached_content_token_count -> cache_read_tokens
+      - thoughts_token_count       -> reasoning_tokens
     """
     usage_metadata = getattr(event_or_response, "usage_metadata", None)
     if not usage_metadata:
         return None
 
-    usage: dict[str, Any] = {}
+    usage: dict[str, int] = {}
     if (v := getattr(usage_metadata, "prompt_token_count", None)) is not None:
         usage["prompt_tokens"] = int(v)
     if (v := getattr(usage_metadata, "candidates_token_count", None)) is not None:
@@ -235,9 +236,9 @@ def extract_token_usage(event_or_response: Any) -> dict[str, Any] | None:
     if (v := getattr(usage_metadata, "total_token_count", None)) is not None:
         usage["total_tokens"] = int(v)
     if (v := getattr(usage_metadata, "cached_content_token_count", None)) is not None:
-        usage.setdefault("input_token_details", {})["cache_read"] = int(v)
+        usage["cache_read_tokens"] = int(v)
     if (v := getattr(usage_metadata, "thoughts_token_count", None)) is not None:
-        usage.setdefault("output_token_details", {})["reasoning"] = int(v)
+        usage["reasoning_tokens"] = int(v)
 
     return usage if usage else None
 
@@ -255,16 +256,56 @@ def extract_model_name(llm_request: Any) -> str | None:
     return None
 
 
+_SAFE_MODEL_PARAM_KEYS: set[str] = {
+    "temperature",
+    "top_p",
+    "top_k",
+    "max_output_tokens",
+    "stop_sequences",
+    "seed",
+    "candidate_count",
+    "presence_penalty",
+    "frequency_penalty",
+    "response_modalities",
+    "response_mime_type",
+}
+
+
+def _config_to_dict(config: Any) -> dict[str, Any]:
+    """Convert a GenerateContentConfig to a plain dict, dropping None values."""
+    try:
+        if hasattr(config, "model_dump"):
+            return config.model_dump(exclude_none=True)
+    except Exception:
+        pass
+    try:
+        if hasattr(config, "__dict__"):
+            return {k: v for k, v in vars(config).items() if not k.startswith("_") and v is not None}
+    except Exception:
+        pass
+    return {}
+
+
 def extract_model_parameters(llm_request: Any) -> dict[str, Any] | None:
-    """Extract safe model parameters from an ADK LlmRequest config."""
+    """Extract safe model parameters from an ADK LlmRequest config.
+
+    Uses ``model_dump(exclude_none=True)`` for robust Pydantic extraction,
+    then filters to a whitelist of generation-related keys.  Also captures
+    ``thinking_config`` when present.
+    """
     config = getattr(llm_request, "config", None)
     if not config:
         return None
 
-    safe_keys = {"temperature", "top_p", "top_k", "max_output_tokens", "stop_sequences", "seed"}
+    config_dict = _config_to_dict(config)
     params: dict[str, Any] = {}
-    for key in safe_keys:
-        val = getattr(config, key, None)
+    for key in _SAFE_MODEL_PARAM_KEYS:
+        val = config_dict.get(key)
         if val is not None:
-            params[key] = val
+            params[key] = safe_serialize(val)
+
+    thinking = config_dict.get("thinking_config")
+    if thinking:
+        params["thinking_config"] = safe_serialize(thinking)
+
     return params if params else None
