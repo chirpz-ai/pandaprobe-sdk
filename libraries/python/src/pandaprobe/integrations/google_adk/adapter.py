@@ -20,6 +20,7 @@ from pandaprobe.integrations.google_adk.utils import (
     extract_model_name,
     extract_model_parameters,
     extract_text_from_content,
+    extract_thinking_from_content,
     extract_token_usage,
     normalize_contents_to_messages,
     normalize_llm_response_to_messages,
@@ -406,6 +407,11 @@ async def _wrap_llm_call_async(wrapped: Any, instance: Any, args: Any, kwargs: A
             response_content = getattr(content_source, "content", None)
             if response_content is not None:
                 span.output = normalize_llm_response_to_messages(response_content)
+                thinking = extract_thinking_from_content(response_content)
+                if not thinking:
+                    thinking = getattr(content_source, "reasoning", None)
+                if thinking:
+                    span.metadata["reasoning_summary"] = thinking
 
             token_usage = extract_token_usage(content_source)
             if token_usage:

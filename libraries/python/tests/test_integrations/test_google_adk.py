@@ -29,9 +29,11 @@ from pandaprobe.integrations.google_adk.adapter import (
     _wrap_tool_run_async,
 )
 from pandaprobe.integrations.google_adk.utils import (
+    _content_to_message,
     extract_model_name,
     extract_model_parameters,
     extract_text_from_content,
+    extract_thinking_from_content,
     extract_token_usage,
     normalize_contents_to_messages,
     normalize_llm_response_to_messages,
@@ -72,6 +74,27 @@ def _make_content(role: str = "user", text: str = "hello"):
         thought=None,
     )
     return SimpleNamespace(role=role, parts=[part])
+
+
+def _make_content_with_thinking(role: str = "model", thinking: str = "Let me think...", text: str = "The answer."):
+    """Create an ADK Content with both a thought part and a text part."""
+    thought_part = SimpleNamespace(
+        text=thinking,
+        function_call=None,
+        function_response=None,
+        executable_code=None,
+        code_execution_result=None,
+        thought=True,
+    )
+    text_part = SimpleNamespace(
+        text=text,
+        function_call=None,
+        function_response=None,
+        executable_code=None,
+        code_execution_result=None,
+        thought=False,
+    )
+    return SimpleNamespace(role=role, parts=[thought_part, text_part])
 
 
 def _make_function_call_part(name: str, args: dict):
@@ -180,6 +203,62 @@ class TestExtractTextFromContent:
     def test_empty_parts(self):
         content = SimpleNamespace(parts=[])
         assert extract_text_from_content(content) is None
+
+    def test_skips_thinking_parts(self):
+        content = _make_content_with_thinking(thinking="Hmm, thinking...", text="The answer")
+        assert extract_text_from_content(content) == "The answer"
+
+    def test_only_thinking_returns_none(self):
+        part = SimpleNamespace(text="Just thinking", thought=True)
+        content = SimpleNamespace(parts=[part])
+        assert extract_text_from_content(content) is None
+
+
+class TestExtractThinkingFromContent:
+    def test_extracts_thinking(self):
+        content = _make_content_with_thinking(thinking="Step 1...", text="The answer")
+        assert extract_thinking_from_content(content) == "Step 1..."
+
+    def test_no_thinking(self):
+        content = _make_content("model", "Just text")
+        assert extract_thinking_from_content(content) is None
+
+    def test_none_content(self):
+        assert extract_thinking_from_content(None) is None
+
+    def test_multiple_thinking_parts(self):
+        p1 = SimpleNamespace(text="Thought A", thought=True)
+        p2 = SimpleNamespace(text="Thought B", thought=True)
+        p3 = SimpleNamespace(text="Response", thought=False)
+        content = SimpleNamespace(parts=[p1, p2, p3])
+        assert extract_thinking_from_content(content) == "Thought A\n\nThought B"
+
+
+class TestThinkingSeparation:
+    """Thinking text should be stripped from messages and not mixed with content."""
+
+    def test_content_to_message_strips_thinking(self):
+        content = _make_content_with_thinking(thinking="Let me think...", text="Paris is the capital.")
+        msg = _content_to_message(content)
+        assert msg == {"role": "assistant", "content": "Paris is the capital."}
+
+    def test_normalize_contents_strips_thinking(self):
+        contents = [
+            _make_content("user", "What is the capital of France?"),
+            _make_content_with_thinking(thinking="Hmm, France...", text="Paris."),
+        ]
+        result = normalize_contents_to_messages(contents)
+        assert result == {
+            "messages": [
+                {"role": "user", "content": "What is the capital of France?"},
+                {"role": "assistant", "content": "Paris."},
+            ]
+        }
+
+    def test_normalize_llm_response_strips_thinking(self):
+        content = _make_content_with_thinking(thinking="Let me reason...", text="The answer is 42.")
+        result = normalize_llm_response_to_messages(content)
+        assert result == {"messages": [{"role": "assistant", "content": "The answer is 42."}]}
 
 
 class TestNormalizeContentsToMessages:

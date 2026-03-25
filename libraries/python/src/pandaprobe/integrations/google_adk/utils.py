@@ -37,7 +37,7 @@ def safe_serialize(obj: Any) -> Any:
 
 
 def extract_text_from_content(content: Any) -> str | None:
-    """Extract plain text from an ADK Content object by joining its text parts."""
+    """Extract plain text from an ADK Content object, skipping thinking parts."""
     if content is None:
         return None
     parts = getattr(content, "parts", None)
@@ -45,10 +45,28 @@ def extract_text_from_content(content: Any) -> str | None:
         return None
     text_parts = []
     for p in parts:
+        if getattr(p, "thought", False):
+            continue
         text = getattr(p, "text", None)
         if text:
             text_parts.append(str(text))
     return " ".join(text_parts) if text_parts else None
+
+
+def extract_thinking_from_content(content: Any) -> str | None:
+    """Extract thinking/reasoning text from an ADK Content object."""
+    if content is None:
+        return None
+    parts = getattr(content, "parts", None)
+    if not parts:
+        return None
+    thinking_parts = []
+    for p in parts:
+        if getattr(p, "thought", False):
+            text = getattr(p, "text", None)
+            if text:
+                thinking_parts.append(str(text))
+    return "\n\n".join(thinking_parts) if thinking_parts else None
 
 
 def _serialize_part(part: Any) -> dict[str, Any]:
@@ -88,6 +106,8 @@ def _serialize_part(part: Any) -> dict[str, Any]:
 
     text = getattr(part, "text", None)
     if text is not None:
+        if getattr(part, "thought", False):
+            return {"type": "thinking", "thinking": str(text)}
         return {"type": "text", "text": str(text)}
 
     if hasattr(part, "executable_code") and part.executable_code:
@@ -105,9 +125,6 @@ def _serialize_part(part: Any) -> dict[str, Any]:
             "outcome": getattr(result, "outcome", "unknown"),
             "output": getattr(result, "output", ""),
         }
-
-    if hasattr(part, "thought") and part.thought is not None:
-        return {"type": "thinking", "thinking": str(part.thought)}
 
     return safe_serialize(part)
 
@@ -134,6 +151,8 @@ def _content_to_message(content: Any) -> dict[str, Any]:
         ptype = sp.get("type")
         if ptype == "text":
             text_parts.append(sp.get("text", ""))
+        elif ptype == "thinking":
+            pass
         elif ptype == "function_call":
             tool_calls.append(sp)
         elif ptype == "function_response":
