@@ -8,7 +8,7 @@ Required env vars:
     export PANDAPROBE_API_KEY="sk_pp_..."
     export PANDAPROBE_PROJECT_NAME="my-project"
     export PANDAPROBE_ENDPOINT="http://localhost:8000"
-    export OPENAI_API_KEY="sk-..."
+    export GOOGLE_API_KEY="..."
 
 Run:
     uv run python examples/langgraph/03_multi_turn.py
@@ -17,7 +17,7 @@ Run:
 import uuid
 from typing import Annotated
 
-from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 from typing_extensions import TypedDict
@@ -25,7 +25,13 @@ from typing_extensions import TypedDict
 import pandaprobe
 from pandaprobe.integrations.langgraph import LangGraphCallbackHandler
 
-llm = ChatOpenAI(model="gpt-5.4-nano", model_kwargs={"reasoning_effort": "low"})
+llm = ChatGoogleGenerativeAI(
+    model="gemini-3.1-flash-lite-preview",
+    temperature=1,
+    max_output_tokens=200,
+    thinking_level="low",
+    include_thoughts=True,
+)
 
 
 class State(TypedDict):
