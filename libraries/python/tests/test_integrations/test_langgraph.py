@@ -61,8 +61,8 @@ class TestNormalization:
         result = normalize_langchain_input(data)
         assert result == {
             "messages": [
-                {"role": "human", "content": "hello"},
-                {"role": "ai", "content": "hi"},
+                {"role": "user", "content": "hello"},
+                {"role": "assistant", "content": "hi"},
             ]
         }
 
@@ -74,8 +74,8 @@ class TestNormalization:
             ]
         }
         result = normalize_langchain_input(data)
-        assert result["messages"][0] == {"role": "human", "content": "hello", "id": "1"}
-        assert result["messages"][1] == {"role": "ai", "content": "hi", "id": "2"}
+        assert result["messages"][0] == {"role": "user", "content": "hello", "id": "1"}
+        assert result["messages"][1] == {"role": "assistant", "content": "hi", "id": "2"}
 
     def test_normalize_langchain_input_passthrough(self):
         assert normalize_langchain_input("string") == "string"
@@ -91,7 +91,7 @@ class TestNormalization:
             ]
         }
         result = normalize_langchain_output(data)
-        assert result == {"messages": [{"role": "ai", "content": "hello"}]}
+        assert result == {"messages": [{"role": "assistant", "content": "hello"}]}
 
     def test_normalize_langchain_output_passthrough(self):
         assert normalize_langchain_output("string") == "string"
@@ -109,8 +109,23 @@ class TestNormalization:
         result = normalize_type_to_role(data)
         assert result == {
             "messages": [
+                {"role": "user", "content": "hi"},
+                {"role": "assistant", "content": "hello"},
+            ]
+        }
+
+    def test_normalize_type_to_role_existing_role(self):
+        data = {
+            "messages": [
                 {"role": "human", "content": "hi"},
                 {"role": "ai", "content": "hello"},
+            ]
+        }
+        result = normalize_type_to_role(data)
+        assert result == {
+            "messages": [
+                {"role": "user", "content": "hi"},
+                {"role": "assistant", "content": "hello"},
             ]
         }
 
@@ -127,7 +142,7 @@ class TestNormalization:
         gen = SimpleNamespace(message=msg, text="hello")
         response = SimpleNamespace(generations=[[gen]])
         result = normalize_llm_generation_output(response)
-        assert result == {"messages": [{"role": "ai", "content": "hello"}]}
+        assert result == {"messages": [{"role": "assistant", "content": "hello"}]}
 
     def test_normalize_llm_generation_output_plain(self):
         from types import SimpleNamespace
@@ -263,7 +278,7 @@ class TestCallbackHandler:
         assert span.input == {
             "messages": [
                 {"role": "system", "content": "You are helpful."},
-                {"role": "human", "content": "hello"},
+                {"role": "user", "content": "hello"},
             ]
         }
 
