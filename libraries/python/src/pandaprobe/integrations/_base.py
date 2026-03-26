@@ -33,7 +33,6 @@ SAFE_MODEL_PARAM_KEYS: set[str] = {
     "thinking",
     "thinking_level",
     "thinking_budget",
-    "top_logprobs",
     "stream_options",
     "service_tier",
     "truncation",
