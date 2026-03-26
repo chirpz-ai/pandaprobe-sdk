@@ -168,7 +168,7 @@ def _content_to_message(content: Any) -> dict[str, Any]:
                 {
                     "role": "tool",
                     "name": tr.get("name", ""),
-                    "content": json.dumps(resp) if isinstance(resp, dict) else str(resp or ""),
+                    "content": json.dumps(resp) if isinstance(resp, (dict, list)) else ("" if resp is None else str(resp)),
                 }
             )
         return messages  # type: ignore[return-value]
@@ -279,20 +279,28 @@ _SAFE_MODEL_PARAM_KEYS: set[str] = {
     "temperature",
     "top_p",
     "top_k",
+    "seed",
+    "n",
+    "candidate_count",
     "max_tokens",
     "max_output_tokens",
     "max_completion_tokens",
-    "stop",
-    "stop_sequences",
-    "seed",
     "frequency_penalty",
     "presence_penalty",
+    "stop",
+    "stop_sequences",
     "response_format",
-    "reasoning_effort",
-    "thinking_level",
-    "thinking_budget",
     "response_modalities",
     "response_mime_type",
+    "reasoning_effort",
+    "reasoning",
+    "thinking",
+    "thinking_level",
+    "thinking_budget",
+    "top_logprobs",
+    "stream_options",
+    "service_tier",
+    "truncation",
 }
 
 
