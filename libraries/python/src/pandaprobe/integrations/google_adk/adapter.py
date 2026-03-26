@@ -316,7 +316,7 @@ async def _wrap_agent_run_async(wrapped: Any, instance: Any, args: Any, kwargs: 
 
     span_input: Any = {"messages": session_messages} if session_messages else None
 
-    if session_messages and state.root_span_id:
+    if session_messages and state.root_span_id and parent_id == state.root_span_id:
         root_span = state.spans.get(state.root_span_id)
         if root_span:
             root_span.input = {"messages": list(session_messages)}
@@ -350,7 +350,7 @@ async def _wrap_agent_run_async(wrapped: Any, instance: Any, args: Any, kwargs: 
         if final_text:
             span.output = {"messages": [{"role": "assistant", "content": final_text}]}
 
-        if ctx and state.root_span_id:
+        if ctx and state.root_span_id and parent_id == state.root_span_id:
             updated_messages = _build_messages_from_session(ctx)
             if updated_messages:
                 if isinstance(instruction, str) and instruction.strip():
