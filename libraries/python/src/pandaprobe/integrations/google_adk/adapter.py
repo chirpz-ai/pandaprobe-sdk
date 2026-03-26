@@ -94,15 +94,36 @@ class GoogleADKAdapter(BaseIntegrationAdapter):
             return False
 
         wraps = [
-            ("google.adk.runners", "Runner.run_async", _wrap_runner_run_async),
-            ("google.adk.agents.base_agent", "BaseAgent.run_async", _wrap_agent_run_async),
+            (
+                "google.adk.runners",
+                "Runner.run_async",
+                _wrap_runner_run_async,
+            ),
+            (
+                "google.adk.agents.base_agent",
+                "BaseAgent.run_async",
+                _wrap_agent_run_async,
+            ),
             (
                 "google.adk.flows.llm_flows.base_llm_flow",
                 "BaseLlmFlow._call_llm_async",
                 _wrap_llm_call_async,
             ),
-            ("google.adk.tools.base_tool", "BaseTool.run_async", _wrap_tool_run_async),
-            ("google.adk.tools.function_tool", "FunctionTool.run_async", _wrap_tool_run_async),
+            (
+                "google.adk.tools.base_tool",
+                "BaseTool.run_async",
+                _wrap_tool_run_async,
+            ),
+            (
+                "google.adk.tools.function_tool",
+                "FunctionTool.run_async",
+                _wrap_tool_run_async,
+            ),
+            (
+                "google.adk.tools.mcp_tool.mcp_tool",
+                "McpTool.run_async",
+                _wrap_tool_run_async,
+            ),
         ]
 
         for module, name, wrapper in wraps:
@@ -425,7 +446,7 @@ async def _wrap_llm_call_async(wrapped: Any, instance: Any, args: Any, kwargs: A
 
 
 # ---------------------------------------------------------------------------
-# Wrapper: BaseTool.run_async / FunctionTool.run_async  →  TOOL span
+# Wrapper: BaseTool.run_async / FunctionTool.run_async / McpTool.run_async   →  TOOL span
 # ---------------------------------------------------------------------------
 
 
