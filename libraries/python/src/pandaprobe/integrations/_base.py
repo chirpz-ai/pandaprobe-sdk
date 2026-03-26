@@ -8,6 +8,37 @@ if TYPE_CHECKING:
     from pandaprobe.client import Client
 
 # ---------------------------------------------------------------------------
+# Shared serialization utilities
+# ---------------------------------------------------------------------------
+
+
+def safe_serialize(obj: Any) -> Any:
+    """Best-effort JSON-safe serialization of an arbitrary object.
+
+    Handles Pydantic models, dataclasses with ``__dict__``, and plain dicts.
+    """
+    if obj is None or isinstance(obj, (str, int, float, bool)):
+        return obj
+    if isinstance(obj, bytes):
+        return repr(obj)
+    if isinstance(obj, (list, tuple)):
+        return [safe_serialize(v) for v in obj]
+    if isinstance(obj, dict):
+        return {str(k): safe_serialize(v) for k, v in obj.items()}
+    if hasattr(obj, "model_dump"):
+        try:
+            return obj.model_dump()
+        except Exception:
+            pass
+    if hasattr(obj, "__dict__"):
+        try:
+            return {k: safe_serialize(v) for k, v in obj.__dict__.items() if not k.startswith("_")}
+        except Exception:
+            pass
+    return repr(obj)
+
+
+# ---------------------------------------------------------------------------
 # Shared model-parameter utilities
 # ---------------------------------------------------------------------------
 
