@@ -138,7 +138,25 @@ def extract_token_usage(response: Any) -> dict[str, int] | None:
 
         return usage if usage else None
     except Exception:
-        return None
+        pass
+
+    # Fallback: legacy llm_output.token_usage path (older LangChain providers)
+    try:
+        llm_output = getattr(response, "llm_output", None) or {}
+        legacy = llm_output.get("token_usage") if isinstance(llm_output, dict) else None
+        if isinstance(legacy, dict) and legacy:
+            usage = {}
+            if (v := legacy.get("prompt_tokens")) is not None:
+                usage["prompt_tokens"] = int(v)
+            if (v := legacy.get("completion_tokens")) is not None:
+                usage["completion_tokens"] = int(v)
+            if (v := legacy.get("total_tokens")) is not None:
+                usage["total_tokens"] = int(v)
+            return usage if usage else None
+    except Exception:
+        pass
+
+    return None
 
 
 def extract_name(serialized: dict[str, Any] | None, fallback: str = "unknown") -> str:
