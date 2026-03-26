@@ -1,6 +1,7 @@
-"""Framework integration adapters."""
+"""Framework integration adapters.
 
-from pandaprobe.integrations.google_adk.adapter import GoogleADKAdapter
-from pandaprobe.integrations.langgraph.callback import LangGraphCallbackHandler
+Each adapter lives in its own subpackage and should be imported directly::
 
-__all__ = ["GoogleADKAdapter", "LangGraphCallbackHandler"]
+    from pandaprobe.integrations.google_adk import GoogleADKAdapter
+    from pandaprobe.integrations.langgraph import LangGraphCallbackHandler
+"""
