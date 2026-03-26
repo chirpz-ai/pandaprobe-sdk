@@ -6,35 +6,9 @@ import json
 import logging
 from typing import Any
 
-from pandaprobe.integrations._base import SAFE_MODEL_PARAM_KEYS, config_to_dict
+from pandaprobe.integrations._base import SAFE_MODEL_PARAM_KEYS, config_to_dict, safe_serialize
 
 logger = logging.getLogger("pandaprobe")
-
-
-def safe_serialize(obj: Any) -> Any:
-    """Best-effort JSON-safe serialization of an arbitrary object.
-
-    Handles Claude Agent SDK dataclass types, Pydantic models, and plain dicts.
-    """
-    if obj is None or isinstance(obj, (str, int, float, bool)):
-        return obj
-    if isinstance(obj, bytes):
-        return repr(obj)
-    if isinstance(obj, (list, tuple)):
-        return [safe_serialize(v) for v in obj]
-    if isinstance(obj, dict):
-        return {str(k): safe_serialize(v) for k, v in obj.items()}
-    if hasattr(obj, "model_dump"):
-        try:
-            return obj.model_dump()
-        except Exception:
-            pass
-    if hasattr(obj, "__dict__"):
-        try:
-            return {k: safe_serialize(v) for k, v in obj.__dict__.items() if not k.startswith("_")}
-        except Exception:
-            pass
-    return repr(obj)
 
 
 def flatten_content_blocks(content: Any) -> list[dict[str, Any]]:
