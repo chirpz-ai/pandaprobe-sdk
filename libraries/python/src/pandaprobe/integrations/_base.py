@@ -7,6 +7,64 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from pandaprobe.client import Client
 
+# ---------------------------------------------------------------------------
+# Shared model-parameter utilities
+# ---------------------------------------------------------------------------
+
+SAFE_MODEL_PARAM_KEYS: set[str] = {
+    "temperature",
+    "top_p",
+    "top_k",
+    "seed",
+    "n",
+    "candidate_count",
+    "max_tokens",
+    "max_output_tokens",
+    "max_completion_tokens",
+    "frequency_penalty",
+    "presence_penalty",
+    "stop",
+    "stop_sequences",
+    "response_format",
+    "response_modalities",
+    "response_mime_type",
+    "reasoning_effort",
+    "reasoning",
+    "thinking",
+    "thinking_level",
+    "thinking_budget",
+    "top_logprobs",
+    "stream_options",
+    "service_tier",
+    "truncation",
+}
+
+
+def config_to_dict(config: Any) -> dict[str, Any]:
+    """Convert a config object or plain dict to a dict, dropping ``None`` values.
+
+    Handles Pydantic models (``model_dump``), plain dicts, and objects with
+    ``__dict__``.
+    """
+    if isinstance(config, dict):
+        return {k: v for k, v in config.items() if v is not None}
+    try:
+        if hasattr(config, "model_dump"):
+            return config.model_dump(exclude_none=True)
+    except Exception:
+        pass
+    try:
+        if hasattr(config, "__dict__"):
+            return {k: v for k, v in vars(config).items() if not k.startswith("_") and v is not None}
+    except Exception:
+        pass
+    return {}
+
+
+# ---------------------------------------------------------------------------
+# Base adapter class
+# ---------------------------------------------------------------------------
+
 
 class BaseIntegrationAdapter:
     """Common foundation for framework integration adapters.

@@ -7,6 +7,8 @@ import json
 import logging
 from typing import Any
 
+from pandaprobe.integrations._base import SAFE_MODEL_PARAM_KEYS, config_to_dict
+
 logger = logging.getLogger("pandaprobe")
 
 
@@ -277,59 +279,15 @@ def extract_model_name(llm_request: Any) -> str | None:
     return None
 
 
-_SAFE_MODEL_PARAM_KEYS: set[str] = {
-    "temperature",
-    "top_p",
-    "top_k",
-    "seed",
-    "n",
-    "candidate_count",
-    "max_tokens",
-    "max_output_tokens",
-    "max_completion_tokens",
-    "frequency_penalty",
-    "presence_penalty",
-    "stop",
-    "stop_sequences",
-    "response_format",
-    "response_modalities",
-    "response_mime_type",
-    "reasoning_effort",
-    "reasoning",
-    "thinking",
-    "thinking_level",
-    "thinking_budget",
-    "top_logprobs",
-    "stream_options",
-    "service_tier",
-    "truncation",
-}
-
-
-def _config_to_dict(config: Any) -> dict[str, Any]:
-    """Convert a GenerateContentConfig to a plain dict, dropping None values."""
-    try:
-        if hasattr(config, "model_dump"):
-            return config.model_dump(exclude_none=True)
-    except Exception:
-        pass
-    try:
-        if hasattr(config, "__dict__"):
-            return {k: v for k, v in vars(config).items() if not k.startswith("_") and v is not None}
-    except Exception:
-        pass
-    return {}
-
-
 def extract_model_parameters(llm_request: Any) -> dict[str, Any] | None:
     """Extract safe model parameters from an ADK LlmRequest config."""
     config = getattr(llm_request, "config", None)
     if not config:
         return None
 
-    config_dict = _config_to_dict(config)
+    config_dict = config_to_dict(config)
     params: dict[str, Any] = {}
-    for key in _SAFE_MODEL_PARAM_KEYS:
+    for key in SAFE_MODEL_PARAM_KEYS:
         val = config_dict.get(key)
         if val is not None:
             params[key] = safe_serialize(val)

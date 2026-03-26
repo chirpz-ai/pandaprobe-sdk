@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from pandaprobe.integrations._base import SAFE_MODEL_PARAM_KEYS, config_to_dict
+
 logger = logging.getLogger("pandaprobe")
 
 _ROLE_MAP: dict[str, str] = {
@@ -63,64 +65,18 @@ def _normalize_content_blocks(content: Any) -> Any:
     return " ".join(text_parts) if len(text_parts) > 1 else text_parts[0]
 
 
-_SAFE_MODEL_PARAM_KEYS: set[str] = {
-    "temperature",
-    "top_p",
-    "top_k",
-    "seed",
-    "n",
-    "candidate_count",
-    "max_tokens",
-    "max_output_tokens",
-    "max_completion_tokens",
-    "frequency_penalty",
-    "presence_penalty",
-    "stop",
-    "stop_sequences",
-    "response_format",
-    "response_modalities",
-    "response_mime_type",
-    "reasoning_effort",
-    "reasoning",
-    "thinking",
-    "thinking_level",
-    "thinking_budget",
-    "top_logprobs",
-    "stream_options",
-    "service_tier",
-    "truncation",
-}
-
-
-def _config_to_dict(config: Any) -> dict[str, Any]:
-    """Convert a config object or plain dict to a dict, dropping ``None`` values."""
-    if isinstance(config, dict):
-        return {k: v for k, v in config.items() if v is not None}
-    try:
-        if hasattr(config, "model_dump"):
-            return config.model_dump(exclude_none=True)
-    except Exception:
-        pass
-    try:
-        if hasattr(config, "__dict__"):
-            return {k: v for k, v in vars(config).items() if not k.startswith("_") and v is not None}
-    except Exception:
-        pass
-    return {}
-
-
 def extract_model_parameters(invocation_params: Any) -> dict[str, Any] | None:
     """Extract whitelisted model parameters, dropping ``None`` values and secrets.
 
-    Mirrors the ADK ``extract_model_parameters`` pattern: converts the input
-    (dict or config object) via ``_config_to_dict``, then filters by
-    ``_SAFE_MODEL_PARAM_KEYS``.  Also captures ``thinking_config`` if present.
+    Converts the input (dict or config object) via ``config_to_dict``, then
+    filters by ``SAFE_MODEL_PARAM_KEYS``.  Also captures ``thinking_config``
+    if present.
     """
     if not invocation_params:
         return None
-    config_dict = _config_to_dict(invocation_params)
+    config_dict = config_to_dict(invocation_params)
     params: dict[str, Any] = {}
-    for key in _SAFE_MODEL_PARAM_KEYS:
+    for key in SAFE_MODEL_PARAM_KEYS:
         val = config_dict.get(key)
         if val is not None:
             params[key] = val
@@ -151,7 +107,7 @@ def extract_token_usage(response: Any) -> dict[str, int] | None:
         if not meta:
             return None
 
-        md = _config_to_dict(meta)
+        md = config_to_dict(meta)
         if not md:
             return None
 
