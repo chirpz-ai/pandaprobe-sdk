@@ -413,7 +413,9 @@ async def _wrap_receive_response(wrapped: Any, instance: Any, args: Any, kwargs:
         last_assistant = None
         for m in reversed(state.collected_messages):
             if m.get("role") == "assistant":
-                stripped_content = strip_thinking_blocks(m.get("content")) if isinstance(m.get("content"), list) else m.get("content")
+                stripped_content = (
+                    strip_thinking_blocks(m.get("content")) if isinstance(m.get("content"), list) else m.get("content")
+                )
                 last_assistant = {"role": "assistant", "content": stripped_content}
                 break
         if last_assistant:
@@ -428,10 +430,7 @@ async def _wrap_receive_response(wrapped: Any, instance: Any, args: Any, kwargs:
 
         # Update persistent conversation history on the client instance
         # (exclude system prompt — it's re-added each time from options)
-        new_messages_for_history = [
-            m for m in state.collected_messages
-            if m.get("role") != "system"
-        ]
+        new_messages_for_history = [m for m in state.collected_messages if m.get("role") != "system"]
         # Only keep messages added in THIS turn (after the history we already had)
         history_len = len(history)
         new_turn_messages = new_messages_for_history[history_len:]
@@ -561,11 +560,8 @@ def _create_subagent_span(tool_use_id: str, block: dict[str, Any], state: _Trace
     tool_input = block.get("input", {})
     subagent_name = "unknown-agent"
     if isinstance(tool_input, dict):
-        subagent_name = (
-            tool_input.get("agent_name") or tool_input.get("description", "").split()[0]
-            if tool_input.get("description")
-            else "unknown-agent"
-        ) or "unknown-agent"
+        desc = tool_input.get("description", "")
+        subagent_name = tool_input.get("agent_name") or (desc.split()[0] if desc else None) or "unknown-agent"
 
     subagent_span_id = str(uuid4())
     span = SpanData(
@@ -665,6 +661,10 @@ async def _wrap_standalone_query(wrapped: Any, instance: Any, args: Any, kwargs:
         sp = getattr(options, "system_prompt", None)
         if isinstance(sp, str):
             system_prompt = sp
+        elif isinstance(sp, dict) and sp.get("type") == "preset":
+            system_prompt = f"preset: {sp.get('preset', 'claude_code')}"
+            if "append" in sp:
+                system_prompt += f"\n{sp['append']}"
         model_name = getattr(options, "model", None)
         model_params = extract_model_parameters(options)
 
@@ -738,7 +738,9 @@ async def _wrap_standalone_query(wrapped: Any, instance: Any, args: Any, kwargs:
         last_assistant = None
         for m in reversed(state.collected_messages):
             if m.get("role") == "assistant":
-                stripped_content = strip_thinking_blocks(m.get("content")) if isinstance(m.get("content"), list) else m.get("content")
+                stripped_content = (
+                    strip_thinking_blocks(m.get("content")) if isinstance(m.get("content"), list) else m.get("content")
+                )
                 last_assistant = {"role": "assistant", "content": stripped_content}
                 break
         if last_assistant:
