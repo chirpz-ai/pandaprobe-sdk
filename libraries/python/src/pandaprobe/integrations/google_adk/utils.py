@@ -168,7 +168,9 @@ def _content_to_message(content: Any) -> dict[str, Any]:
                 {
                     "role": "tool",
                     "name": tr.get("name", ""),
-                    "content": json.dumps(resp) if isinstance(resp, (dict, list)) else ("" if resp is None else str(resp)),
+                    "content": json.dumps(resp)
+                    if isinstance(resp, (dict, list))
+                    else ("" if resp is None else str(resp)),
                 }
             )
         return messages  # type: ignore[return-value]
