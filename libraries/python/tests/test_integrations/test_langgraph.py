@@ -425,16 +425,16 @@ class TestExtractTokenUsage:
     def test_basic_usage_metadata(self):
         resp = _mock_llm_response("hello", prompt_tokens=50, completion_tokens=20)
         usage = extract_token_usage(resp)
-        assert usage == {"input_tokens": 50, "output_tokens": 20, "total_tokens": 70}
+        assert usage == {"prompt_tokens": 50, "completion_tokens": 20, "total_tokens": 70}
 
     def test_gemini_with_details(self):
         resp = _mock_gemini_llm_response("hello")
         usage = extract_token_usage(resp)
-        assert usage["input_tokens"] == 431
-        assert usage["output_tokens"] == 196
+        assert usage["prompt_tokens"] == 431
         assert usage["total_tokens"] == 627
-        assert usage["input_token_details"] == {"cache_read": 0}
-        assert usage["output_token_details"] == {"reasoning": 161}
+        assert usage["completion_tokens"] == 196 - 161
+        assert usage["reasoning_tokens"] == 161
+        assert "cache_read_tokens" not in usage  # 0 is omitted
 
     def test_no_message(self):
         from types import SimpleNamespace
@@ -476,9 +476,9 @@ class TestExtractTokenUsage:
 
             span = handler._spans[str(llm_id)]
             assert span.token_usage is not None
-            assert span.token_usage["input_tokens"] == 431
-            assert span.token_usage["output_tokens"] == 196
-            assert span.token_usage["output_token_details"] == {"reasoning": 161}
+            assert span.token_usage["prompt_tokens"] == 431
+            assert span.token_usage["completion_tokens"] == 196 - 161
+            assert span.token_usage["reasoning_tokens"] == 161
 
 
 # ---------------------------------------------------------------------------

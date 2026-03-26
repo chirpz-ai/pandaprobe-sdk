@@ -122,13 +122,16 @@ def extract_model_parameters(invocation_params: Any) -> dict[str, Any] | None:
     return params if params else None
 
 
-def extract_token_usage(response: Any) -> dict[str, Any] | None:
-    """Extract token usage from LangChain's standardised ``usage_metadata``.
+def extract_token_usage(response: Any) -> dict[str, int] | None:
+    """Extract token usage from LangChain's ``usage_metadata`` and normalise
+    to PandaProbe's flat ``dict[str, int]`` standard (matching the ADK,
+    Gemini, OpenAI, and Anthropic wrappers):
 
-    LangChain normalises token usage from all providers (OpenAI, Gemini,
-    Anthropic, etc.) into a consistent ``usage_metadata`` dict on the
-    generation message.  We record it as-is since the format is already
-    provider-agnostic.
+      - input_tokens                        -> prompt_tokens
+      - output_tokens - reasoning            -> completion_tokens
+      - total_tokens                         -> total_tokens
+      - output_token_details.reasoning       -> reasoning_tokens
+      - input_token_details.cache_read       -> cache_read_tokens
     """
     try:
         gen = response.generations[0][0]
@@ -141,7 +144,35 @@ def extract_token_usage(response: Any) -> dict[str, Any] | None:
             return None
 
         md = _config_to_dict(meta)
-        return md if md else None
+        if not md:
+            return None
+
+        usage: dict[str, int] = {}
+
+        if (v := md.get("input_tokens")) is not None:
+            usage["prompt_tokens"] = int(v)
+        if (v := md.get("total_tokens")) is not None:
+            usage["total_tokens"] = int(v)
+
+        output_tokens = md.get("output_tokens")
+        output_details = md.get("output_token_details")
+        reasoning = (
+            int(output_details["reasoning"])
+            if isinstance(output_details, dict) and output_details.get("reasoning") is not None
+            else 0
+        )
+        if reasoning:
+            usage["reasoning_tokens"] = reasoning
+        if output_tokens is not None:
+            usage["completion_tokens"] = int(output_tokens) - reasoning
+
+        input_details = md.get("input_token_details")
+        if isinstance(input_details, dict) and input_details.get("cache_read") is not None:
+            cache_val = int(input_details["cache_read"])
+            if cache_val:
+                usage["cache_read_tokens"] = cache_val
+
+        return usage if usage else None
     except Exception:
         return None
 
