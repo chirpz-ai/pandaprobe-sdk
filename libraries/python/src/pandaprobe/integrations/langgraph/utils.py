@@ -128,7 +128,7 @@ def extract_token_usage(response: Any) -> dict[str, int] | None:
         if reasoning:
             usage["reasoning_tokens"] = reasoning
         if output_tokens is not None:
-            usage["completion_tokens"] = int(output_tokens) - reasoning
+            usage["completion_tokens"] = max(0, int(output_tokens) - reasoning)
 
         input_details = md.get("input_token_details")
         if isinstance(input_details, dict) and input_details.get("cache_read") is not None:
