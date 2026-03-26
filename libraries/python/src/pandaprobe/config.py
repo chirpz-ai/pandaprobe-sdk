@@ -44,7 +44,7 @@ class SdkConfig:
 
     api_key: str | None = None
     project_name: str | None = None
-    endpoint: str = "http://localhost:8000"
+    endpoint: str = "https://api.pandaprobe.com"
     environment: str | None = None
     release: str | None = None
     enabled: bool = True
@@ -85,7 +85,7 @@ def resolve_config(
     return SdkConfig(
         api_key=api_key if api_key is not None else _env("PANDAPROBE_API_KEY"),
         project_name=project_name if project_name is not None else _env("PANDAPROBE_PROJECT_NAME"),
-        endpoint=endpoint if endpoint is not None else (_env("PANDAPROBE_ENDPOINT") or "http://localhost:8000"),
+        endpoint=endpoint if endpoint is not None else (_env("PANDAPROBE_ENDPOINT") or "https://api.pandaprobe.com"),
         environment=environment if environment is not None else _env("PANDAPROBE_ENVIRONMENT"),
         release=release if release is not None else _env("PANDAPROBE_RELEASE"),
         enabled=enabled if enabled is not None else _env_bool("PANDAPROBE_ENABLED", True),

@@ -26,6 +26,3 @@ build:
 
 clean:
 	rm -rf dist/ build/ *.egg-info src/*.egg-info .pytest_cache .ruff_cache
-
-nuke-venv:
-	@if [ -d .venv ]; then chmod -R u+w .venv && rm -rf .venv && echo "Removed .venv"; else echo "No .venv to remove"; fi

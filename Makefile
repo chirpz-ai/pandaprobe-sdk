@@ -28,6 +28,3 @@ py-build:
 
 py-clean:
 	$(MAKE) -C $(PYTHON_DIR) clean
-
-py-nuke-venv:
-	$(MAKE) -C $(PYTHON_DIR) nuke-venv

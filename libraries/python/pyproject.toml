@@ -36,8 +36,9 @@ openai = ["openai>=1.0.0"]
 gemini = ["google-genai>=1.0.0"]
 anthropic = ["anthropic>=0.80.0"]
 langgraph = ["langgraph>=0.2.0", "langchain-core>=0.3.0"]
-all = ["pandaprobe[openai,gemini,anthropic,langgraph]"]
-examples = ["pandaprobe[all]", "langchain-openai>=0.2.0"]
+google-adk = ["google-adk>=1.0.0", "wrapt>=1.14.0"]
+all = ["pandaprobe[openai,gemini,anthropic,langgraph,google-adk]"]
+examples = ["pandaprobe[all]", "langchain-openai>=0.2.0", "langchain-google-genai>=4.0.0"]
 dev = [
     "pandaprobe[examples]",
     "pytest>=8.0",

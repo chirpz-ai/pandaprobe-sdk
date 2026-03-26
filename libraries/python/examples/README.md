@@ -96,20 +96,32 @@ uv run python examples/openai/01_chat_completion.py
 | `langgraph/02_tool_agent.py` | ReAct agent with weather + population tools via `LangGraphCallbackHandler` |
 | `langgraph/03_multi_turn.py` | Multi-turn travel advisor with session grouping via `pandaprobe.session()` + `LangGraphCallbackHandler` |
 
+### Google ADK
+
+| Example | Description |
+|---|---|
+| `google_adk/01_simple_agent.py` | Simple chatbot agent with automatic tracing via `GoogleADKAdapter` |
+| `google_adk/02_tool_agent.py` | Agent with weather + population tools via `GoogleADKAdapter` |
+| `google_adk/03_multi_turn.py` | Multi-turn travel advisor with session grouping via `pandaprobe.session()` + `GoogleADKAdapter` |
+
+
 ## Session API
 
 The SDK provides a universal `session_id` propagation mechanism that works across all layers:
 
 ```python
+import uuid
 import pandaprobe
 
+session_id = str(uuid.uuid4())
+
 # Option 1: Context manager (recommended for scoped usage)
-with pandaprobe.session("conversation-123"):
-    # All traces created here inherit session_id="conversation-123"
+with pandaprobe.session(session_id):
+    # All traces created here inherit the session_id
     run_agent(query)
 
 # Option 2: Imperative setter (for dynamic switching)
-pandaprobe.set_session("conversation-456")
+pandaprobe.set_session(str(uuid.uuid4()))
 run_agent(query)
 ```
 
