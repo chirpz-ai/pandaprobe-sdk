@@ -104,6 +104,14 @@ uv run python examples/openai/01_chat_completion.py
 | `google_adk/02_tool_agent.py` | Agent with weather + population tools via `GoogleADKAdapter` |
 | `google_adk/03_multi_turn.py` | Multi-turn travel advisor with session grouping via `pandaprobe.session()` + `GoogleADKAdapter` |
 
+### Claude Agent SDK
+
+| Example | Description |
+|---|---|
+| `claude_agent_sdk/01_simple_agent.py` | Simple chatbot with automatic tracing via `ClaudeAgentSDKAdapter` |
+| `claude_agent_sdk/02_tool_agent.py` | Agent with custom tools (weather + population) via `ClaudeAgentSDKAdapter` |
+| `claude_agent_sdk/03_multi_turn.py` | Multi-turn travel advisor with session grouping via `pandaprobe.session()` + `ClaudeAgentSDKAdapter` |
+
 
 ## Session API
 
