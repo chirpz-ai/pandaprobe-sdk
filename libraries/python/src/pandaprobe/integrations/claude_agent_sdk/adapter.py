@@ -783,9 +783,7 @@ def _make_tool_hooks(
             else str(getattr(input_data, "tool_name", "unknown_tool"))
         )
         tool_input = (
-            input_data.get("tool_input", {})
-            if isinstance(input_data, dict)
-            else getattr(input_data, "tool_input", {})
+            input_data.get("tool_input", {}) if isinstance(input_data, dict) else getattr(input_data, "tool_input", {})
         )
 
         parent_id = _get_current_span() or state.agent_span_id
