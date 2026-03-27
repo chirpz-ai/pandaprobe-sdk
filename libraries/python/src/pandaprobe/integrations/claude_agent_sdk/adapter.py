@@ -158,10 +158,6 @@ class ClaudeAgentSDKAdapter(BaseIntegrationAdapter):
 
 _active_adapter: ClaudeAgentSDKAdapter | None = None
 
-# Module-level trace state fallback for hooks (contextvars may not propagate
-# across anyio threads used by the Claude Agent SDK subprocess).
-_active_trace_state: _TraceState | None = None
-
 
 def _store_adapter(adapter: ClaudeAgentSDKAdapter) -> None:
     global _active_adapter
@@ -170,15 +166,6 @@ def _store_adapter(adapter: ClaudeAgentSDKAdapter) -> None:
 
 def _get_adapter() -> ClaudeAgentSDKAdapter | None:
     return _active_adapter
-
-
-def _set_active_state(state: _TraceState | None) -> None:
-    global _active_trace_state
-    _active_trace_state = state
-
-
-def _get_active_state() -> _TraceState | None:
-    return _current_trace_state.get(None) or _active_trace_state
 
 
 # ---------------------------------------------------------------------------
@@ -252,7 +239,13 @@ def _wrap_client_init(wrapped: Any, instance: Any, args: Any, kwargs: Any) -> No
 
 
 def _inject_tracing_hooks(client: Any) -> None:
-    """Inject PandaProbe tool-tracing hooks into the client's options."""
+    """Inject PandaProbe tool-tracing hooks into the client's options.
+
+    Hooks are closures that capture ``client`` so they resolve trace state
+    from the instance (``client._pandaprobe_trace_state``) when contextvars
+    are unavailable (e.g. in anyio worker threads).  This avoids a shared
+    module-level global that would race under concurrent traces.
+    """
     options = getattr(client, "options", None)
     if options is None:
         return
@@ -267,12 +260,17 @@ def _inject_tracing_hooks(client: Any) -> None:
         if event not in options.hooks:
             options.hooks[event] = []
 
+    def _resolve_state() -> _TraceState | None:
+        return _current_trace_state.get(None) or getattr(client, "_pandaprobe_trace_state", None)
+
+    pre_hook, post_hook, failure_hook = _make_tool_hooks(_resolve_state)
+
     try:
         from claude_agent_sdk import HookMatcher  # type: ignore[import-not-found]
 
-        options.hooks["PreToolUse"].insert(0, HookMatcher(matcher=None, hooks=[_pre_tool_use_hook]))
-        options.hooks["PostToolUse"].insert(0, HookMatcher(matcher=None, hooks=[_post_tool_use_hook]))
-        options.hooks["PostToolUseFailure"].insert(0, HookMatcher(matcher=None, hooks=[_post_tool_use_failure_hook]))
+        options.hooks["PreToolUse"].insert(0, HookMatcher(matcher=None, hooks=[pre_hook]))
+        options.hooks["PostToolUse"].insert(0, HookMatcher(matcher=None, hooks=[post_hook]))
+        options.hooks["PostToolUseFailure"].insert(0, HookMatcher(matcher=None, hooks=[failure_hook]))
     except ImportError:
         logger.warning("PandaProbe: failed to import HookMatcher from claude_agent_sdk")
     except Exception as exc:
@@ -311,7 +309,7 @@ async def _wrap_receive_response(wrapped: Any, instance: Any, args: Any, kwargs:
 
     state = _TraceState(adapter=adapter)
     state_token = _set_trace_state(state)
-    _set_active_state(state)
+    instance._pandaprobe_trace_state = state
 
     prompt = getattr(instance, "_pandaprobe_prompt", None)
     start_time = getattr(instance, "_pandaprobe_start_time", None) or state.trace_started_at
@@ -443,7 +441,7 @@ async def _wrap_receive_response(wrapped: Any, instance: Any, args: Any, kwargs:
 
         _current_trace_state.reset(state_token)
         _current_span_id.reset(parent_span_token)
-        _set_active_state(None)
+        instance._pandaprobe_trace_state = None
 
 
 # ---------------------------------------------------------------------------
@@ -648,7 +646,6 @@ async def _wrap_standalone_query(wrapped: Any, instance: Any, args: Any, kwargs:
 
     state = _TraceState(adapter=adapter)
     state_token = _set_trace_state(state)
-    _set_active_state(state)
 
     prompt = kwargs.get("prompt") or (args[0] if args else None)
     prompt_text = prompt if isinstance(prompt, str) else None
@@ -756,110 +753,119 @@ async def _wrap_standalone_query(wrapped: Any, instance: Any, args: Any, kwargs:
         adapter._finalize_trace(state, error=has_error)
         _current_trace_state.reset(state_token)
         _current_span_id.reset(parent_span_token)
-        _set_active_state(None)
 
 
 # ---------------------------------------------------------------------------
-# Tool hooks (injected via _wrap_client_init)
+# Tool hooks (created per-client via _make_tool_hooks)
 # ---------------------------------------------------------------------------
 
 
-async def _pre_tool_use_hook(input_data: Any, tool_use_id: str | None, context: Any) -> dict[str, Any]:
-    """Create a TOOL span when a tool execution starts."""
-    if not tool_use_id:
+def _make_tool_hooks(
+    resolve_state: Any,
+) -> tuple[Any, Any, Any]:
+    """Return (pre, post, failure) hook closures bound to *resolve_state*.
+
+    Each client gets its own set of closures so that concurrent traces on
+    different clients never share a single mutable global.
+    """
+
+    async def _pre_tool_use_hook(input_data: Any, tool_use_id: str | None, context: Any) -> dict[str, Any]:
+        if not tool_use_id:
+            return {}
+
+        state = resolve_state()
+        if state is None:
+            return {}
+
+        tool_name = (
+            input_data.get("tool_name", "unknown_tool")
+            if isinstance(input_data, dict)
+            else str(getattr(input_data, "tool_name", "unknown_tool"))
+        )
+        tool_input = (
+            input_data.get("tool_input", {})
+            if isinstance(input_data, dict)
+            else getattr(input_data, "tool_input", {})
+        )
+
+        parent_id = _get_current_span() or state.agent_span_id
+
+        span_id = str(uuid4())
+        span = SpanData(
+            span_id=span_id,
+            parent_span_id=parent_id,
+            name=tool_name,
+            kind=SpanKind.TOOL,
+            input=safe_serialize(tool_input) if tool_input else None,
+            started_at=datetime.now(timezone.utc),
+        )
+        state.spans[span_id] = span
+        state.tool_spans[tool_use_id] = span_id
+
         return {}
 
-    state = _get_active_state()
-    if state is None:
+    async def _post_tool_use_hook(input_data: Any, tool_use_id: str | None, context: Any) -> dict[str, Any]:
+        if not tool_use_id:
+            return {}
+
+        state = resolve_state()
+        if state is None:
+            return {}
+
+        span_id = state.tool_spans.pop(tool_use_id, None)
+        if not span_id:
+            return {}
+
+        span = state.spans.get(span_id)
+        if not span:
+            return {}
+
+        tool_response = (
+            input_data.get("tool_response")
+            if isinstance(input_data, dict)
+            else getattr(input_data, "tool_response", None)
+        )
+
+        span.output = serialize_tool_response(tool_response)
+        span.status = SpanStatusCode.OK
+        span.ended_at = datetime.now(timezone.utc)
+
+        is_error = False
+        if isinstance(tool_response, dict):
+            is_error = tool_response.get("is_error", False)
+        if is_error:
+            span.status = SpanStatusCode.ERROR
+            span.error = span.output if isinstance(span.output, str) else json.dumps(span.output)
+
         return {}
 
-    tool_name = (
-        input_data.get("tool_name", "unknown_tool")
-        if isinstance(input_data, dict)
-        else str(getattr(input_data, "tool_name", "unknown_tool"))
-    )
-    tool_input = (
-        input_data.get("tool_input", {}) if isinstance(input_data, dict) else getattr(input_data, "tool_input", {})
-    )
+    async def _post_tool_use_failure_hook(input_data: Any, tool_use_id: str | None, context: Any) -> dict[str, Any]:
+        if not tool_use_id:
+            return {}
 
-    parent_id = _get_current_span() or state.agent_span_id
+        state = resolve_state()
+        if state is None:
+            return {}
 
-    span_id = str(uuid4())
-    span = SpanData(
-        span_id=span_id,
-        parent_span_id=parent_id,
-        name=tool_name,
-        kind=SpanKind.TOOL,
-        input=safe_serialize(tool_input) if tool_input else None,
-        started_at=datetime.now(timezone.utc),
-    )
-    state.spans[span_id] = span
-    state.tool_spans[tool_use_id] = span_id
+        span_id = state.tool_spans.pop(tool_use_id, None)
+        if not span_id:
+            return {}
 
-    return {}
+        span = state.spans.get(span_id)
+        if not span:
+            return {}
 
+        error_msg = (
+            input_data.get("error", "Unknown error")
+            if isinstance(input_data, dict)
+            else str(getattr(input_data, "error", "Unknown error"))
+        )
 
-async def _post_tool_use_hook(input_data: Any, tool_use_id: str | None, context: Any) -> dict[str, Any]:
-    """End a TOOL span when a tool execution completes."""
-    if not tool_use_id:
-        return {}
-
-    state = _get_active_state()
-    if state is None:
-        return {}
-
-    span_id = state.tool_spans.pop(tool_use_id, None)
-    if not span_id:
-        return {}
-
-    span = state.spans.get(span_id)
-    if not span:
-        return {}
-
-    tool_response = (
-        input_data.get("tool_response") if isinstance(input_data, dict) else getattr(input_data, "tool_response", None)
-    )
-
-    span.output = serialize_tool_response(tool_response)
-    span.status = SpanStatusCode.OK
-    span.ended_at = datetime.now(timezone.utc)
-
-    is_error = False
-    if isinstance(tool_response, dict):
-        is_error = tool_response.get("is_error", False)
-    if is_error:
+        span.output = {"error": error_msg}
+        span.error = str(error_msg)
         span.status = SpanStatusCode.ERROR
-        span.error = span.output if isinstance(span.output, str) else json.dumps(span.output)
+        span.ended_at = datetime.now(timezone.utc)
 
-    return {}
-
-
-async def _post_tool_use_failure_hook(input_data: Any, tool_use_id: str | None, context: Any) -> dict[str, Any]:
-    """End a TOOL span when a tool execution fails."""
-    if not tool_use_id:
         return {}
 
-    state = _get_active_state()
-    if state is None:
-        return {}
-
-    span_id = state.tool_spans.pop(tool_use_id, None)
-    if not span_id:
-        return {}
-
-    span = state.spans.get(span_id)
-    if not span:
-        return {}
-
-    error_msg = (
-        input_data.get("error", "Unknown error")
-        if isinstance(input_data, dict)
-        else str(getattr(input_data, "error", "Unknown error"))
-    )
-
-    span.output = {"error": error_msg}
-    span.error = str(error_msg)
-    span.status = SpanStatusCode.ERROR
-    span.ended_at = datetime.now(timezone.utc)
-
-    return {}
+    return _pre_tool_use_hook, _post_tool_use_hook, _post_tool_use_failure_hook

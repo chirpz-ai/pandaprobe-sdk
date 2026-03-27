@@ -17,17 +17,13 @@ from pandaprobe.integrations.claude_agent_sdk.adapter import (
     _TraceState,
     _current_span_id,
     _current_trace_state,
-    _get_active_state,
     _get_adapter,
     _get_current_span,
     _get_trace_state,
     _handle_assistant_message,
     _handle_result_message,
     _handle_user_message,
-    _post_tool_use_failure_hook,
-    _post_tool_use_hook,
-    _pre_tool_use_hook,
-    _set_active_state,
+    _make_tool_hooks,
     _set_current_span,
     _set_trace_state,
     _store_adapter,
@@ -575,13 +571,14 @@ class TestContextVars:
         _current_span_id.reset(token)
         assert _get_current_span() is None
 
-    def test_active_state_fallback(self):
+    def test_instance_state_fallback(self):
         adapter = ClaudeAgentSDKAdapter()
         state = _TraceState(adapter=adapter)
-        _set_active_state(state)
-        assert _get_active_state() is state
-        _set_active_state(None)
-        assert _get_active_state() is None
+        client = SimpleNamespace(_pandaprobe_trace_state=state)
+        resolve = lambda: _current_trace_state.get(None) or getattr(client, "_pandaprobe_trace_state", None)  # noqa: E731
+        assert resolve() is state
+        client._pandaprobe_trace_state = None
+        assert resolve() is None
 
 
 # ===================================================================
@@ -988,12 +985,13 @@ class TestToolHooks:
         state = _TraceState(adapter=adapter)
         agent_span_id = str(uuid4())
         state.agent_span_id = agent_span_id
-        _set_active_state(state)
         span_token = _set_current_span(agent_span_id)
+
+        pre_hook, _, _ = _make_tool_hooks(lambda: state)
 
         try:
             input_data = {"tool_name": "search", "tool_input": {"query": "test"}, "session_id": "s1"}
-            await _pre_tool_use_hook(input_data, "tu_1", {})
+            await pre_hook(input_data, "tu_1", {})
 
             assert len(state.spans) == 1
             span = list(state.spans.values())[0]
@@ -1002,7 +1000,6 @@ class TestToolHooks:
             assert str(span.parent_span_id) == agent_span_id
             assert "tu_1" in state.tool_spans
         finally:
-            _set_active_state(None)
             _current_span_id.reset(span_token)
 
     @pytest.mark.asyncio
@@ -1010,7 +1007,8 @@ class TestToolHooks:
         adapter = ClaudeAgentSDKAdapter()
         state = _TraceState(adapter=adapter)
         state.agent_span_id = str(uuid4())
-        _set_active_state(state)
+
+        _, post_hook, _ = _make_tool_hooks(lambda: state)
 
         from datetime import datetime, timezone
 
@@ -1032,20 +1030,19 @@ class TestToolHooks:
             "tool_input": {"query": "test"},
             "tool_response": {"results": ["a", "b"]},
         }
-        await _post_tool_use_hook(input_data, "tu_1", {})
+        await post_hook(input_data, "tu_1", {})
 
         assert span.status == SpanStatusCode.OK
         assert span.ended_at is not None
         assert "tu_1" not in state.tool_spans
-
-        _set_active_state(None)
 
     @pytest.mark.asyncio
     async def test_post_tool_use_failure_sets_error(self):
         adapter = ClaudeAgentSDKAdapter()
         state = _TraceState(adapter=adapter)
         state.agent_span_id = str(uuid4())
-        _set_active_state(state)
+
+        _, _, failure_hook = _make_tool_hooks(lambda: state)
 
         from datetime import datetime, timezone
 
@@ -1063,35 +1060,31 @@ class TestToolHooks:
         state.tool_spans["tu_2"] = span_id
 
         input_data = {"tool_name": "dangerous_tool", "tool_input": {}, "error": "Permission denied"}
-        await _post_tool_use_failure_hook(input_data, "tu_2", {})
+        await failure_hook(input_data, "tu_2", {})
 
         assert span.status == SpanStatusCode.ERROR
         assert span.error == "Permission denied"
         assert span.ended_at is not None
 
-        _set_active_state(None)
-
     @pytest.mark.asyncio
     async def test_hooks_noop_without_state(self):
-        _set_active_state(None)
-        result = await _pre_tool_use_hook({"tool_name": "x"}, "tu_1", {})
+        pre_hook, post_hook, failure_hook = _make_tool_hooks(lambda: None)
+        result = await pre_hook({"tool_name": "x"}, "tu_1", {})
         assert result == {}
-        result = await _post_tool_use_hook({"tool_name": "x"}, "tu_1", {})
+        result = await post_hook({"tool_name": "x"}, "tu_1", {})
         assert result == {}
-        result = await _post_tool_use_failure_hook({"tool_name": "x", "error": "e"}, "tu_1", {})
+        result = await failure_hook({"tool_name": "x", "error": "e"}, "tu_1", {})
         assert result == {}
 
     @pytest.mark.asyncio
     async def test_hooks_noop_without_tool_use_id(self):
         adapter = ClaudeAgentSDKAdapter()
         state = _TraceState(adapter=adapter)
-        _set_active_state(state)
 
-        result = await _pre_tool_use_hook({"tool_name": "x"}, None, {})
+        pre_hook, _, _ = _make_tool_hooks(lambda: state)
+        result = await pre_hook({"tool_name": "x"}, None, {})
         assert result == {}
         assert len(state.spans) == 0
-
-        _set_active_state(None)
 
 
 # ===================================================================
