@@ -1008,7 +1008,48 @@ class TestWrapLlmCall:
             _current_span_id.reset(parent_token)
 
     @respx.mock
-    def test_token_usage_from_instance(self):
+    def test_token_usage_is_per_call_delta(self):
+        """Token usage must reflect only the current call, not cumulative totals."""
+        respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
+        adapter = CrewAIAdapter()
+        state = _TraceState(adapter=adapter)
+        state_token = _set_trace_state(state)
+        parent_token = _set_current_span(str(uuid4()))
+
+        try:
+            llm = _make_llm(model="gpt-4o")
+            # Simulate a prior call having already accumulated tokens
+            llm._token_usage = {
+                "prompt_tokens": 100,
+                "completion_tokens": 50,
+                "total_tokens": 150,
+            }
+
+            def mock_llm_call(*args, **kwargs):
+                # Simulate the LLM call incrementing the cumulative counter
+                llm._token_usage = {
+                    "prompt_tokens": 220,
+                    "completion_tokens": 80,
+                    "total_tokens": 300,
+                }
+                return "response"
+
+            messages = [{"role": "user", "content": "hi"}]
+            _wrap_llm_call(mock_llm_call, llm, (messages,), {})
+
+            span = list(state.spans.values())[0]
+            assert span.token_usage == {
+                "prompt_tokens": 120,
+                "completion_tokens": 30,
+                "total_tokens": 150,
+            }
+        finally:
+            _current_trace_state.reset(state_token)
+            _current_span_id.reset(parent_token)
+
+    @respx.mock
+    def test_token_usage_not_compounded_across_calls(self):
+        """Two consecutive LLM calls must each record only their own tokens."""
         respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
         adapter = CrewAIAdapter()
         state = _TraceState(adapter=adapter)
@@ -1018,22 +1059,44 @@ class TestWrapLlmCall:
         try:
             llm = _make_llm(model="gpt-4o")
             llm._token_usage = {
-                "prompt_tokens": 100,
-                "completion_tokens": 50,
-                "total_tokens": 150,
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
             }
 
+            call_count = 0
+
             def mock_llm_call(*args, **kwargs):
-                return "response"
+                nonlocal call_count
+                call_count += 1
+                if call_count == 1:
+                    llm._token_usage = {
+                        "prompt_tokens": 100,
+                        "completion_tokens": 40,
+                        "total_tokens": 140,
+                    }
+                else:
+                    llm._token_usage = {
+                        "prompt_tokens": 350,
+                        "completion_tokens": 110,
+                        "total_tokens": 460,
+                    }
+                return f"response {call_count}"
 
             messages = [{"role": "user", "content": "hi"}]
             _wrap_llm_call(mock_llm_call, llm, (messages,), {})
+            _wrap_llm_call(mock_llm_call, llm, (messages,), {})
 
-            span = list(state.spans.values())[0]
-            assert span.token_usage == {
+            spans = list(state.spans.values())
+            assert spans[0].token_usage == {
                 "prompt_tokens": 100,
-                "completion_tokens": 50,
-                "total_tokens": 150,
+                "completion_tokens": 40,
+                "total_tokens": 140,
+            }
+            assert spans[1].token_usage == {
+                "prompt_tokens": 250,
+                "completion_tokens": 70,
+                "total_tokens": 320,
             }
         finally:
             _current_trace_state.reset(state_token)
