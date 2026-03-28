@@ -389,7 +389,7 @@ class TestExtractTokenUsage:
         class FakePydanticLLM:
             _token_usage = None
 
-            def __getitem__(self, key: str) -> Any:
+            def __getitem__(self, key: str) -> object:
                 raise KeyError(key)
 
         assert extract_token_usage(FakePydanticLLM()) is None
@@ -400,7 +400,7 @@ class TestExtractTokenUsage:
         class FakeLLM:
             _token_usage: dict = {}
 
-            def __getitem__(self, key: str) -> Any:
+            def __getitem__(self, key: str) -> object:
                 raise KeyError(key)
 
         assert extract_token_usage(FakeLLM()) is None
