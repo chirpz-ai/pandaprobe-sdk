@@ -112,6 +112,14 @@ uv run python examples/openai/01_chat_completion.py
 | `claude_agent_sdk/02_tool_agent.py` | Agent with custom tools (weather + population) via `ClaudeAgentSDKAdapter` |
 | `claude_agent_sdk/03_multi_turn.py` | Multi-turn travel advisor with session grouping via `pandaprobe.session()` + `ClaudeAgentSDKAdapter` |
 
+### CrewAI
+
+| Example | Description |
+|---|---|
+| `crewai/01_simple_crew.py` | Simple crew with a single agent and task via `CrewAIAdapter` |
+| `crewai/02_tool_crew.py` | Crew with tool-calling agent (weather + population) via `CrewAIAdapter` |
+| `crewai/03_multi_agent.py` | Multi-agent crew with sequential task execution via `CrewAIAdapter` |
+
 
 ## Session API
 
