@@ -212,13 +212,13 @@ def _get_current_span() -> str | None:
 # ---------------------------------------------------------------------------
 
 
-def _build_crew_input(instance: Any, kwargs: Any) -> dict[str, Any] | None:
+def _build_crew_input(instance: Any, args: Any, kwargs: Any) -> dict[str, Any] | None:
     """Build CHAIN-level input from the Crew instance.
 
     Returns ``{"messages": [system?, user]}`` with the crew config as a
     system message and the task descriptions as the user message.
     """
-    inputs = kwargs.get("inputs") or {}
+    inputs = args[0] if args else kwargs.get("inputs") or {}
 
     tasks = getattr(instance, "tasks", None) or []
     task_descriptions: list[str] = []
@@ -282,7 +282,7 @@ def _wrap_kickoff(wrapped: Any, instance: Any, args: Any, kwargs: Any) -> Any:
     crew_system = build_crew_system_message(instance)
     state.crew_system_message = crew_system
 
-    trace_input = _build_crew_input(instance, kwargs)
+    trace_input = _build_crew_input(instance, args, kwargs)
     state.trace_input = extract_last_user_message(trace_input) if trace_input else None
 
     root_span = SpanData(

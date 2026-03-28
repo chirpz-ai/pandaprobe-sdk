@@ -647,6 +647,25 @@ class TestWrapKickoff:
         assert state.trace_input == {"messages": [{"role": "user", "content": "query: What is AI?"}]}
 
     @respx.mock
+    def test_trace_input_from_positional_arg(self):
+        respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
+        adapter = CrewAIAdapter()
+        _store_adapter(adapter)
+
+        state_holder = {}
+
+        def mock_kickoff(*args, **kwargs):
+            state_holder["state"] = _get_trace_state()
+            return _make_crew_output("done")
+
+        crew = _make_crew()
+        _wrap_kickoff(mock_kickoff, crew, ({"query": "What is AI?"},), {})
+
+        state = state_holder["state"]
+        assert state is not None
+        assert state.trace_input == {"messages": [{"role": "user", "content": "query: What is AI?"}]}
+
+    @respx.mock
     def test_trace_input_from_task_descriptions(self):
         respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
         adapter = CrewAIAdapter()
