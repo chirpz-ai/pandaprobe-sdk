@@ -53,11 +53,7 @@ def _normalize_content(content: Any) -> Any:
     if not isinstance(content, list):
         return content
 
-    filtered = [
-        block
-        for block in content
-        if not (isinstance(block, dict) and block.get("type") == "thinking")
-    ]
+    filtered = [block for block in content if not (isinstance(block, dict) and block.get("type") == "thinking")]
 
     if not filtered:
         return content

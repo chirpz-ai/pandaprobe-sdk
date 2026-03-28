@@ -769,6 +769,7 @@ class TestWrapKickoff:
         assert output_messages[3] == {"role": "user", "content": "task2"}
         assert output_messages[4] == {"role": "assistant", "content": "out2"}
 
+
 class TestBuildChainOutput:
     def test_with_records_and_system(self):
         adapter = CrewAIAdapter()
@@ -803,6 +804,7 @@ class TestWrapAgentExecuteTask:
         parent_token = _set_current_span(root_span_id)
 
         try:
+
             def mock_execute_task(*args, **kwargs):
                 return SimpleNamespace(raw="Task completed successfully")
 
@@ -839,6 +841,7 @@ class TestWrapAgentExecuteTask:
         parent_token = _set_current_span(str(uuid4()))
 
         try:
+
             def mock_execute_task(*args, **kwargs):
                 return SimpleNamespace(raw="Done")
 
@@ -861,6 +864,7 @@ class TestWrapAgentExecuteTask:
         parent_token = _set_current_span(str(uuid4()))
 
         try:
+
             def mock_execute_task(*args, **kwargs):
                 return SimpleNamespace(raw="Done")
 
@@ -884,6 +888,7 @@ class TestWrapAgentExecuteTask:
         parent_token = _set_current_span(str(uuid4()))
 
         try:
+
             def mock_execute_task(*args, **kwargs):
                 return SimpleNamespace(raw="Article written")
 
@@ -912,6 +917,7 @@ class TestWrapAgentExecuteTask:
         parent_token = _set_current_span(str(uuid4()))
 
         try:
+
             def mock_execute_task(*args, **kwargs):
                 return SimpleNamespace(raw="Research results")
 
@@ -936,6 +942,7 @@ class TestWrapAgentExecuteTask:
         parent_token = _set_current_span(str(uuid4()))
 
         try:
+
             def mock_execute_task(*args, **kwargs):
                 raise ValueError("agent failed")
 
@@ -956,15 +963,15 @@ class TestWrapAgentExecuteTask:
     def test_no_state_passthrough(self):
         state_token = _set_trace_state(None)
         try:
+
             def mock_execute_task(*args, **kwargs):
                 return "direct result"
 
-            result = _wrap_agent_execute_task(
-                mock_execute_task, _make_agent(), (_make_task(),), {}
-            )
+            result = _wrap_agent_execute_task(mock_execute_task, _make_agent(), (_make_task(),), {})
             assert result == "direct result"
         finally:
             _current_trace_state.reset(state_token)
+
 
 class TestWrapLlmCall:
     @respx.mock
@@ -977,6 +984,7 @@ class TestWrapLlmCall:
         parent_token = _set_current_span(agent_span_id)
 
         try:
+
             def mock_llm_call(*args, **kwargs):
                 return "The capital of France is Paris."
 
@@ -1002,9 +1010,7 @@ class TestWrapLlmCall:
                     {"role": "user", "content": "What is the capital of France?"},
                 ]
             }
-            assert span.output == {
-                "messages": [{"role": "assistant", "content": "The capital of France is Paris."}]
-            }
+            assert span.output == {"messages": [{"role": "assistant", "content": "The capital of France is Paris."}]}
         finally:
             _current_trace_state.reset(state_token)
             _current_span_id.reset(parent_token)
@@ -1050,6 +1056,7 @@ class TestWrapLlmCall:
         parent_token = _set_current_span(str(uuid4()))
 
         try:
+
             def mock_llm_call(*args, **kwargs):
                 raise ValueError("model error")
 
@@ -1068,10 +1075,11 @@ class TestWrapLlmCall:
     def test_no_state_passthrough(self):
         state_token = _set_trace_state(None)
         try:
+
             def mock_llm_call(*args, **kwargs):
                 return "direct result"
 
-            result = _wrap_llm_call(mock_llm_call, _make_llm(), ([], ), {})
+            result = _wrap_llm_call(mock_llm_call, _make_llm(), ([],), {})
             assert result == "direct result"
         finally:
             _current_trace_state.reset(state_token)
@@ -1085,6 +1093,7 @@ class TestWrapLlmCall:
         parent_token = _set_current_span(str(uuid4()))
 
         try:
+
             def mock_llm_call(*args, **kwargs):
                 return "response"
 
@@ -1106,6 +1115,7 @@ class TestWrapLlmCall:
         parent_token = _set_current_span(str(uuid4()))
 
         try:
+
             def mock_llm_call(*args, **kwargs):
                 return "The answer is 42."
 
@@ -1137,6 +1147,7 @@ class TestWrapLlmCall:
         parent_token = _set_current_span(str(uuid4()))
 
         try:
+
             def mock_llm_call(*args, **kwargs):
                 return "response"
 
@@ -1161,6 +1172,7 @@ class TestWrapToolExecute:
         parent_token = _set_current_span(agent_span_id)
 
         try:
+
             def mock_tool_execute(*args, **kwargs):
                 return _make_tool_result("sunny, 22C")
 
@@ -1189,6 +1201,7 @@ class TestWrapToolExecute:
         parent_token = _set_current_span(str(uuid4()))
 
         try:
+
             def mock_tool_execute(*args, **kwargs):
                 raise RuntimeError("tool broke")
 
@@ -1207,6 +1220,7 @@ class TestWrapToolExecute:
     def test_no_state_passthrough(self):
         state_token = _set_trace_state(None)
         try:
+
             def mock_tool_execute(*args, **kwargs):
                 return _make_tool_result("result")
 
@@ -1225,6 +1239,7 @@ class TestWrapToolExecute:
         parent_token = _set_current_span(str(uuid4()))
 
         try:
+
             def mock_tool_execute(*args, **kwargs):
                 return _make_tool_result("tool output string", result_as_answer=True)
 
