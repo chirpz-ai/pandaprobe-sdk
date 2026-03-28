@@ -134,8 +134,6 @@ def extract_token_usage(source: Any) -> dict[str, int] | None:
 
     if isinstance(usage, dict):
         get = usage.get
-    elif hasattr(usage, "__getitem__"):
-        get = usage.__getitem__
     else:
         get = lambda k: getattr(usage, k, None)  # noqa: E731
 

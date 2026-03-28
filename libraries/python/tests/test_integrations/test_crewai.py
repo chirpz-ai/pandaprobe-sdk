@@ -412,6 +412,28 @@ class TestExtractTokenUsage:
         llm = SimpleNamespace(model="gpt-4o")
         assert extract_token_usage(llm) is None
 
+    def test_pydantic_like_instance_with_getitem_does_not_raise(self):
+        """Pydantic models have __getitem__; must not crash with KeyError."""
+
+        class FakePydanticLLM:
+            _token_usage = None
+
+            def __getitem__(self, key: str) -> Any:
+                raise KeyError(key)
+
+        assert extract_token_usage(FakePydanticLLM()) is None
+
+    def test_llm_instance_with_empty_token_usage(self):
+        """Empty _token_usage dict falls through to source; must not crash."""
+
+        class FakeLLM:
+            _token_usage: dict = {}
+
+            def __getitem__(self, key: str) -> Any:
+                raise KeyError(key)
+
+        assert extract_token_usage(FakeLLM()) is None
+
 
 class TestExtractModelParameters:
     def test_extracts_safe_params(self):
