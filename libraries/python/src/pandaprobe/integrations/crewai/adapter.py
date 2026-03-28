@@ -253,7 +253,7 @@ def _extract_crew_output(result: Any) -> dict[str, Any] | None:
         return None
 
     raw = getattr(result, "raw", None)
-    if raw:
+    if raw is not None:
         return {"messages": [{"role": "assistant", "content": str(raw)}]}
 
     if isinstance(result, str):
@@ -403,11 +403,12 @@ def _wrap_agent_execute_task(wrapped: Any, instance: Any, args: Any, kwargs: Any
 
         result_str: str | None = None
         if result is not None:
-            result_str = getattr(result, "raw", None) or str(result)
+            raw = getattr(result, "raw", None)
+            result_str = raw if raw is not None else str(result)
             span.output = {"messages": [{"role": "assistant", "content": result_str}]}
 
         # Record this agent's work for subsequent agents and CHAIN output
-        if result_str and task_text:
+        if result_str is not None and task_text:
             state.agent_records.append(_AgentRecord(agent=agent_role, task=task_text, output=result_str))
 
         return result
@@ -480,11 +481,17 @@ def _wrap_llm_call(wrapped: Any, instance: Any, args: Any, kwargs: Any) -> Any:
                 if isinstance(result, str):
                     span.output = {"messages": [{"role": "assistant", "content": result}]}
                 elif isinstance(result, dict):
-                    content = result.get("content") or result.get("text") or str(result)
+                    content = result.get("content")
+                    if content is None:
+                        content = result.get("text")
+                    if content is None:
+                        content = str(result)
                     span.output = {"messages": [{"role": "assistant", "content": content}]}
                 else:
-                    raw = getattr(result, "text", None) or getattr(result, "content", None)
-                    if raw:
+                    raw = getattr(result, "text", None)
+                    if raw is None:
+                        raw = getattr(result, "content", None)
+                    if raw is not None:
                         span.output = {"messages": [{"role": "assistant", "content": str(raw)}]}
                     else:
                         span.output = {"messages": [{"role": "assistant", "content": str(result)}]}
