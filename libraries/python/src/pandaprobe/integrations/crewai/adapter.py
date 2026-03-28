@@ -469,31 +469,34 @@ def _wrap_llm_call(wrapped: Any, instance: Any, args: Any, kwargs: Any) -> Any:
     has_error = False
     try:
         result = wrapped(*args, **kwargs)
-
-        if result is not None:
-            if isinstance(result, str):
-                span.output = {"messages": [{"role": "assistant", "content": result}]}
-            elif isinstance(result, dict):
-                content = result.get("content") or result.get("text") or str(result)
-                span.output = {"messages": [{"role": "assistant", "content": content}]}
-            else:
-                raw = getattr(result, "text", None) or getattr(result, "content", None)
-                if raw:
-                    span.output = {"messages": [{"role": "assistant", "content": str(raw)}]}
-                else:
-                    span.output = {"messages": [{"role": "assistant", "content": str(result)}]}
-
-        if reasoning:
-            span.metadata["reasoning_summary"] = reasoning
-
-        span.token_usage = extract_token_usage(instance)
-
-        return result
     except Exception as exc:
         has_error = True
         span.error = str(exc)
         span.status = SpanStatusCode.ERROR
         raise
+    else:
+        try:
+            if result is not None:
+                if isinstance(result, str):
+                    span.output = {"messages": [{"role": "assistant", "content": result}]}
+                elif isinstance(result, dict):
+                    content = result.get("content") or result.get("text") or str(result)
+                    span.output = {"messages": [{"role": "assistant", "content": content}]}
+                else:
+                    raw = getattr(result, "text", None) or getattr(result, "content", None)
+                    if raw:
+                        span.output = {"messages": [{"role": "assistant", "content": str(raw)}]}
+                    else:
+                        span.output = {"messages": [{"role": "assistant", "content": str(result)}]}
+
+            if reasoning:
+                span.metadata["reasoning_summary"] = reasoning
+
+            span.token_usage = extract_token_usage(instance)
+        except Exception:
+            logger.debug("PandaProbe CrewAI: failed to extract LLM span metadata", exc_info=True)
+
+        return result
     finally:
         if not has_error:
             span.status = SpanStatusCode.OK
