@@ -1,7 +1,16 @@
-.PHONY: install install-crewai lock lint format format-check test test-cov build clean
+.PHONY: install install-langgraph install-google-adk install-claude-agent-sdk install-crewai lock lint format format-check test test-cov build clean
 
 install:
 	uv sync --extra dev
+
+install-langgraph:
+	uv sync --extra dev --extra langgraph
+
+install-google-adk:
+	uv sync --extra dev --extra google-adk
+
+install-claude-agent-sdk:
+	uv sync --extra dev --extra claude-agent-sdk
 
 install-crewai:
 	uv sync --extra dev --extra crewai
