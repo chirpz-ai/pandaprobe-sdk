@@ -425,6 +425,38 @@ def _wrap_agent_execute_task(wrapped: Any, instance: Any, args: Any, kwargs: Any
 
 
 # ---------------------------------------------------------------------------
+# Token-usage delta helpers
+# ---------------------------------------------------------------------------
+
+
+def _snapshot_token_usage(instance: Any) -> dict[str, Any] | None:
+    """Copy the LLM instance's cumulative ``_token_usage`` dict.
+
+    Returns ``None`` when the attribute is absent, so callers can distinguish
+    "no tracking" from "tracking but empty".
+    """
+    usage = getattr(instance, "_token_usage", None)
+    if isinstance(usage, dict):
+        return dict(usage)
+    return None
+
+
+def _compute_token_delta(before: dict[str, Any], after: dict[str, Any]) -> dict[str, Any]:
+    """Subtract *before* snapshot from *after* to get per-call token counts."""
+    delta: dict[str, Any] = {}
+    for key in after:
+        try:
+            val_after = int(after[key])
+            val_before = int(before.get(key, 0))
+        except (TypeError, ValueError):
+            continue
+        diff = val_after - val_before
+        if diff > 0:
+            delta[key] = diff
+    return delta
+
+
+# ---------------------------------------------------------------------------
 # Wrapper: LLM.call (native providers + LiteLLM fallback)  →  LLM span
 # ---------------------------------------------------------------------------
 
@@ -467,6 +499,10 @@ def _wrap_llm_call(wrapped: Any, instance: Any, args: Any, kwargs: Any) -> Any:
     )
     state.spans[span_id] = span
 
+    # Snapshot cumulative token counters before the call so we can compute
+    # per-call deltas afterwards (CrewAI accumulates across calls).
+    usage_before = _snapshot_token_usage(instance)
+
     has_error = False
     try:
         result = wrapped(*args, **kwargs)
@@ -499,7 +535,12 @@ def _wrap_llm_call(wrapped: Any, instance: Any, args: Any, kwargs: Any) -> Any:
             if reasoning:
                 span.metadata["reasoning_summary"] = reasoning
 
-            span.token_usage = extract_token_usage(instance)
+            if usage_before is not None:
+                usage_after = _snapshot_token_usage(instance) or {}
+                delta = _compute_token_delta(usage_before, usage_after)
+                span.token_usage = extract_token_usage(delta) if delta else None
+            else:
+                span.token_usage = extract_token_usage(instance)
         except Exception:
             logger.debug("PandaProbe CrewAI: failed to extract LLM span metadata", exc_info=True)
 
