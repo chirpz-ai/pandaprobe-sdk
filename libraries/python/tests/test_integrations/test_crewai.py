@@ -41,7 +41,6 @@ from pandaprobe.integrations.crewai.utils import (
     extract_token_usage,
     normalize_messages,
     safe_serialize,
-    strip_thinking_from_messages,
 )
 from pandaprobe.schemas import SpanKind, SpanStatusCode
 
@@ -274,33 +273,6 @@ class TestNormalizeMessages:
         ]
         result = normalize_messages(messages)
         assert result["messages"][0]["content"] == "The answer."
-
-
-class TestStripThinkingFromMessages:
-    def test_strips_assistant_thinking(self):
-        messages = [
-            {"role": "user", "content": "hi"},
-            {
-                "role": "assistant",
-                "content": [
-                    {"type": "thinking", "thinking": "hmm"},
-                    {"type": "text", "text": "hello"},
-                ],
-            },
-        ]
-        result = strip_thinking_from_messages(messages)
-        assert result[0] == {"role": "user", "content": "hi"}
-        assert result[1]["content"] == "hello"
-
-    def test_preserves_non_assistant(self):
-        messages = [{"role": "user", "content": "hello"}]
-        result = strip_thinking_from_messages(messages)
-        assert result == messages
-
-    def test_string_content_unchanged(self):
-        messages = [{"role": "assistant", "content": "plain text"}]
-        result = strip_thinking_from_messages(messages)
-        assert result[0]["content"] == "plain text"
 
 
 class TestExtractReasoningFromMessages:

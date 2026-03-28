@@ -71,20 +71,6 @@ def _normalize_content(content: Any) -> Any:
     return " ".join(text_parts) if len(text_parts) > 1 else text_parts[0]
 
 
-def strip_thinking_from_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Return a copy of messages with thinking blocks stripped from assistant content."""
-    result: list[dict[str, Any]] = []
-    for msg in messages:
-        if msg.get("role") == "assistant":
-            new_msg = dict(msg)
-            content = msg.get("content")
-            new_msg["content"] = _normalize_content(content) if isinstance(content, list) else content
-            result.append(new_msg)
-        else:
-            result.append(msg)
-    return result
-
-
 def extract_reasoning_from_messages(messages: Any) -> str | None:
     """Extract thinking/reasoning text from the last assistant message.
 
