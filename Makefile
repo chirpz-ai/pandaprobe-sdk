@@ -1,9 +1,12 @@
-.PHONY: py-install py-lock py-lint py-format py-format-check py-test py-test-cov py-build py-clean py-nuke-venv
+.PHONY: py-install py-install-crewai py-lock py-lint py-format py-format-check py-test py-test-cov py-build py-clean
 
 PYTHON_DIR = libraries/python
 
 py-install:
 	$(MAKE) -C $(PYTHON_DIR) install
+
+py-install-crewai:
+	$(MAKE) -C $(PYTHON_DIR) install-crewai
 
 py-lock:
 	$(MAKE) -C $(PYTHON_DIR) lock

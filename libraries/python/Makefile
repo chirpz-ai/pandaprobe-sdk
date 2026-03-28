@@ -1,7 +1,10 @@
-.PHONY: install lock lint format format-check test test-cov build clean nuke-venv
+.PHONY: install install-crewai lock lint format format-check test test-cov build clean
 
 install:
-	uv sync --all-extras
+	uv sync --extra dev
+
+install-crewai:
+	uv sync --extra dev --extra crewai
 
 lock:
 	uv lock
