@@ -41,7 +41,6 @@ from pandaprobe.integrations.crewai.utils import (
     extract_token_usage,
     normalize_messages,
     safe_serialize,
-    serialize_tool_response,
     strip_thinking_from_messages,
 )
 from pandaprobe.schemas import SpanKind, SpanStatusCode
@@ -477,26 +476,6 @@ class TestExtractModelName:
 
     def test_no_model_attr(self):
         assert extract_model_name(SimpleNamespace()) is None
-
-
-class TestSerializeToolResponse:
-    def test_dict_response(self):
-        assert serialize_tool_response({"result": "ok"}) == '{"result": "ok"}'
-
-    def test_list_response(self):
-        assert serialize_tool_response([1, 2, 3]) == "[1, 2, 3]"
-
-    def test_string_response(self):
-        assert serialize_tool_response("hello") == "hello"
-
-    def test_none_response(self):
-        assert serialize_tool_response(None) == ""
-
-    def test_zero_response(self):
-        assert serialize_tool_response(0) == "0"
-
-    def test_false_response(self):
-        assert serialize_tool_response(False) == "False"
 
 
 class TestSafeSerialize:

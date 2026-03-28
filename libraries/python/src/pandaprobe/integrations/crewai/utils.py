@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import Any
 
@@ -201,18 +200,6 @@ def extract_model_name(llm: Any) -> str | None:
     if model:
         return str(model)
     return None
-
-
-def serialize_tool_response(resp: Any) -> str:
-    """Serialize a tool response to a string for span output.
-
-    Uses explicit ``None`` check to preserve ``0``, ``False``, and ``[]``.
-    """
-    if isinstance(resp, (dict, list)):
-        return json.dumps(resp)
-    if resp is None:
-        return ""
-    return str(resp)
 
 
 def build_agent_system_message(agent: Any) -> str | None:
