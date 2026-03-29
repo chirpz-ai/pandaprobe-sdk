@@ -11,6 +11,7 @@ on:
     paths:
       - "libraries/python/**"
       - ".github/**"
+  workflow_call:
   workflow_dispatch:
 
 jobs:
