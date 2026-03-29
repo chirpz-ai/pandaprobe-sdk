@@ -10,6 +10,7 @@ and guardrails.
 from __future__ import annotations
 
 import logging
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
@@ -40,6 +41,7 @@ _patched = False
 # ---------------------------------------------------------------------------
 
 _trace_states: dict[str, _TraceState] = {}
+_trace_states_lock = threading.Lock()
 
 
 @dataclass
@@ -243,7 +245,8 @@ def _on_trace_start(trace: Any) -> None:
             started_at=state.trace_started_at,
         )
         state.spans[root_span_id] = root_span
-        _trace_states[trace_id] = state
+        with _trace_states_lock:
+            _trace_states[trace_id] = state
     except Exception as exc:
         logger.debug("PandaProbe OpenAI Agents: error in on_trace_start — %s", exc)
 
@@ -252,7 +255,8 @@ def _on_trace_end(trace: Any) -> None:
     """Handle trace end: finalize root CHAIN span and submit trace."""
     try:
         trace_id = str(getattr(trace, "trace_id", ""))
-        state = _trace_states.pop(trace_id, None)
+        with _trace_states_lock:
+            state = _trace_states.pop(trace_id, None)
         if state is None:
             return
 
@@ -276,7 +280,8 @@ def _on_span_start(span: Any) -> None:
     """Handle span start: create SpanData, resolve parent, register ID mapping."""
     try:
         trace_id = str(getattr(span, "trace_id", ""))
-        state = _trace_states.get(trace_id)
+        with _trace_states_lock:
+            state = _trace_states.get(trace_id)
         if state is None:
             return
 
@@ -326,7 +331,8 @@ def _on_span_end(span: Any) -> None:
     """Handle span end: fill in output, token usage, model params, reasoning, error."""
     try:
         trace_id = str(getattr(span, "trace_id", ""))
-        state = _trace_states.get(trace_id)
+        with _trace_states_lock:
+            state = _trace_states.get(trace_id)
         if state is None:
             return
 
