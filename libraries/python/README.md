@@ -1,6 +1,6 @@
 # PandaProbe Python SDK
 
-Python SDK for [PandaProbe](https://github.com/chirpz-ai/pandaprobe-sdk) — open-source agent tracing and evaluation.
+Python SDK for [PandaProbe](https://www.pandaprobe.com/) — open-source agent engineering platform.
 
 ## Installation
 
@@ -8,14 +8,22 @@ Python SDK for [PandaProbe](https://github.com/chirpz-ai/pandaprobe-sdk) — ope
 pip install pandaprobe
 ```
 
-With optional integrations:
+With optional LLM provider wrappers:
 
 ```bash
 pip install pandaprobe[openai]       # OpenAI wrapper
 pip install pandaprobe[gemini]       # Google Gemini wrapper
 pip install pandaprobe[anthropic]    # Anthropic wrapper
-pip install pandaprobe[langgraph]    # LangGraph integration
-pip install pandaprobe[all]          # Everything
+```
+
+With optional agent framework integrations:
+
+```bash
+pip install pandaprobe[langgraph]         # LangGraph / LangChain
+pip install pandaprobe[google-adk]        # Google Agent Development Kit
+pip install pandaprobe[claude-agent-sdk]  # Anthropic Claude Agent SDK
+pip install pandaprobe[crewai]            # CrewAI
+pip install pandaprobe[openai-agents]     # OpenAI Agents SDK
 ```
 
 ## Quick Start
@@ -106,7 +114,11 @@ response = client.messages.create(
 )
 ```
 
-### 6. LangGraph integration
+### 6. Agent framework integrations
+
+All integrations below auto-trace agent execution — LLM calls, tool use, handoffs, and more — with no manual span creation.
+
+#### LangGraph
 
 ```python
 from pandaprobe.integrations.langgraph import LangGraphCallbackHandler
@@ -116,6 +128,54 @@ result = graph.invoke(
     {"messages": [HumanMessage(content="hello")]},
     config={"callbacks": [handler]},
 )
+```
+
+#### Google ADK
+
+```python
+from pandaprobe.integrations.google_adk import GoogleADKAdapter
+
+adapter = GoogleADKAdapter()
+adapter.instrument()
+
+# All Runner.run_async() calls are now traced automatically
+result = await runner.run_async(user_id="user-1", session_id="s-1", new_message=msg)
+```
+
+#### Claude Agent SDK
+
+```python
+from pandaprobe.integrations.claude_agent_sdk import ClaudeAgentSDKAdapter
+
+adapter = ClaudeAgentSDKAdapter()
+adapter.instrument()
+
+# All client.query() / client.receive_response() calls are now traced automatically
+result = client.query(prompt="Explain recursion.")
+```
+
+#### CrewAI
+
+```python
+from pandaprobe.integrations.crewai import CrewAIAdapter
+
+adapter = CrewAIAdapter()
+adapter.instrument()
+
+# All crew.kickoff() calls are now traced automatically
+result = crew.kickoff()
+```
+
+#### OpenAI Agents SDK
+
+```python
+from pandaprobe.integrations.openai_agents import OpenAIAgentsAdapter
+
+adapter = OpenAIAgentsAdapter()
+adapter.instrument()
+
+# All Runner.run() calls are now traced automatically
+result = await Runner.run(agent, input="Explain recursion.")
 ```
 
 ### 7. Session and user tracking
