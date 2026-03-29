@@ -411,6 +411,16 @@ class TestExtractTokenUsage:
         result = extract_token_usage(usage)
         assert result["total_tokens"] == 30
 
+    def test_zero_input_tokens_not_discarded(self):
+        usage = {"input_tokens": 0, "output_tokens": 5, "total_tokens": 5, "prompt_tokens": 999}
+        result = extract_token_usage(usage)
+        assert result["prompt_tokens"] == 0
+
+    def test_zero_output_tokens_not_discarded(self):
+        usage = {"input_tokens": 5, "output_tokens": 0, "total_tokens": 5, "completion_tokens": 999}
+        result = extract_token_usage(usage)
+        assert result["completion_tokens"] == 0
+
     def test_zero_cached_and_reasoning_skipped(self):
         usage = _make_usage(
             input_tokens=10,

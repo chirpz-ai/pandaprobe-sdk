@@ -371,8 +371,12 @@ def extract_token_usage(usage: Any) -> dict[str, int] | None:
 
     result: dict[str, int] = {}
 
-    prompt = _safe_int(get("input_tokens")) or _safe_int(get("prompt_tokens"))
-    completion = _safe_int(get("output_tokens")) or _safe_int(get("completion_tokens"))
+    prompt = _safe_int(get("input_tokens"))
+    if prompt is None:
+        prompt = _safe_int(get("prompt_tokens"))
+    completion = _safe_int(get("output_tokens"))
+    if completion is None:
+        completion = _safe_int(get("completion_tokens"))
     total = _safe_int(get("total_tokens"))
 
     if prompt is not None:
