@@ -41,6 +41,7 @@ langgraph = ["langgraph>=0.2.0", "langchain-core>=0.3.0"]
 google-adk = ["google-adk>=1.0.0", "wrapt>=1.14.0"]
 claude-agent-sdk = ["claude-agent-sdk>=0.1.0", "wrapt>=1.14.0"]
 crewai = ["crewai>=0.100.0", "wrapt>=1.14.0"]
+openai-agents = ["openai-agents>=0.13.0"]
 examples = [
     "pandaprobe[openai,gemini,anthropic]",
     "langchain-openai>=0.2.0",
