@@ -120,6 +120,14 @@ uv run python examples/openai/01_chat_completion.py
 | `crewai/02_tool_crew.py` | Crew with tool-calling agent (weather + population) via `CrewAIAdapter` |
 | `crewai/03_multi_agent.py` | Multi-agent crew with sequential task execution via `CrewAIAdapter` |
 
+### OpenAI Agents SDK
+
+| Example | Description |
+|---|---|
+| `openai_agents/01_simple_agent.py` | Simple agent with automatic tracing via `OpenAIAgentsAdapter` |
+| `openai_agents/02_tool_agent.py` | Agent with function tools (weather + population) via `OpenAIAgentsAdapter` |
+| `openai_agents/03_multi_turn.py` | Multi-turn conversation with session grouping via `pandaprobe.session()` + `OpenAIAgentsAdapter` |
+
 
 ## Session API
 
