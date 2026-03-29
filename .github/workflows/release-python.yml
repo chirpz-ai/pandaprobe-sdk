@@ -1,0 +1,138 @@
+name: Release — Python SDK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "libraries/python/src/pandaprobe/_version.py"
+  workflow_dispatch:
+    inputs:
+      dangerous-non-main-release:
+        required: false
+        type: boolean
+        default: false
+        description: "Release from a non-main branch (danger!)"
+
+jobs:
+  # ============================================================================
+  # Gate: run the full CI suite before releasing
+  # ============================================================================
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: libraries/python
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Install dependencies
+        run: make install
+
+      - name: Check formatting
+        run: make format-check
+
+      - name: Lint
+        run: make lint
+
+  test:
+    name: Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    defaults:
+      run:
+        working-directory: libraries/python
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+
+      - name: Install dependencies
+        run: make install
+
+      - name: Test
+        run: make test-cov
+
+  # ============================================================================
+  # Release: build, tag, publish to GitHub and PyPI
+  # ============================================================================
+  release:
+    name: Release to PyPI
+    needs: [lint, test]
+    if: github.ref == 'refs/heads/main' || inputs.dangerous-non-main-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    defaults:
+      run:
+        working-directory: libraries/python
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Read version from _version.py
+        id: version
+        run: |
+          VERSION=$(python -c "exec(open('src/pandaprobe/_version.py').read()); print(__version__)")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Detected version: $VERSION"
+
+      - name: Check if version already released
+        id: tag-check
+        run: |
+          if git ls-remote --tags origin | grep -q "refs/tags/python-v${{ steps.version.outputs.version }}$"; then
+            echo "already_released=true" >> "$GITHUB_OUTPUT"
+            echo "Tag python-v${{ steps.version.outputs.version }} already exists"
+          else
+            echo "already_released=false" >> "$GITHUB_OUTPUT"
+            echo "Tag python-v${{ steps.version.outputs.version }} does not exist — proceeding"
+          fi
+
+      - name: Abort if already released
+        if: steps.tag-check.outputs.already_released == 'true' && !inputs.dangerous-non-main-release
+        run: |
+          echo "::error::Version ${{ steps.version.outputs.version }} already released. Bump the version in _version.py to release again."
+          exit 1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Build package
+        run: uv build
+
+      - name: Verify package
+        run: |
+          uv run twine check dist/*
+
+      - name: Create GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "libraries/python/dist/*"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: python-v${{ steps.version.outputs.version }}
+          name: "pandaprobe v${{ steps.version.outputs.version }}"
+          commit: ${{ github.sha }}
+          draft: false
+          generateReleaseNotes: true
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: libraries/python/dist/
