@@ -70,7 +70,9 @@ def _normalize_input_item(item: Any) -> dict[str, Any] | None:
 
         if item_type == "function_call_output":
             output = item.get("output")
-            content = json.dumps(output) if isinstance(output, (dict, list)) else ("" if output is None else str(output))
+            content = (
+                json.dumps(output) if isinstance(output, (dict, list)) else ("" if output is None else str(output))
+            )
             return {
                 "role": "tool",
                 "content": content,

@@ -106,9 +106,7 @@ def _make_response_span_data(response=None, input_data=None):
     return SimpleNamespace(type="response", name="Response", response=response, input=input_data)
 
 
-def _make_generation_span_data(
-    input_data=None, output_data=None, model="gpt-4.1-mini", model_config=None, usage=None
-):
+def _make_generation_span_data(input_data=None, output_data=None, model="gpt-4.1-mini", model_config=None, usage=None):
     return SimpleNamespace(
         type="generation",
         name="Generation",
@@ -254,9 +252,7 @@ class TestNormalizeResponseInput:
 class TestNormalizeResponseOutput:
     def test_message_output(self):
         response = _make_response(
-            output=[
-                {"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "Hello!"}]}
-            ]
+            output=[{"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "Hello!"}]}]
         )
         span_data = _make_response_span_data(response=response)
         result = normalize_response_output(span_data)
@@ -318,9 +314,7 @@ class TestNormalizeGenerationInput:
 
 class TestNormalizeGenerationOutput:
     def test_list_messages(self):
-        span_data = _make_generation_span_data(
-            output_data=[{"role": "assistant", "content": "Response"}]
-        )
+        span_data = _make_generation_span_data(output_data=[{"role": "assistant", "content": "Response"}])
         result = normalize_generation_output(span_data)
         assert result == {"messages": [{"role": "assistant", "content": "Response"}]}
 
@@ -334,7 +328,11 @@ class TestExtractReasoning:
     def test_extracts_summary_text(self):
         response = _make_response(
             output=[
-                {"type": "reasoning", "id": "r-1", "summary": [{"type": "summary_text", "text": "I thought about it"}]},
+                {
+                    "type": "reasoning",
+                    "id": "r-1",
+                    "summary": [{"type": "summary_text", "text": "I thought about it"}],
+                },
                 {"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "answer"}]},
             ]
         )
@@ -925,7 +923,9 @@ class TestFillAgentSpan:
         from uuid import uuid4
 
         span = SpanData(span_id=str(uuid4()), name="agent", kind=SpanKind.AGENT, started_at=datetime.now(timezone.utc))
-        data = _make_agent_span_data(name="my_agent", tools=["search", "calc"], handoffs=["sub_agent"], output_type="str")
+        data = _make_agent_span_data(
+            name="my_agent", tools=["search", "calc"], handoffs=["sub_agent"], output_type="str"
+        )
         _fill_agent_span(span, data)
         assert span.metadata["tools"] == ["search", "calc"]
         assert span.metadata["handoffs"] == ["sub_agent"]
@@ -937,7 +937,9 @@ class TestFillHandoffSpan:
         from datetime import datetime, timezone
         from uuid import uuid4
 
-        span = SpanData(span_id=str(uuid4()), name="handoff", kind=SpanKind.AGENT, started_at=datetime.now(timezone.utc))
+        span = SpanData(
+            span_id=str(uuid4()), name="handoff", kind=SpanKind.AGENT, started_at=datetime.now(timezone.utc)
+        )
         data = _make_handoff_span_data("a", "b")
         _fill_handoff_span(span, data)
         assert span.metadata["from_agent"] == "a"
@@ -949,7 +951,9 @@ class TestFillGuardrailSpan:
         from datetime import datetime, timezone
         from uuid import uuid4
 
-        span = SpanData(span_id=str(uuid4()), name="guardrail", kind=SpanKind.OTHER, started_at=datetime.now(timezone.utc))
+        span = SpanData(
+            span_id=str(uuid4()), name="guardrail", kind=SpanKind.OTHER, started_at=datetime.now(timezone.utc)
+        )
         data = _make_guardrail_span_data(triggered=False)
         _fill_guardrail_span(span, data)
         assert span.metadata["triggered"] is False
@@ -960,7 +964,9 @@ class TestFillCustomSpan:
         from datetime import datetime, timezone
         from uuid import uuid4
 
-        span = SpanData(span_id=str(uuid4()), name="custom", kind=SpanKind.OTHER, started_at=datetime.now(timezone.utc))
+        span = SpanData(
+            span_id=str(uuid4()), name="custom", kind=SpanKind.OTHER, started_at=datetime.now(timezone.utc)
+        )
         data = _make_custom_span_data(data={"hello": "world"})
         _fill_custom_span(span, data)
         assert span.metadata["custom_data"] == {"hello": "world"}
@@ -1021,9 +1027,12 @@ class TestFullLifecycle:
             span_id="resp-lc-2",
             trace_id="lc-1",
             parent_id="agent-lc",
-            span_data=_make_response_span_data(response=response2, input_data=[
-                {"type": "function_call_output", "call_id": "fc-1", "output": "Sunny"},
-            ]),
+            span_data=_make_response_span_data(
+                response=response2,
+                input_data=[
+                    {"type": "function_call_output", "call_id": "fc-1", "output": "Sunny"},
+                ],
+            ),
         )
         _on_span_start(resp_span2)
         _on_span_end(resp_span2)
@@ -1058,7 +1067,9 @@ class TestFullLifecycle:
             parent_id="a2",
             span_data=_make_response_span_data(
                 response=_make_response(
-                    output=[{"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "Hi"}]}]
+                    output=[
+                        {"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "Hi"}]}
+                    ]
                 ),
                 input_data="Hello",
             ),
@@ -1135,14 +1146,20 @@ class TestTraceInputOutput:
         response1 = _make_response(
             output=[{"type": "function_call", "id": "fc", "name": "tool", "arguments": "{}"}],
         )
-        s1 = _make_span(span_id="io-r1", trace_id="io-2", span_data=_make_response_span_data(response=response1, input_data="Q"))
+        s1 = _make_span(
+            span_id="io-r1", trace_id="io-2", span_data=_make_response_span_data(response=response1, input_data="Q")
+        )
         _on_span_start(s1)
         _on_span_end(s1)
 
         response2 = _make_response(
             output=[{"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "Final"}]}],
         )
-        s2 = _make_span(span_id="io-r2", trace_id="io-2", span_data=_make_response_span_data(response=response2, input_data="Context"))
+        s2 = _make_span(
+            span_id="io-r2",
+            trace_id="io-2",
+            span_data=_make_response_span_data(response=response2, input_data="Context"),
+        )
         _on_span_start(s2)
         _on_span_end(s2)
 
@@ -1234,7 +1251,9 @@ class TestChainSpanInputOutput:
 
         response = _make_response(
             instructions="You are a travel advisor.",
-            output=[{"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "Visit Paris!"}]}],
+            output=[
+                {"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "Visit Paris!"}]}
+            ],
         )
         span_data = _make_response_span_data(response=response, input_data="Where should I go?")
         span = _make_span(span_id="chain-r1", trace_id="chain-io-1", span_data=span_data)
@@ -1259,7 +1278,9 @@ class TestChainSpanInputOutput:
 
         response = _make_response(
             instructions="Be helpful.",
-            output=[{"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "The answer"}]}],
+            output=[
+                {"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "The answer"}]}
+            ],
         )
         span_data = _make_response_span_data(response=response, input_data="Question?")
         span = _make_span(span_id="chain-r2", trace_id="chain-io-2", span_data=span_data)
@@ -1338,7 +1359,9 @@ class TestAgentSpanPropagation:
 
         response = _make_response(
             instructions="You are a helpful travel advisor.",
-            output=[{"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "Visit Tokyo!"}]}],
+            output=[
+                {"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "Visit Tokyo!"}]}
+            ],
         )
         resp_span = _make_span(
             span_id="resp-ag-1",
@@ -1361,9 +1384,7 @@ class TestAgentSpanPropagation:
                 {"role": "user", "content": "Where to go?"},
             ]
         }
-        assert agent_pp_span.output == {
-            "messages": [{"role": "assistant", "content": "Visit Tokyo!"}]
-        }
+        assert agent_pp_span.output == {"messages": [{"role": "assistant", "content": "Visit Tokyo!"}]}
 
     def test_agent_output_updates_with_last_response(self):
         adapter = OpenAIAgentsAdapter()
@@ -1382,20 +1403,29 @@ class TestAgentSpanPropagation:
             instructions="System",
         )
         s1 = _make_span(
-            span_id="r-ag-1", trace_id="agent-prop-2", parent_id="ag-2",
+            span_id="r-ag-1",
+            trace_id="agent-prop-2",
+            parent_id="ag-2",
             span_data=_make_response_span_data(response=resp1, input_data="Query"),
         )
         _on_span_start(s1)
         _on_span_end(s1)
 
         resp2 = _make_response(
-            output=[{"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "Final answer"}]}],
+            output=[
+                {"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "Final answer"}]}
+            ],
         )
         s2 = _make_span(
-            span_id="r-ag-2", trace_id="agent-prop-2", parent_id="ag-2",
-            span_data=_make_response_span_data(response=resp2, input_data=[
-                {"type": "function_call_output", "call_id": "fc-1", "output": "result"},
-            ]),
+            span_id="r-ag-2",
+            trace_id="agent-prop-2",
+            parent_id="ag-2",
+            span_data=_make_response_span_data(
+                response=resp2,
+                input_data=[
+                    {"type": "function_call_output", "call_id": "fc-1", "output": "result"},
+                ],
+            ),
         )
         _on_span_start(s2)
         _on_span_end(s2)
@@ -1407,6 +1437,4 @@ class TestAgentSpanPropagation:
         agent_pp_span = state.spans[agent_pp_id]
 
         assert agent_pp_span.input["messages"][0] == {"role": "system", "content": "System"}
-        assert agent_pp_span.output == {
-            "messages": [{"role": "assistant", "content": "Final answer"}]
-        }
+        assert agent_pp_span.output == {"messages": [{"role": "assistant", "content": "Final answer"}]}
