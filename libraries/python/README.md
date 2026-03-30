@@ -1,6 +1,6 @@
 # PandaProbe Python SDK
 
-Python SDK for [PandaProbe](https://www.pandaprobe.com/) — open-source agent engineering platform.
+Python SDK for [PandaProbe](https://www.pandaprobe.com/) — open source agent engineering platform.
 
 ## Installation
 

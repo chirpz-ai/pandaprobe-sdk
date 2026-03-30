@@ -1,6 +1,6 @@
 # PandaProbe SDK
 
-Multi-language SDK for [PandaProbe](https://github.com/chirpz-ai/pandaprobe-sdk) -- open-source agent engineering platform.
+Multi-language SDK for [PandaProbe](https://github.com/chirpz-ai/pandaprobe-sdk) - open source agent engineering platform.
 
 ## Languages
 
