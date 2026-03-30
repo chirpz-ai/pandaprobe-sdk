@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "pandaprobe"
 dynamic = ["version"]
-description = "Python SDK for PandaProbe — open-source agent tracing and evaluation"
+description = "Python SDK for PandaProbe — open source agent engineering platform"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
