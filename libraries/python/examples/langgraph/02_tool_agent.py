@@ -52,7 +52,7 @@ def get_population(city: str) -> str:
 
 
 tools = [get_weather, get_population]
-llm = ChatOpenAI(model="gpt-5.4-nano", model_kwargs={"reasoning_effort": "low"}).bind_tools(tools)
+llm = ChatOpenAI(model="gpt-5.4-nano").bind_tools(tools)
 
 
 class AgentState(TypedDict):
