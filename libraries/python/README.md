@@ -11,19 +11,19 @@ pip install pandaprobe
 With optional LLM provider wrappers:
 
 ```bash
-pip install pandaprobe[openai]       # OpenAI wrapper
-pip install pandaprobe[gemini]       # Google Gemini wrapper
-pip install pandaprobe[anthropic]    # Anthropic wrapper
+pip install "pandaprobe[openai]"       # OpenAI wrapper
+pip install "pandaprobe[gemini]"       # Google Gemini wrapper
+pip install "pandaprobe[anthropic]"    # Anthropic wrapper
 ```
 
 With optional agent framework integrations:
 
 ```bash
-pip install pandaprobe[langgraph]         # LangGraph / LangChain
-pip install pandaprobe[google-adk]        # Google Agent Development Kit
-pip install pandaprobe[claude-agent-sdk]  # Anthropic Claude Agent SDK
-pip install pandaprobe[crewai]            # CrewAI
-pip install pandaprobe[openai-agents]     # OpenAI Agents SDK
+pip install "pandaprobe[langgraph]"         # LangGraph / LangChain
+pip install "pandaprobe[google-adk]"        # Google Agent Development Kit
+pip install "pandaprobe[claude-agent-sdk]"  # Anthropic Claude Agent SDK
+pip install "pandaprobe[crewai]"            # CrewAI
+pip install "pandaprobe[openai-agents]"     # OpenAI Agents SDK
 ```
 
 ## Quick Start
@@ -33,7 +33,7 @@ pip install pandaprobe[openai-agents]     # OpenAI Agents SDK
 ```bash
 export PANDAPROBE_API_KEY="sk_pp_..."
 export PANDAPROBE_PROJECT_NAME="my-project"
-export PANDAPROBE_ENDPOINT="my-pandaprobe-endpoint"
+export PANDAPROBE_ENDPOINT="https://api.pandaprobe.com"   # optional — this is the default
 export PANDAPROBE_ENVIRONMENT="production"   # optional
 export PANDAPROBE_RELEASE="v1.2.0"           # optional
 ```
@@ -226,7 +226,7 @@ pandaprobe.shutdown()
 |---|---|---|
 | `PANDAPROBE_API_KEY` | *(required)* | API key |
 | `PANDAPROBE_PROJECT_NAME` | *(required)* | Project name |
-| `PANDAPROBE_ENDPOINT` | `http://localhost:8000` | Backend URL |
+| `PANDAPROBE_ENDPOINT` | `https://api.pandaprobe.com` | Backend URL |
 | `PANDAPROBE_ENVIRONMENT` | `None` | Environment tag (e.g. `production`, `staging`) |
 | `PANDAPROBE_RELEASE` | `None` | Release/version tag (e.g. `v1.2.0`) |
 | `PANDAPROBE_ENABLED` | `true` | Enable/disable SDK |
