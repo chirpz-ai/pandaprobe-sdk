@@ -58,6 +58,52 @@ class TestUtils:
     def test_safe_output_list(self):
         assert safe_output([1, 2, 3]) == [1, 2, 3]
 
+    def test_safe_output_dataclass(self):
+        """Plain @dataclass instances should serialize to a dict of their fields."""
+        import dataclasses
+
+        @dataclasses.dataclass
+        class Point:
+            x: int
+            y: int = 5
+
+        assert safe_output(Point(1)) == {"x": 1, "y": 5}
+
+    def test_safe_output_dataclass_recurses_through_fields(self):
+        """Nested Pydantic-like objects inside a dataclass field should hit ``model_dump``."""
+        import dataclasses
+        from types import SimpleNamespace
+
+        @dataclasses.dataclass
+        class Wrapper:
+            payload: object
+
+        msg = SimpleNamespace(type="ai", content="hi")
+        msg.model_dump = lambda: {"type": "ai", "content": "hi"}
+        assert safe_output(Wrapper(payload=msg)) == {"payload": {"type": "ai", "content": "hi"}}
+
+    def test_safe_output_langgraph_command(self):
+        """``langgraph.types.Command`` (a dataclass) must NOT fall through to ``repr``.
+
+        Regression test for traces showing ``["Command(update={...})"]`` as the
+        output of ``model`` agent spans inside ``create_agent`` agents.
+        """
+        from types import SimpleNamespace
+
+        from langgraph.types import Command
+
+        msg = SimpleNamespace(type="ai", content="answer", tool_calls=[])
+        msg.model_dump = lambda: {"type": "ai", "content": "answer", "tool_calls": []}
+
+        result = safe_output([Command(update={"messages": [msg]})])
+
+        assert isinstance(result, list)
+        assert len(result) == 1
+        assert isinstance(result[0], dict)
+        assert "graph" in result[0] and "update" in result[0]
+        assert result[0]["update"] == {"messages": [{"type": "ai", "content": "answer", "tool_calls": []}]}
+        assert not any(isinstance(item, str) and item.startswith("Command(") for item in result)
+
 
 class TestNormalization:
     def test_normalize_langchain_input_list_of_lists(self):
