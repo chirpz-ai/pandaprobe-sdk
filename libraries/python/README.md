@@ -19,7 +19,8 @@ pip install "pandaprobe[anthropic]"    # Anthropic wrapper
 With optional agent framework integrations:
 
 ```bash
-pip install "pandaprobe[langgraph]"         # LangGraph / LangChain
+pip install "pandaprobe[langgraph]"         # LangGraph
+pip install "pandaprobe[langchain]"         # LangChain (create_agent, LCEL)
 pip install "pandaprobe[google-adk]"        # Google Agent Development Kit
 pip install "pandaprobe[claude-agent-sdk]"  # Anthropic Claude Agent SDK
 pip install "pandaprobe[crewai]"            # CrewAI
@@ -126,6 +127,22 @@ from pandaprobe.integrations.langgraph import LangGraphCallbackHandler
 handler = LangGraphCallbackHandler()
 result = graph.invoke(
     {"messages": [HumanMessage(content="hello")]},
+    config={"callbacks": [handler]},
+)
+```
+
+#### LangChain
+
+Works with `create_agent` agents and plain LCEL pipelines (`prompt | model | parser`).
+
+```python
+from langchain.agents import create_agent
+from pandaprobe.integrations.langchain import LangChainCallbackHandler
+
+handler = LangChainCallbackHandler()
+agent = create_agent(model="openai:gpt-5.4-nano", tools=[...])
+result = agent.invoke(
+    {"messages": [{"role": "user", "content": "hello"}]},
     config={"callbacks": [handler]},
 )
 ```
