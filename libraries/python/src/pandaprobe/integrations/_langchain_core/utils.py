@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import logging
 from typing import Any
 
@@ -173,7 +174,13 @@ def extract_name(serialized: dict[str, Any] | None, fallback: str = "unknown") -
 
 
 def safe_output(value: Any) -> Any:
-    """Ensure a callback output is JSON-serialisable."""
+    """Ensure a callback output is JSON-serialisable.
+
+    Handles primitives, lists/tuples, dicts, Pydantic models (``model_dump``),
+    legacy ``.dict()`` objects, LangChain ``Document`` shapes, and Python
+    ``@dataclass`` instances (e.g. ``langgraph.types.Command``). Unknown types
+    fall back to ``repr()``.
+    """
     if value is None or isinstance(value, (str, int, float, bool)):
         return value
     if isinstance(value, (list, tuple)):
@@ -182,8 +189,10 @@ def safe_output(value: Any) -> Any:
         return {str(k): safe_output(v) for k, v in value.items()}
     if hasattr(value, "model_dump"):
         return value.model_dump()
-    if hasattr(value, "dict"):
+    if hasattr(value, "dict") and callable(getattr(value, "dict", None)):
         return value.dict()
+    if dataclasses.is_dataclass(value) and not isinstance(value, type):
+        return {f.name: safe_output(getattr(value, f.name)) for f in dataclasses.fields(value)}
     if hasattr(value, "page_content"):
         return {"page_content": value.page_content, "metadata": getattr(value, "metadata", {})}
     return repr(value)
