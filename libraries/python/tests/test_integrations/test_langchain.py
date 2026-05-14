@@ -215,6 +215,35 @@ class TestCallbackHandler:
         assert handler._spans[str(root_id)].name == "LangChain"
 
     @respx.mock
+    def test_model_node_command_output_is_serialized_as_dict(self):
+        """Regression: ``create_agent``'s model node returns ``[Command(update=...)]``;
+        the chain-end output must serialize to structured JSON, not ``repr()`` strings.
+        """
+        from langgraph.types import Command
+
+        respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
+        handler = LangChainCallbackHandler()
+
+        root_id = uuid4()
+        model_id = uuid4()
+        handler.on_chain_start({"name": "LangGraph"}, {"messages": []}, run_id=root_id)
+        handler.on_chain_start({"name": "model"}, {"messages": []}, run_id=model_id, parent_run_id=root_id)
+
+        msg = SimpleNamespace(type="ai", content="hello", tool_calls=[])
+        msg.model_dump = lambda: {"type": "ai", "content": "hello", "tool_calls": []}
+        handler.on_chain_end([Command(update={"messages": [msg]})], run_id=model_id)
+
+        model_span = handler._spans[str(model_id)]
+        assert isinstance(model_span.output, list)
+        assert len(model_span.output) == 1
+        assert isinstance(model_span.output[0], dict)
+        assert set(model_span.output[0].keys()) == {"graph", "update", "resume", "goto"}
+        assert model_span.output[0]["update"] == {
+            "messages": [{"role": "assistant", "content": "hello", "tool_calls": []}]
+        }
+        assert not any(isinstance(v, str) and v.startswith("Command(") for v in model_span.output)
+
+    @respx.mock
     def test_nested_internal_name_is_not_remapped(self):
         """Only the root chain name is filtered; nested chains keep their LangChain-given names."""
         respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
