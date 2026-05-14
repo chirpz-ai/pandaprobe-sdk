@@ -232,6 +232,24 @@ class TestCallbackHandler:
         pandaprobe.get_client().flush(timeout=5.0)
         assert route.call_count >= 1
 
+    def test_finalize_trace_error_log_uses_langgraph_label(self, caplog):
+        """Diagnostic regression: trace-submission failures must say 'LangGraph', not 'LangChain'."""
+        import logging
+
+        original = client_module._global_client
+        client_module._global_client = None
+        try:
+            handler = LangGraphCallbackHandler()
+            handler._client = None  # force _resolve_client to raise (no global, none injected)
+            with caplog.at_level(logging.ERROR, logger="pandaprobe"):
+                handler._finalize_trace()
+            assert any(
+                "PandaProbe LangGraph callback failed to submit trace" in rec.getMessage() for rec in caplog.records
+            )
+            assert not any("PandaProbe LangChain callback" in rec.getMessage() for rec in caplog.records)
+        finally:
+            client_module._global_client = original
+
     @respx.mock
     def test_nested_chain_with_llm(self):
         respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))

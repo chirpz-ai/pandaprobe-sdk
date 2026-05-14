@@ -372,7 +372,7 @@ class BaseLangChainCallbackHandler(BaseIntegrationAdapter, _LCBase):  # type: ig
             )
             client.log_trace(trace)
         except Exception as exc:
-            logger.error("PandaProbe LangChain callback failed to submit trace: %s", exc)
+            logger.error("PandaProbe %s callback failed to submit trace: %s", self.DEFAULT_TRACE_NAME, exc)
         finally:
             self._spans.clear()
             self._parents.clear()

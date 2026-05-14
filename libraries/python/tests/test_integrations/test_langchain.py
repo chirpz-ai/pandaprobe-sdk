@@ -75,6 +75,25 @@ class TestSubclassIdentity:
     def test_module_re_export_matches(self):
         assert LangChainCallbackHandler is LangChainCallbackHandlerDirect
 
+    def test_finalize_trace_error_log_uses_langchain_label(self, caplog):
+        """Diagnostic regression: trace-submission failures must say 'LangChain', not the wrong framework."""
+        import logging
+
+        # Point at an unreachable client so log_trace raises inside _finalize_trace.
+        original = client_module._global_client
+        client_module._global_client = None
+        try:
+            handler = LangChainCallbackHandler()
+            handler._client = None  # force _resolve_client to raise (no global, none injected)
+            with caplog.at_level(logging.ERROR, logger="pandaprobe"):
+                handler._finalize_trace()
+            assert any(
+                "PandaProbe LangChain callback failed to submit trace" in rec.getMessage() for rec in caplog.records
+            )
+            assert not any("PandaProbe LangGraph callback" in rec.getMessage() for rec in caplog.records)
+        finally:
+            client_module._global_client = original
+
 
 class TestCallbackHandler:
     @respx.mock
