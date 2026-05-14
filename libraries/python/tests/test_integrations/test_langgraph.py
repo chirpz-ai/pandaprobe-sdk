@@ -58,6 +58,61 @@ class TestUtils:
     def test_safe_output_list(self):
         assert safe_output([1, 2, 3]) == [1, 2, 3]
 
+    def test_safe_output_dataclass(self):
+        """Plain @dataclass instances should serialize to a dict of their fields."""
+        import dataclasses
+
+        @dataclasses.dataclass
+        class Point:
+            x: int
+            y: int = 5
+
+        assert safe_output(Point(1)) == {"x": 1, "y": 5}
+
+    def test_safe_output_dataclass_recurses_through_fields(self):
+        """Nested Pydantic-like objects inside a dataclass field should hit ``model_dump``."""
+        import dataclasses
+        from types import SimpleNamespace
+
+        @dataclasses.dataclass
+        class Wrapper:
+            payload: object
+
+        msg = SimpleNamespace(type="ai", content="hi")
+        msg.model_dump = lambda: {"type": "ai", "content": "hi"}
+        assert safe_output(Wrapper(payload=msg)) == {"payload": {"type": "ai", "content": "hi"}}
+
+    def test_safe_output_langgraph_command(self):
+        """A ``Command``-shaped ``@dataclass`` must NOT fall through to ``repr``.
+
+        Regression test for traces showing ``["Command(update={...})"]`` as the
+        output of ``model`` agent spans inside ``create_agent`` agents. Uses a
+        local stand-in with the same field layout as ``langgraph.types.Command``
+        so the test runs without ``langgraph`` installed.
+        """
+        import dataclasses
+        from types import SimpleNamespace
+        from typing import Any
+
+        @dataclasses.dataclass
+        class FakeCommand:
+            graph: Any = None
+            update: Any = None
+            resume: Any = None
+            goto: tuple = ()
+
+        msg = SimpleNamespace(type="ai", content="answer", tool_calls=[])
+        msg.model_dump = lambda: {"type": "ai", "content": "answer", "tool_calls": []}
+
+        result = safe_output([FakeCommand(update={"messages": [msg]})])
+
+        assert isinstance(result, list)
+        assert len(result) == 1
+        assert isinstance(result[0], dict)
+        assert {"graph", "update", "resume", "goto"}.issubset(result[0])
+        assert result[0]["update"] == {"messages": [{"type": "ai", "content": "answer", "tool_calls": []}]}
+        assert not any(isinstance(item, str) and item.startswith("FakeCommand(") for item in result)
+
 
 class TestNormalization:
     def test_normalize_langchain_input_list_of_lists(self):
@@ -176,6 +231,24 @@ class TestCallbackHandler:
 
         pandaprobe.get_client().flush(timeout=5.0)
         assert route.call_count >= 1
+
+    def test_finalize_trace_error_log_uses_langgraph_label(self, caplog):
+        """Diagnostic regression: trace-submission failures must say 'LangGraph', not 'LangChain'."""
+        import logging
+
+        original = client_module._global_client
+        client_module._global_client = None
+        try:
+            handler = LangGraphCallbackHandler()
+            handler._client = None  # force _resolve_client to raise (no global, none injected)
+            with caplog.at_level(logging.ERROR, logger="pandaprobe"):
+                handler._finalize_trace()
+            assert any(
+                "PandaProbe LangGraph callback failed to submit trace" in rec.getMessage() for rec in caplog.records
+            )
+            assert not any("PandaProbe LangChain callback" in rec.getMessage() for rec in caplog.records)
+        finally:
+            client_module._global_client = original
 
     @respx.mock
     def test_nested_chain_with_llm(self):

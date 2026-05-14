@@ -128,6 +128,20 @@ class TestSessionPropagation:
         handler.on_chain_start({"name": "Graph"}, {"input": "hi"}, run_id=root_id)
         handler.on_chain_end({"output": "bye"}, run_id=root_id)
 
+    @respx.mock
+    def test_langchain_handler_picks_up_session(self):
+        from uuid import uuid4
+
+        respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
+        pandaprobe.init(api_key="sk_pp_test", project_name="proj", endpoint="http://testserver", flush_interval=60.0)
+        from pandaprobe.integrations.langchain import LangChainCallbackHandler
+
+        pandaprobe.set_session("lc-session")
+        handler = LangChainCallbackHandler()
+        root_id = uuid4()
+        handler.on_chain_start({"name": "Agent"}, {"input": "hi"}, run_id=root_id)
+        handler.on_chain_end({"output": "bye"}, run_id=root_id)
+
 
 # =========================================================================
 # User ID propagation
@@ -226,4 +240,18 @@ class TestUserIdPropagation:
         handler = LangGraphCallbackHandler()
         root_id = uuid4()
         handler.on_chain_start({"name": "Graph"}, {"input": "hi"}, run_id=root_id)
+        handler.on_chain_end({"output": "bye"}, run_id=root_id)
+
+    @respx.mock
+    def test_langchain_handler_picks_up_user_id(self):
+        from uuid import uuid4
+
+        respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
+        pandaprobe.init(api_key="sk_pp_test", project_name="proj", endpoint="http://testserver", flush_interval=60.0)
+        from pandaprobe.integrations.langchain import LangChainCallbackHandler
+
+        pandaprobe.set_user("lc-user")
+        handler = LangChainCallbackHandler()
+        root_id = uuid4()
+        handler.on_chain_start({"name": "Agent"}, {"input": "hi"}, run_id=root_id)
         handler.on_chain_end({"output": "bye"}, run_id=root_id)
