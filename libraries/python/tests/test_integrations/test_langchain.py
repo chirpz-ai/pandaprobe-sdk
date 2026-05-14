@@ -216,10 +216,25 @@ class TestCallbackHandler:
 
     @respx.mock
     def test_model_node_command_output_is_serialized_as_dict(self):
-        """Regression: ``create_agent``'s model node returns ``[Command(update=...)]``;
-        the chain-end output must serialize to structured JSON, not ``repr()`` strings.
+        """Regression: ``create_agent``'s model node returns ``[Command(update=...)]``.
+
+        ``Command`` is a first-class LangGraph API expressing both state
+        updates and routing decisions, so the SDK records it faithfully as a
+        structured dict — not a ``repr()`` string, and without stripping the
+        routing fields. Inner messages still get ``type``→``role``
+        normalization. Uses a local stand-in with the same field layout as
+        ``langgraph.types.Command`` so the test runs without ``langgraph``
+        installed.
         """
-        from langgraph.types import Command
+        import dataclasses
+        from typing import Any
+
+        @dataclasses.dataclass
+        class FakeCommand:
+            graph: Any = None
+            update: Any = None
+            resume: Any = None
+            goto: tuple = ()
 
         respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
         handler = LangChainCallbackHandler()
@@ -231,7 +246,7 @@ class TestCallbackHandler:
 
         msg = SimpleNamespace(type="ai", content="hello", tool_calls=[])
         msg.model_dump = lambda: {"type": "ai", "content": "hello", "tool_calls": []}
-        handler.on_chain_end([Command(update={"messages": [msg]})], run_id=model_id)
+        handler.on_chain_end([FakeCommand(update={"messages": [msg]})], run_id=model_id)
 
         model_span = handler._spans[str(model_id)]
         assert isinstance(model_span.output, list)
@@ -241,7 +256,7 @@ class TestCallbackHandler:
         assert model_span.output[0]["update"] == {
             "messages": [{"role": "assistant", "content": "hello", "tool_calls": []}]
         }
-        assert not any(isinstance(v, str) and v.startswith("Command(") for v in model_span.output)
+        assert not any(isinstance(v, str) and v.startswith("FakeCommand(") for v in model_span.output)
 
     @respx.mock
     def test_nested_internal_name_is_not_remapped(self):
