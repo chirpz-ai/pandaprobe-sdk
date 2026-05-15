@@ -21,6 +21,7 @@ With optional agent framework integrations:
 ```bash
 pip install "pandaprobe[langgraph]"         # LangGraph
 pip install "pandaprobe[langchain]"         # LangChain (create_agent, LCEL)
+pip install "pandaprobe[deepagents]"        # DeepAgents (requires Python ≥3.11)
 pip install "pandaprobe[google-adk]"        # Google Agent Development Kit
 pip install "pandaprobe[claude-agent-sdk]"  # Anthropic Claude Agent SDK
 pip install "pandaprobe[crewai]"            # CrewAI
@@ -141,6 +142,27 @@ from pandaprobe.integrations.langchain import LangChainCallbackHandler
 
 handler = LangChainCallbackHandler()
 agent = create_agent(model="openai:gpt-5.4-nano", tools=[...])
+result = agent.invoke(
+    {"messages": [{"role": "user", "content": "hello"}]},
+    config={"callbacks": [handler]},
+)
+```
+
+#### DeepAgents
+
+`deepagents` is an opinionated harness on top of `create_agent`. `create_deep_agent(...)` returns a LangGraph compiled graph, so a single handler captures the parent agent **and** every sub-agent dispatched via the built-in `task` tool.
+
+```python
+from deepagents import create_deep_agent
+from pandaprobe.integrations.deepagents import DeepAgentsCallbackHandler
+
+handler = DeepAgentsCallbackHandler()
+agent = create_deep_agent(
+    model="openai:gpt-5.4-nano",
+    tools=[...],
+    system_prompt="...",
+    subagents=[{"name": "researcher", "description": "...", "system_prompt": "...", "tools": [...]}],
+)
 result = agent.invoke(
     {"messages": [{"role": "user", "content": "hello"}]},
     config={"callbacks": [handler]},
