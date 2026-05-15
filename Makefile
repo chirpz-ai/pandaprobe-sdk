@@ -1,4 +1,4 @@
-.PHONY: py-install py-install-langgraph py-install-langchain py-install-google-adk py-install-claude-agent-sdk py-install-crewai py-install-openai-agents py-lock py-lint py-format py-format-check py-test py-test-cov py-build py-clean
+.PHONY: py-install py-install-langgraph py-install-langchain py-install-deepagents py-install-google-adk py-install-claude-agent-sdk py-install-crewai py-install-openai-agents py-lock py-lint py-format py-format-check py-test py-test-cov py-build py-clean
 
 PYTHON_DIR = libraries/python
 
@@ -10,6 +10,9 @@ py-install-langgraph:
 
 py-install-langchain:
 	$(MAKE) -C $(PYTHON_DIR) install-langchain
+
+py-install-deepagents:
+	$(MAKE) -C $(PYTHON_DIR) install-deepagents
 
 py-install-google-adk:
 	$(MAKE) -C $(PYTHON_DIR) install-google-adk

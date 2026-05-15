@@ -127,3 +127,55 @@ class TestModuleLevelImports:
         assert hasattr(pandaprobe, "session")
         assert hasattr(pandaprobe, "set_user")
         assert hasattr(pandaprobe, "user")
+
+
+class TestEnvIsolationGuard:
+    """Pins the ``tests/conftest.py`` env-hygiene contract.
+
+    Two regressions these tests catch:
+
+    1. A developer with ``PANDAPROBE_ENDPOINT=https://api.pandaprobe.com``
+       (the production URL) exported would otherwise have every default-
+       endpoint ``Client`` post real traces to production. The conftest pins
+       endpoint to ``http://testserver`` for every test.
+    2. A developer with ``PANDAPROBE_API_KEY`` / ``PANDAPROBE_PROJECT_NAME``
+       /tuning vars exported would otherwise leak those values into
+       ``Client.__init__`` (auto-init from env, custom flush intervals, etc.).
+       The conftest clears all PANDAPROBE_* config vars before every test.
+    """
+
+    def test_default_endpoint_is_a_fake_host_during_tests(self):
+        """No matter what the developer's shell exports, default endpoint is the fake host."""
+        c = Client(api_key="sk_pp_test", project_name="proj")
+        try:
+            assert c.config.endpoint == "http://testserver", (
+                "tests/conftest.py must pin PANDAPROBE_ENDPOINT to a fake host so "
+                "default-endpoint Clients in tests cannot reach production"
+            )
+            assert "pandaprobe.com" not in c.config.endpoint
+        finally:
+            c.shutdown()
+
+    def test_init_endpoint_is_a_fake_host_during_tests(self):
+        c = init(api_key="sk_pp_test", project_name="proj")
+        assert c.config.endpoint == "http://testserver"
+
+    def test_pandaprobe_config_env_vars_are_cleared_during_tests(self):
+        """PANDAPROBE_* config env vars (other than endpoint) must be absent inside any test."""
+        import os
+
+        for var in (
+            "PANDAPROBE_API_KEY",
+            "PANDAPROBE_PROJECT_NAME",
+            "PANDAPROBE_ENVIRONMENT",
+            "PANDAPROBE_RELEASE",
+            "PANDAPROBE_ENABLED",
+            "PANDAPROBE_BATCH_SIZE",
+            "PANDAPROBE_FLUSH_INTERVAL",
+            "PANDAPROBE_MAX_QUEUE_SIZE",
+            "PANDAPROBE_DEBUG",
+        ):
+            assert var not in os.environ, (
+                f"tests/conftest.py must clear {var} so a developer-machine "
+                f"value cannot leak into Client config (got: {os.environ.get(var)!r})"
+            )
