@@ -36,6 +36,8 @@ dependencies = [
 openai = ["openai>=1.0.0"]
 gemini = ["google-genai>=1.0.0"]
 anthropic = ["anthropic>=0.80.0"]
+mistral = ["mistralai>=2.4.0"]
+bedrock = ["boto3>=1.43.0"]
 # Heavyweight agent frameworks — install one at a time to avoid conflicts
 langgraph = ["langgraph>=0.2.0", "langchain-core>=0.3.0"]
 langchain = ["langchain>=1.0.0", "langchain-core>=0.3.0"]
@@ -45,7 +47,7 @@ claude-agent-sdk = ["claude-agent-sdk>=0.1.0", "wrapt>=1.14.0"]
 crewai = ["crewai>=0.100.0", "wrapt>=1.14.0"]
 openai-agents = ["openai-agents>=0.13.0"]
 examples = [
-    "pandaprobe[openai,gemini,anthropic]",
+    "pandaprobe[openai,gemini,anthropic, mistral, bedrock]",
     "langchain-openai>=0.2.0",
     "langchain-google-genai>=4.0.0",
 ]
