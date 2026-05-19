@@ -297,6 +297,48 @@ class TestConverseStreaming:
         assert len(collected) == 5
 
 
+class TestConverseBlockingFinalizeDefensiveness:
+    @respx.mock
+    def test_close_failure_does_not_steal_user_response(self, monkeypatch):
+        """Regression: ``close_llm_span`` raising during blocking finalize
+        must not propagate into the wrapper's outer ``except`` block — the
+        user's successful API response must still be returned.
+
+        Pre-fix: a close-failure would propagate, the outer
+        ``except Exception`` would catch it, call ``error_llm_span`` on an
+        already-partially-closed span, and then re-raise — so the caller
+        would see a tracing exception instead of their valid Bedrock
+        response.
+        """
+        respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
+
+        from pandaprobe.wrappers.bedrock import wrapper as bedrock_wrapper
+
+        error_calls: list[BaseException] = []
+        monkeypatch.setattr(
+            bedrock_wrapper,
+            "close_llm_span",
+            lambda ctx: (_ for _ in ()).throw(RuntimeError("close-blew-up")),
+        )
+        monkeypatch.setattr(bedrock_wrapper, "error_llm_span", lambda ctx, exc: error_calls.append(exc))
+
+        expected = _make_converse_response()
+        client, _, _, _, _ = _make_mock_bedrock_client(converse_return=expected)
+        wrap_bedrock(client)
+
+        # Must not raise — the caller's success path must survive a tracing
+        # close failure intact.
+        result = client.converse(
+            modelId="anthropic.claude-3-5-haiku-20241022-v1:0",
+            messages=[{"role": "user", "content": [{"text": "Hi"}]}],
+        )
+        assert result is expected
+        assert error_calls == [], (
+            "tracing close-failure was incorrectly routed to error_llm_span — "
+            "the wrapper's outer except clause caught a telemetry exception"
+        )
+
+
 # ---------------------------------------------------------------------------
 # InvokeModel (Anthropic-on-Bedrock and Titan body shapes)
 # ---------------------------------------------------------------------------
@@ -425,6 +467,39 @@ class TestInvokeModelBlocking:
             body=json.dumps({"inputText": "Hi", "textGenerationConfig": {"maxTokenCount": 100}}).encode(),
         )
         assert result is response
+
+
+class TestInvokeModelBlockingFinalizeDefensiveness:
+    @respx.mock
+    def test_close_failure_does_not_steal_user_response(self, monkeypatch):
+        """Regression: same close-failure-must-not-steal-response contract as
+        the Converse blocking path, applied to InvokeModel.
+        """
+        respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
+
+        from pandaprobe.wrappers.bedrock import wrapper as bedrock_wrapper
+
+        error_calls: list[BaseException] = []
+        monkeypatch.setattr(
+            bedrock_wrapper,
+            "close_llm_span",
+            lambda ctx: (_ for _ in ()).throw(RuntimeError("close-blew-up")),
+        )
+        monkeypatch.setattr(bedrock_wrapper, "error_llm_span", lambda ctx, exc: error_calls.append(exc))
+
+        body = json.dumps({"content": [{"type": "text", "text": "ok"}]}).encode()
+        invoke_resp = {"body": _FakeStreamingBody(body), "contentType": "application/json"}
+
+        client, _, _, invoke_fn, _ = _make_mock_bedrock_client()
+        invoke_fn.return_value = invoke_resp
+        wrap_bedrock(client)
+
+        result = client.invoke_model(
+            modelId="anthropic.claude-3-5-haiku-20241022-v1:0",
+            body=b'{"messages":[]}',
+        )
+        assert result is invoke_resp
+        assert error_calls == []
 
 
 # ---------------------------------------------------------------------------

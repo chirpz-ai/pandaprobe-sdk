@@ -190,7 +190,10 @@ def _finish_converse_span(span_ctx: Any, response: Any, model_id: str | None) ->
     except Exception as exc:
         logger.debug("Error extracting Bedrock Converse usage: %s", exc)
 
-    close_llm_span(span_ctx)
+    try:
+        close_llm_span(span_ctx)
+    except Exception:
+        logger.debug("close_llm_span failed during Bedrock Converse blocking finalize", exc_info=True)
 
 
 def _split_converse_content(content: Any) -> tuple[list[str], list[str]]:
@@ -268,7 +271,10 @@ def _wrap_converse_stream_response(
     """
     if not isinstance(response, dict) or "stream" not in response:
         if span_ctx is not None:
-            close_llm_span(span_ctx)
+            try:
+                close_llm_span(span_ctx)
+            except Exception:
+                logger.debug("close_llm_span failed during Bedrock Converse stream passthrough", exc_info=True)
         return response
 
     inner = response["stream"]
@@ -699,7 +705,10 @@ def _finalize_invoke_model_span(span_ctx: Any, parsed: Any, model_id: str | None
     except Exception as exc:
         logger.debug("Error extracting Bedrock InvokeModel usage: %s", exc)
 
-    close_llm_span(span_ctx)
+    try:
+        close_llm_span(span_ctx)
+    except Exception:
+        logger.debug("close_llm_span failed during Bedrock InvokeModel blocking finalize", exc_info=True)
 
 
 def _finish_invoke_model_span(span_ctx: Any, response: Any, model_id: str | None) -> None:
@@ -773,7 +782,10 @@ def _wrap_invoke_stream_response(
     """
     if not isinstance(response, dict) or "body" not in response:
         if span_ctx is not None:
-            close_llm_span(span_ctx)
+            try:
+                close_llm_span(span_ctx)
+            except Exception:
+                logger.debug("close_llm_span failed during Bedrock InvokeModel stream passthrough", exc_info=True)
         return response
 
     inner = response["body"]
