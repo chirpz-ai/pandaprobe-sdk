@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import inspect
 import io
 import json
 from types import SimpleNamespace
@@ -740,16 +739,54 @@ class TestAsyncBedrock:
             body=b'{"messages":[]}',
         )
 
-        # User code (potentially `await result["body"].read()` in real aioboto3,
-        # or `.read()` sync against the rewound BytesIO/StreamingBody) must see
-        # the full payload — not empty bytes from a consumed stream.
-        readable = result["body"]
-        raw = readable.read()
-        if inspect.iscoroutine(raw):
-            raw = await raw
+        # Real aioboto3 user code does ``await response["body"].read()``.
+        # Replacing the body with a sync wrapper would make this raise
+        # ``TypeError: object bytes can't be used in 'await' expression``
+        # because awaiting plain bytes is illegal — so the rewound body
+        # MUST expose an awaitable ``read``.
+        raw = await result["body"].read()
+        assert isinstance(raw, bytes)
         assert raw == body, "async wrapper consumed the body — user code would lose the response"
         parsed = json.loads(raw)
         assert parsed["content"][0]["text"] == "Async bytes preserved"
+
+    @respx.mock
+    async def test_async_invoke_model_rewound_body_supports_async_iter_and_cm(self):
+        """Regression: the rewound aioboto3 body must support the full async
+        surface (``async with``, ``async for``), not just ``await read()``.
+        """
+        respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
+
+        class _AsyncStreamingBody:
+            def __init__(self, payload: bytes) -> None:
+                self._buf = io.BytesIO(payload)
+
+            async def read(self, *args, **kwargs) -> bytes:
+                return self._buf.read(*args, **kwargs)
+
+        body = json.dumps({"content": [{"type": "text", "text": "iter ok"}]}).encode()
+        invoke_resp = {"body": _AsyncStreamingBody(body), "contentType": "application/json"}
+
+        client = SimpleNamespace(
+            converse=AsyncMock(),
+            converse_stream=AsyncMock(),
+            invoke_model=AsyncMock(return_value=invoke_resp),
+            invoke_model_with_response_stream=AsyncMock(),
+        )
+        wrap_bedrock(client)
+
+        result = await client.invoke_model(
+            modelId="anthropic.claude-3-5-haiku-20241022-v1:0",
+            body=b'{"messages":[]}',
+        )
+
+        async with result["body"] as stream:
+            collected = bytearray()
+            async for chunk in stream:
+                assert isinstance(chunk, bytes)
+                collected.extend(chunk)
+
+        assert bytes(collected) == body
 
     @respx.mock
     async def test_async_converse_stream(self):

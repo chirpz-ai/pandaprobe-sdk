@@ -465,8 +465,61 @@ def _rewindable_streaming_body(raw: bytes) -> Any:
         return buf
 
 
-def _decode_invoke_payload(raw: Any, response: Any, consumed_stream: bool) -> Any:
-    """Shared post-read decoding + rewind for the InvokeModel response body."""
+class _AsyncRewindableBody:
+    """Minimal aioboto3-compatible streaming body backed by in-memory bytes.
+
+    Mirrors the surface of ``aiobotocore.response.StreamingBody`` that
+    real-world aioboto3 user code exercises:
+
+    * ``data = await body.read([amt])``
+    * ``async with body as b: ...``
+    * ``async for chunk in body: ...``
+    * ``body.close()``
+
+    The body is fully buffered (the wrapper has already consumed the original
+    stream upstream), so all read methods are O(1) memcpy slices off a
+    ``BytesIO``.  We deliberately do **not** subclass aiobotocore's
+    ``StreamingBody`` — its ctor requires an aiohttp ``ClientResponse`` /
+    raw stream which we cannot synthesize from bytes alone.
+    """
+
+    __slots__ = ("_buf", "_raw")
+
+    def __init__(self, raw: bytes) -> None:
+        self._raw = raw
+        self._buf = io.BytesIO(raw)
+
+    async def read(self, amt: int = -1) -> bytes:
+        return self._buf.read(amt)
+
+    async def __aenter__(self) -> _AsyncRewindableBody:
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb) -> None:  # noqa: ANN001
+        return None
+
+    def __aiter__(self) -> _AsyncRewindableBody:
+        return self
+
+    async def __anext__(self) -> bytes:
+        chunk = self._buf.read(8192)
+        if not chunk:
+            raise StopAsyncIteration
+        return chunk
+
+    def close(self) -> None:
+        self._buf.close()
+
+
+def _decode_invoke_payload(raw: Any, response: Any, consumed_stream: bool, *, async_body: bool = False) -> Any:
+    """Shared post-read decoding + rewind for the InvokeModel response body.
+
+    ``async_body=True`` is required when called from the async (aioboto3)
+    path — it ensures the rewound body keeps an awaitable ``read`` so that
+    user code like ``await response["body"].read()`` keeps working.  Using a
+    sync ``StreamingBody`` here would yield ``TypeError: object bytes can't
+    be used in 'await' expression`` for real aioboto3 callers.
+    """
     if raw is None:
         return None
     if isinstance(raw, (bytes, bytearray)):
@@ -485,7 +538,7 @@ def _decode_invoke_payload(raw: Any, response: Any, consumed_stream: bool) -> An
 
     if consumed_stream and raw_bytes is not None and isinstance(response, dict):
         try:
-            response["body"] = _rewindable_streaming_body(raw_bytes)
+            response["body"] = _AsyncRewindableBody(raw_bytes) if async_body else _rewindable_streaming_body(raw_bytes)
         except Exception:
             logger.debug("Failed to rewind Bedrock InvokeModel body", exc_info=True)
 
@@ -566,7 +619,7 @@ async def _read_invoke_body_async(response: Any) -> Any:
     elif isinstance(body, (bytes, bytearray, str)):
         raw = body
 
-    return _decode_invoke_payload(raw, response, consumed_stream)
+    return _decode_invoke_payload(raw, response, consumed_stream, async_body=True)
 
 
 def _extract_invoke_model_text(parsed: Any) -> str | None:
