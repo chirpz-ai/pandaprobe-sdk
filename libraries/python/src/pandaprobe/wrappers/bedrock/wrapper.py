@@ -324,31 +324,42 @@ class _ConverseStreamMixin:
 
         Idempotent — safe to call from ``__next__``'s exception handler *and*
         from ``__exit__`` / ``__aexit__`` without double-closing the span.
+
+        All telemetry calls are guarded — a tracing-side failure must never
+        propagate through the user's iteration / context-manager exit and
+        clobber their real exception.  This mirrors the base
+        :class:`SyncStreamReducer` contract.
         """
         if self._finalized or self._span_ctx is None:
             return
         self._finalized = True
+        span = self._span_ctx
+        self._span_ctx = None
         if error is not None:
-            error_llm_span(self._span_ctx, error)
-            self._span_ctx = None
+            try:
+                error_llm_span(span, error)
+            except Exception:
+                logger.debug("error_llm_span failed during Bedrock Converse finalize", exc_info=True)
             return
         try:
             if self._text_parts:
-                self._span_ctx.set_output(
+                span.set_output(
                     {"messages": [{"role": "assistant", "content": "".join(self._text_parts)}]},
                 )
             if self._reasoning_parts:
-                self._span_ctx.set_metadata(
+                span.set_metadata(
                     {"reasoning_summary": "\n\n".join(self._reasoning_parts)},
                 )
             if self._model_id:
-                self._span_ctx.set_model(self._model_id)
+                span.set_model(self._model_id)
             if self._usage:
-                self._span_ctx.set_token_usage(**self._usage)
+                span.set_token_usage(**self._usage)
         except Exception:
             pass
-        close_llm_span(self._span_ctx)
-        self._span_ctx = None
+        try:
+            close_llm_span(span)
+        except Exception:
+            logger.debug("close_llm_span failed during Bedrock Converse finalize", exc_info=True)
 
 
 class _ConverseSyncStream(_ConverseStreamMixin):
@@ -794,21 +805,32 @@ class _InvokeModelStreamMixin:
 
         Idempotent — safe to call from ``__next__``'s exception handler *and*
         from ``__exit__`` / ``__aexit__`` without double-closing the span.
+
+        All telemetry calls are guarded — a tracing-side failure must never
+        propagate through the user's iteration / context-manager exit and
+        clobber their real exception.  This mirrors the base
+        :class:`SyncStreamReducer` contract.
         """
         if self._finalized or self._span_ctx is None:
             return
         self._finalized = True
+        span = self._span_ctx
+        self._span_ctx = None
         if error is not None:
-            error_llm_span(self._span_ctx, error)
-            self._span_ctx = None
+            try:
+                error_llm_span(span, error)
+            except Exception:
+                logger.debug("error_llm_span failed during Bedrock InvokeModel finalize", exc_info=True)
             return
         try:
             if self._model_id:
-                self._span_ctx.set_model(self._model_id)
+                span.set_model(self._model_id)
         except Exception:
             pass
-        close_llm_span(self._span_ctx)
-        self._span_ctx = None
+        try:
+            close_llm_span(span)
+        except Exception:
+            logger.debug("close_llm_span failed during Bedrock InvokeModel finalize", exc_info=True)
 
 
 class _InvokeModelSyncStream(_InvokeModelStreamMixin):

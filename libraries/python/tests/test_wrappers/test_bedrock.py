@@ -541,6 +541,75 @@ class TestConverseExtraEvents:
         assert len(close_calls) == 1, "span was not closed on with-block exit"
 
     @respx.mock
+    def test_sync_converse_stream_swallows_telemetry_failures(self, monkeypatch):
+        """Regression: telemetry failures inside ``_finalize`` must be swallowed.
+
+        A bad ``error_llm_span`` (e.g. corrupted span context, transport
+        failure during ``span.__exit__``) would otherwise propagate through
+        ``__next__`` and replace the user's real exception with a confusing
+        internal error.  The base ``SyncStreamReducer`` contract guards
+        against this; the Bedrock mixin must too.
+        """
+        respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
+
+        from pandaprobe.wrappers.bedrock import wrapper as bedrock_wrapper
+
+        def _broken_error_llm_span(span_ctx, exc):
+            raise RuntimeError("tracing-internal-fail")
+
+        monkeypatch.setattr(bedrock_wrapper, "error_llm_span", _broken_error_llm_span)
+
+        def _exploding_stream():
+            yield {"contentBlockDelta": {"delta": {"text": "partial"}}}
+            raise RuntimeError("user-facing-error")
+
+        client, _, converse_stream_fn, *_ = _make_mock_bedrock_client()
+        converse_stream_fn.return_value = {"stream": _exploding_stream()}
+        wrap_bedrock(client)
+
+        resp = client.converse_stream(
+            modelId="anthropic.claude-3-5-haiku-20241022-v1:0",
+            messages=[{"role": "user", "content": [{"text": "Hi"}]}],
+        )
+
+        # The user must see their original RuntimeError, NOT the internal one.
+        with pytest.raises(RuntimeError, match="user-facing-error"):
+            list(resp["stream"])
+
+    @respx.mock
+    def test_sync_converse_stream_swallows_close_failures(self, monkeypatch):
+        """Regression: ``close_llm_span`` failures on the success path must
+        also be swallowed — a transport teardown error during normal stream
+        completion shouldn't surface as an iteration exception.
+        """
+        respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
+
+        from pandaprobe.wrappers.bedrock import wrapper as bedrock_wrapper
+
+        def _broken_close(span_ctx):
+            raise RuntimeError("close-blew-up")
+
+        monkeypatch.setattr(bedrock_wrapper, "close_llm_span", _broken_close)
+
+        events = [
+            {"contentBlockDelta": {"delta": {"text": "Hi"}}},
+            {"metadata": {"usage": {"inputTokens": 1, "outputTokens": 1, "totalTokens": 2}}},
+        ]
+
+        client, _, converse_stream_fn, *_ = _make_mock_bedrock_client()
+        converse_stream_fn.return_value = {"stream": iter(events)}
+        wrap_bedrock(client)
+
+        resp = client.converse_stream(
+            modelId="anthropic.claude-3-5-haiku-20241022-v1:0",
+            messages=[{"role": "user", "content": [{"text": "Hi"}]}],
+        )
+
+        # Normal iteration must complete cleanly even though close_llm_span raises.
+        collected = list(resp["stream"])
+        assert len(collected) == 2
+
+    @respx.mock
     def test_sync_invoke_model_stream_finalizes_on_mid_iteration_error(self, monkeypatch):
         """Regression: same span-leak fix for the InvokeModel streaming path."""
         respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
