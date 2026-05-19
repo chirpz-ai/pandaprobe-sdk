@@ -319,10 +319,19 @@ class _ConverseStreamMixin:
                 if mapped:
                     self._usage = mapped
 
-    def _finalize(self) -> None:
+    def _finalize(self, error: BaseException | None = None) -> None:
+        """Close the span — as an error if ``error`` is given, else normally.
+
+        Idempotent — safe to call from ``__next__``'s exception handler *and*
+        from ``__exit__`` / ``__aexit__`` without double-closing the span.
+        """
         if self._finalized or self._span_ctx is None:
             return
         self._finalized = True
+        if error is not None:
+            error_llm_span(self._span_ctx, error)
+            self._span_ctx = None
+            return
         try:
             if self._text_parts:
                 self._span_ctx.set_output(
@@ -354,8 +363,25 @@ class _ConverseSyncStream(_ConverseStreamMixin):
         except StopIteration:
             self._finalize()
             raise
+        except Exception as exc:
+            # Any non-StopIteration error (EventStreamError, ReadTimeout, etc.)
+            # would otherwise leave the span open forever — finalize as an
+            # errored span before re-raising.
+            self._finalize(error=exc)
+            raise
         self._handle_event(event)
         return event
+
+    def __enter__(self):
+        if hasattr(self._stream, "__enter__"):
+            self._stream.__enter__()
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self._finalize(error=exc)
+        if hasattr(self._stream, "__exit__"):
+            return self._stream.__exit__(exc_type, exc, tb)
+        return None
 
 
 class _ConverseAsyncStream(_ConverseStreamMixin):
@@ -370,8 +396,22 @@ class _ConverseAsyncStream(_ConverseStreamMixin):
         except StopAsyncIteration:
             self._finalize()
             raise
+        except Exception as exc:
+            self._finalize(error=exc)
+            raise
         self._handle_event(event)
         return event
+
+    async def __aenter__(self):
+        if hasattr(self._stream, "__aenter__"):
+            await self._stream.__aenter__()
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        self._finalize(error=exc)
+        if hasattr(self._stream, "__aexit__"):
+            return await self._stream.__aexit__(exc_type, exc, tb)
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -696,10 +736,19 @@ class _InvokeModelStreamMixin:
             self._span_ctx.set_completion_start_time(datetime.now(timezone.utc))
             self._first_chunk = False
 
-    def _finalize(self) -> None:
+    def _finalize(self, error: BaseException | None = None) -> None:
+        """Close the span — as an error if ``error`` is given, else normally.
+
+        Idempotent — safe to call from ``__next__``'s exception handler *and*
+        from ``__exit__`` / ``__aexit__`` without double-closing the span.
+        """
         if self._finalized or self._span_ctx is None:
             return
         self._finalized = True
+        if error is not None:
+            error_llm_span(self._span_ctx, error)
+            self._span_ctx = None
+            return
         try:
             if self._model_id:
                 self._span_ctx.set_model(self._model_id)
@@ -719,8 +768,22 @@ class _InvokeModelSyncStream(_InvokeModelStreamMixin):
         except StopIteration:
             self._finalize()
             raise
+        except Exception as exc:
+            self._finalize(error=exc)
+            raise
         self._on_chunk()
         return event
+
+    def __enter__(self):
+        if hasattr(self._stream, "__enter__"):
+            self._stream.__enter__()
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self._finalize(error=exc)
+        if hasattr(self._stream, "__exit__"):
+            return self._stream.__exit__(exc_type, exc, tb)
+        return None
 
 
 class _InvokeModelAsyncStream(_InvokeModelStreamMixin):
@@ -733,5 +796,19 @@ class _InvokeModelAsyncStream(_InvokeModelStreamMixin):
         except StopAsyncIteration:
             self._finalize()
             raise
+        except Exception as exc:
+            self._finalize(error=exc)
+            raise
         self._on_chunk()
         return event
+
+    async def __aenter__(self):
+        if hasattr(self._stream, "__aenter__"):
+            await self._stream.__aenter__()
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        self._finalize(error=exc)
+        if hasattr(self._stream, "__aexit__"):
+            return await self._stream.__aexit__(exc_type, exc, tb)
+        return None
