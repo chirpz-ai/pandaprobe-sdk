@@ -14,6 +14,8 @@ With optional LLM provider wrappers:
 pip install "pandaprobe[openai]"       # OpenAI wrapper
 pip install "pandaprobe[gemini]"       # Google Gemini wrapper
 pip install "pandaprobe[anthropic]"    # Anthropic wrapper
+pip install "pandaprobe[mistral]"      # Mistral AI wrapper
+pip install "pandaprobe[bedrock]"      # AWS Bedrock wrapper
 ```
 
 With optional agent framework integrations:
@@ -116,7 +118,50 @@ response = client.messages.create(
 )
 ```
 
-### 6. Agent framework integrations
+### 6. Mistral wrapper (automatic LLM tracing)
+
+```python
+from pandaprobe.wrappers import wrap_mistral
+from mistralai.client import Mistral
+
+client = wrap_mistral(Mistral(api_key="..."))
+
+response = client.chat.complete(
+    model="mistral-small-latest",
+    messages=[
+        {"role": "system", "content": "You are a concise assistant."},
+        {"role": "user", "content": "Explain recursion in one sentence."},
+    ],
+    temperature=0.5,
+    max_tokens=200,
+)
+```
+
+Both `chat.complete` / `chat.complete_async` and the streaming variants
+(`chat.stream` / `chat.stream_async`) are automatically traced.
+
+### 7. AWS Bedrock wrapper (automatic LLM tracing)
+
+```python
+import boto3
+from pandaprobe.wrappers import wrap_bedrock
+
+client = wrap_bedrock(boto3.client("bedrock-runtime", region_name="us-east-1"))
+
+response = client.converse(
+    modelId="anthropic.claude-3-5-haiku-20241022-v1:0",
+    system=[{"text": "You are a concise assistant."}],
+    messages=[{"role": "user", "content": [{"text": "Explain recursion in one sentence."}]}],
+    inferenceConfig={"temperature": 0.5, "maxTokens": 200},
+)
+```
+
+The Bedrock wrapper instruments both the **Converse** API (recommended,
+provider-agnostic) and the legacy **InvokeModel** API, with full streaming
+support on both.  Async `aioboto3` clients are detected and instrumented
+automatically when used.
+
+### 8. Agent framework integrations
 
 All integrations below auto-trace agent execution — LLM calls, tool use, handoffs, and more — with no manual span creation.
 
@@ -217,7 +262,7 @@ adapter.instrument()
 result = await Runner.run(agent, input="Explain recursion.")
 ```
 
-### 7. Session and user tracking
+### 9. Session and user tracking
 
 Group related traces under a session and/or user using the universal context API:
 
@@ -238,7 +283,7 @@ run_agent("New topic")
 
 Both propagate across all SDK layers (decorators, wrappers, integrations, context managers). Explicit parameters (`session_id=`, `user_id=`) take precedence over the context.
 
-### 8. Programmatic scoring
+### 10. Programmatic scoring
 
 ```python
 pandaprobe.score(
@@ -250,7 +295,7 @@ pandaprobe.score(
 )
 ```
 
-### 9. Flushing
+### 11. Flushing
 
 For short-lived scripts, call `pandaprobe.flush()` before exiting to ensure all traces are sent. For long-running processes, the SDK flushes automatically via a background thread and an `atexit` handler.
 
