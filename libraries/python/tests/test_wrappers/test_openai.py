@@ -480,3 +480,80 @@ class TestResponsesStreaming:
 
         collected = list(stream)
         assert len(collected) == 4
+
+    @respx.mock
+    def test_responses_sync_stream_finalizes_span_on_mid_iteration_error(self, monkeypatch):
+        """Regression: ``_ResponsesSyncStream`` is an independent
+        reimplementation of the stream-reducer pattern (does NOT inherit
+        from ``SyncStreamReducer``).  It had the same span-leak bug — a
+        non-StopIteration exception in iteration must finalize the span as
+        an error, not leave it open.
+        """
+        respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
+
+        from pandaprobe.wrappers.openai import wrapper as openai_wrapper
+
+        error_calls: list[BaseException] = []
+        close_calls: list[object] = []
+        monkeypatch.setattr(openai_wrapper, "error_llm_span", lambda ctx, exc: error_calls.append(exc))
+        monkeypatch.setattr(openai_wrapper, "close_llm_span", lambda ctx: close_calls.append(ctx))
+
+        def _exploding_stream():
+            yield SimpleNamespace(type="response.output_text.delta", delta="hi")
+            raise RuntimeError("responses-network-blip")
+
+        create_fn = MagicMock(return_value=_exploding_stream())
+        mock_client = SimpleNamespace(
+            chat=SimpleNamespace(completions=SimpleNamespace(create=MagicMock())),
+            responses=SimpleNamespace(create=create_fn),
+        )
+        wrap_openai(mock_client)
+
+        stream = mock_client.responses.create(
+            model="gpt-5.4-nano",
+            input="Hello",
+            stream=True,
+        )
+
+        with pytest.raises(RuntimeError, match="responses-network-blip"):
+            list(stream)
+
+        assert len(error_calls) == 1, "Responses stream did not record error on mid-iter failure"
+        assert isinstance(error_calls[0], RuntimeError)
+        assert close_calls == [], "errored span must not also be normally closed"
+
+    @respx.mock
+    async def test_responses_async_stream_finalizes_span_on_mid_iteration_error(self, monkeypatch):
+        """Regression: same fix applied to ``_ResponsesAsyncStream``."""
+        respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
+
+        from pandaprobe.wrappers.openai import wrapper as openai_wrapper
+
+        error_calls: list[BaseException] = []
+        monkeypatch.setattr(openai_wrapper, "error_llm_span", lambda ctx, exc: error_calls.append(exc))
+
+        async def _exploding_aiter():
+            yield SimpleNamespace(type="response.output_text.delta", delta="hi")
+            raise RuntimeError("responses-async-down")
+
+        from unittest.mock import AsyncMock
+
+        create_async = AsyncMock(return_value=_exploding_aiter())
+        mock_client = SimpleNamespace(
+            chat=SimpleNamespace(completions=SimpleNamespace(create=AsyncMock())),
+            responses=SimpleNamespace(create=create_async),
+        )
+        wrap_openai(mock_client)
+
+        stream = await mock_client.responses.create(
+            model="gpt-5.4-nano",
+            input="Hello",
+            stream=True,
+        )
+
+        with pytest.raises(RuntimeError, match="responses-async-down"):
+            async for _ in stream:
+                pass
+
+        assert len(error_calls) == 1
+        assert isinstance(error_calls[0], RuntimeError)
