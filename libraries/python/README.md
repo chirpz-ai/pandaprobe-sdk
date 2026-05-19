@@ -1,10 +1,5 @@
 # PandaProbe Python SDK
 
-[![Release Notes](https://img.shields.io/github/release/chirpz-ai/pandaprobe-sdk?logo=python)](https://github.com/chirpz-ai/pandaprobe-sdk/releases)
-[![PyPI - Version](https://img.shields.io/pypi/v/pandaprobe?logo=pypi&logoColor=white)](https://pypi.org/project/pandaprobe/)
-[![Python Versions](https://img.shields.io/pypi/pyversions/pandaprobe?logo=python&logoColor=white)](https://pypi.org/project/pandaprobe/)
-[![License](https://img.shields.io/github/license/chirpz-ai/pandaprobe-sdk)](https://github.com/chirpz-ai/pandaprobe-sdk/blob/main/LICENSE)
-
 Python SDK for [PandaProbe](https://www.pandaprobe.com/) — open source agent engineering platform.
 
 ## Installation
