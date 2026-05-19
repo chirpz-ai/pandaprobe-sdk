@@ -135,8 +135,19 @@ def error_llm_span(span_ctx: Any, exc: BaseException) -> None:
 class SyncStreamReducer:
     """Wraps a sync streaming response, collecting chunks for the span.
 
-    Subclasses can override :meth:`extract_chunk_data` for provider-specific
+    Subclasses can override :meth:`reduce_chunks` for provider-specific
     chunk formats.
+
+    Failure modes covered:
+
+    * Iteration ends normally (``StopIteration``) → ``reduce_chunks`` runs and
+      the span is closed as a successful LLM call.
+    * Iteration raises any other exception (network blip, API error,
+      ``KeyboardInterrupt``) → ``error_llm_span`` records the exception on
+      the span before re-raising, so the span never leaks open.
+    * Used as a context manager — ``__exit__`` propagates any block-level
+      exception to ``_finalize`` so a ``with`` block that raises mid-stream
+      also closes the span as errored, not as a successful no-op.
     """
 
     def __init__(self, stream: Any, span_ctx: Any) -> None:
@@ -151,34 +162,49 @@ class SyncStreamReducer:
     def __next__(self):
         try:
             chunk = next(self._stream)
-            if self._first_chunk and self._span_ctx:
-                self._span_ctx.set_completion_start_time(datetime.now(timezone.utc))
-                self._first_chunk = False
-            self._chunks.append(chunk)
-            return chunk
         except StopIteration:
             self._finalize()
             raise
+        except Exception as exc:
+            self._finalize(error=exc)
+            raise
+        if self._first_chunk and self._span_ctx:
+            self._span_ctx.set_completion_start_time(datetime.now(timezone.utc))
+            self._first_chunk = False
+        self._chunks.append(chunk)
+        return chunk
 
     def __enter__(self):
         if hasattr(self._stream, "__enter__"):
             self._stream.__enter__()
         return self
 
-    def __exit__(self, *args):
-        self._finalize()
+    def __exit__(self, exc_type, exc, tb):
+        self._finalize(error=exc)
         if hasattr(self._stream, "__exit__"):
-            return self._stream.__exit__(*args)
+            return self._stream.__exit__(exc_type, exc, tb)
         return None
 
-    def _finalize(self) -> None:
+    def _finalize(self, error: BaseException | None = None) -> None:
+        """Close the span — as an error if ``error`` is given, else via ``reduce_chunks``.
+
+        Idempotent — flips ``self._span_ctx`` to ``None`` so subsequent calls
+        from ``__next__``'s exception path *and* from ``__exit__`` are safe.
+        """
         if self._span_ctx is None:
             return
+        span = self._span_ctx
+        self._span_ctx = None
+        if error is not None:
+            try:
+                error_llm_span(span, error)
+            except Exception:
+                pass
+            return
         try:
-            self.reduce_chunks(self._span_ctx, self._chunks)
+            self.reduce_chunks(span, self._chunks)
         except Exception:
             pass
-        self._span_ctx = None
 
     def reduce_chunks(self, span_ctx: Any, chunks: list[Any]) -> None:
         """Override in subclass to reduce provider-specific chunks."""
@@ -186,7 +212,11 @@ class SyncStreamReducer:
 
 
 class AsyncStreamReducer:
-    """Wraps an async streaming response, collecting chunks for the span."""
+    """Wraps an async streaming response, collecting chunks for the span.
+
+    Same failure-mode contract as :class:`SyncStreamReducer` — see that
+    class's docstring for details.
+    """
 
     def __init__(self, stream: Any, span_ctx: Any) -> None:
         self._stream = stream
@@ -200,34 +230,44 @@ class AsyncStreamReducer:
     async def __anext__(self):
         try:
             chunk = await self._stream.__anext__()
-            if self._first_chunk and self._span_ctx:
-                self._span_ctx.set_completion_start_time(datetime.now(timezone.utc))
-                self._first_chunk = False
-            self._chunks.append(chunk)
-            return chunk
         except StopAsyncIteration:
             self._finalize()
             raise
+        except Exception as exc:
+            self._finalize(error=exc)
+            raise
+        if self._first_chunk and self._span_ctx:
+            self._span_ctx.set_completion_start_time(datetime.now(timezone.utc))
+            self._first_chunk = False
+        self._chunks.append(chunk)
+        return chunk
 
     async def __aenter__(self):
         if hasattr(self._stream, "__aenter__"):
             await self._stream.__aenter__()
         return self
 
-    async def __aexit__(self, *args):
-        self._finalize()
+    async def __aexit__(self, exc_type, exc, tb):
+        self._finalize(error=exc)
         if hasattr(self._stream, "__aexit__"):
-            return await self._stream.__aexit__(*args)
+            return await self._stream.__aexit__(exc_type, exc, tb)
         return None
 
-    def _finalize(self) -> None:
+    def _finalize(self, error: BaseException | None = None) -> None:
         if self._span_ctx is None:
             return
+        span = self._span_ctx
+        self._span_ctx = None
+        if error is not None:
+            try:
+                error_llm_span(span, error)
+            except Exception:
+                pass
+            return
         try:
-            self.reduce_chunks(self._span_ctx, self._chunks)
+            self.reduce_chunks(span, self._chunks)
         except Exception:
             pass
-        self._span_ctx = None
 
     def reduce_chunks(self, span_ctx: Any, chunks: list[Any]) -> None:
         """Override in subclass to reduce provider-specific chunks."""

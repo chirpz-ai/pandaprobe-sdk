@@ -214,16 +214,22 @@ def _reduce_gemini_stream(span_ctx: Any, chunks: list[Any]) -> None:
         except Exception:
             pass
 
-    if answer_parts:
-        span_ctx.set_output(
-            {"messages": [{"role": "assistant", "content": "".join(answer_parts)}]},
-        )
-    if thought_parts:
-        span_ctx.set_metadata({"reasoning_summary": "\n\n".join(thought_parts)})
-    if usage:
-        span_ctx.set_token_usage(**usage)
+    try:
+        if answer_parts:
+            span_ctx.set_output(
+                {"messages": [{"role": "assistant", "content": "".join(answer_parts)}]},
+            )
+        if thought_parts:
+            span_ctx.set_metadata({"reasoning_summary": "\n\n".join(thought_parts)})
+        if usage:
+            span_ctx.set_token_usage(**usage)
+    except Exception:
+        logger.debug("Error populating Gemini stream span data", exc_info=True)
 
-    close_llm_span(span_ctx)
+    try:
+        close_llm_span(span_ctx)
+    except Exception:
+        logger.debug("close_llm_span failed during Gemini stream finalize", exc_info=True)
 
 
 # ---------------------------------------------------------------------------
@@ -269,7 +275,10 @@ def _finish_gemini_span(span_ctx: Any, response: Any) -> None:
     except Exception as exc:
         logger.debug("Error extracting Gemini response usage: %s", exc)
 
-    close_llm_span(span_ctx)
+    try:
+        close_llm_span(span_ctx)
+    except Exception:
+        logger.debug("close_llm_span failed during Gemini blocking finalize", exc_info=True)
 
 
 def _split_parts(response: Any) -> tuple[list[str], list[str]]:

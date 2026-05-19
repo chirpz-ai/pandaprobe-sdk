@@ -394,18 +394,24 @@ def _reduce_anthropic_stream(span_ctx: Any, chunks: list[Any]) -> None:
             if u:
                 usage["completion_tokens"] = getattr(u, "output_tokens", 0) or 0
 
-    if text_parts:
-        span_ctx.set_output(
-            {"messages": [{"role": "assistant", "content": "".join(text_parts)}]},
-        )
-    if thinking_parts:
-        span_ctx.set_metadata({"reasoning_summary": "\n\n".join(thinking_parts)})
-    if model:
-        span_ctx.set_model(model)
-    if usage:
-        span_ctx.set_token_usage(**usage)
+    try:
+        if text_parts:
+            span_ctx.set_output(
+                {"messages": [{"role": "assistant", "content": "".join(text_parts)}]},
+            )
+        if thinking_parts:
+            span_ctx.set_metadata({"reasoning_summary": "\n\n".join(thinking_parts)})
+        if model:
+            span_ctx.set_model(model)
+        if usage:
+            span_ctx.set_token_usage(**usage)
+    except Exception:
+        logger.debug("Error populating Anthropic stream span data", exc_info=True)
 
-    close_llm_span(span_ctx)
+    try:
+        close_llm_span(span_ctx)
+    except Exception:
+        logger.debug("close_llm_span failed during Anthropic stream finalize", exc_info=True)
 
 
 # ---------------------------------------------------------------------------
@@ -452,7 +458,10 @@ def _finish_anthropic_span(span_ctx: Any, response: Any) -> None:
     except Exception as exc:
         logger.debug("Error extracting Anthropic response usage: %s", exc)
 
-    close_llm_span(span_ctx)
+    try:
+        close_llm_span(span_ctx)
+    except Exception:
+        logger.debug("close_llm_span failed during Anthropic blocking finalize", exc_info=True)
 
 
 def _split_content_blocks(response: Any) -> tuple[list[str], list[str]]:

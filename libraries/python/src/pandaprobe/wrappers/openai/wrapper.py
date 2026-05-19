@@ -189,14 +189,20 @@ def _reduce_openai_stream(span_ctx: Any, chunks: list[Any]) -> None:
                 **_extract_token_details(u),
             }
 
-    if content_parts:
-        span_ctx.set_output({"messages": [{"role": "assistant", "content": "".join(content_parts)}]})
-    if model:
-        span_ctx.set_model(model)
-    if usage:
-        span_ctx.set_token_usage(**usage)
+    try:
+        if content_parts:
+            span_ctx.set_output({"messages": [{"role": "assistant", "content": "".join(content_parts)}]})
+        if model:
+            span_ctx.set_model(model)
+        if usage:
+            span_ctx.set_token_usage(**usage)
+    except Exception:
+        logger.debug("Error populating OpenAI stream span data", exc_info=True)
 
-    close_llm_span(span_ctx)
+    try:
+        close_llm_span(span_ctx)
+    except Exception:
+        logger.debug("close_llm_span failed during OpenAI stream finalize", exc_info=True)
 
 
 # ---------------------------------------------------------------------------
@@ -276,7 +282,10 @@ def _finish_span_from_chat_response(span_ctx: Any, response: Any) -> None:
     except Exception as exc:
         logger.debug("Error extracting OpenAI response data: %s", exc)
 
-    close_llm_span(span_ctx)
+    try:
+        close_llm_span(span_ctx)
+    except Exception:
+        logger.debug("close_llm_span failed during OpenAI blocking finalize", exc_info=True)
 
 
 def _maybe_parse_raw(response: Any) -> Any:
@@ -379,21 +388,24 @@ class _ResponsesSyncStream:
     def __next__(self):
         try:
             event = next(self._stream)
-            self._handle_event(event)
-            return event
         except StopIteration:
             self._finalize()
             raise
+        except Exception as exc:
+            self._finalize(error=exc)
+            raise
+        self._handle_event(event)
+        return event
 
     def __enter__(self):
         if hasattr(self._stream, "__enter__"):
             self._stream.__enter__()
         return self
 
-    def __exit__(self, *args):
-        self._finalize()
+    def __exit__(self, exc_type, exc, tb):
+        self._finalize(error=exc)
         if hasattr(self._stream, "__exit__"):
-            return self._stream.__exit__(*args)
+            return self._stream.__exit__(exc_type, exc, tb)
         return None
 
     def _handle_event(self, event: Any) -> None:
@@ -404,17 +416,24 @@ class _ResponsesSyncStream:
         if event_type == "response.completed":
             self._completed_response = getattr(event, "response", None)
 
-    def _finalize(self) -> None:
+    def _finalize(self, error: BaseException | None = None) -> None:
         if self._span_ctx is None:
+            return
+        span = self._span_ctx
+        self._span_ctx = None
+        if error is not None:
+            try:
+                error_llm_span(span, error)
+            except Exception:
+                pass
             return
         try:
             if self._completed_response is not None:
-                _finish_from_response(self._span_ctx, self._completed_response)
+                _finish_from_response(span, self._completed_response)
             else:
-                close_llm_span(self._span_ctx)
+                close_llm_span(span)
         except Exception:
             pass
-        self._span_ctx = None
 
 
 class _ResponsesAsyncStream:
@@ -432,21 +451,24 @@ class _ResponsesAsyncStream:
     async def __anext__(self):
         try:
             event = await self._stream.__anext__()
-            self._handle_event(event)
-            return event
         except StopAsyncIteration:
             self._finalize()
             raise
+        except Exception as exc:
+            self._finalize(error=exc)
+            raise
+        self._handle_event(event)
+        return event
 
     async def __aenter__(self):
         if hasattr(self._stream, "__aenter__"):
             await self._stream.__aenter__()
         return self
 
-    async def __aexit__(self, *args):
-        self._finalize()
+    async def __aexit__(self, exc_type, exc, tb):
+        self._finalize(error=exc)
         if hasattr(self._stream, "__aexit__"):
-            return await self._stream.__aexit__(*args)
+            return await self._stream.__aexit__(exc_type, exc, tb)
         return None
 
     def _handle_event(self, event: Any) -> None:
@@ -457,17 +479,24 @@ class _ResponsesAsyncStream:
         if event_type == "response.completed":
             self._completed_response = getattr(event, "response", None)
 
-    def _finalize(self) -> None:
+    def _finalize(self, error: BaseException | None = None) -> None:
         if self._span_ctx is None:
+            return
+        span = self._span_ctx
+        self._span_ctx = None
+        if error is not None:
+            try:
+                error_llm_span(span, error)
+            except Exception:
+                pass
             return
         try:
             if self._completed_response is not None:
-                _finish_from_response(self._span_ctx, self._completed_response)
+                _finish_from_response(span, self._completed_response)
             else:
-                close_llm_span(self._span_ctx)
+                close_llm_span(span)
         except Exception:
             pass
-        self._span_ctx = None
 
 
 # ---------------------------------------------------------------------------
@@ -510,7 +539,10 @@ def _finish_from_response(span_ctx: Any, response: Any) -> None:
     except Exception as exc:
         logger.debug("Error creating tool child spans: %s", exc)
 
-    close_llm_span(span_ctx)
+    try:
+        close_llm_span(span_ctx)
+    except Exception:
+        logger.debug("close_llm_span failed during OpenAI Responses finalize", exc_info=True)
 
 
 def _set_responses_usage(span_ctx: Any, usage: Any) -> None:
