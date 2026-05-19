@@ -15,7 +15,7 @@ pip install "pandaprobe[openai]"       # OpenAI wrapper
 pip install "pandaprobe[gemini]"       # Google Gemini wrapper
 pip install "pandaprobe[anthropic]"    # Anthropic wrapper
 pip install "pandaprobe[mistral]"      # Mistral AI wrapper
-pip install "pandaprobe[bedrock]"      # AWS Bedrock wrapper
+pip install "pandaprobe[bedrock]"      # AWS Bedrock wrapper (beta)
 ```
 
 With optional agent framework integrations:
@@ -140,7 +140,7 @@ response = client.chat.complete(
 Both `chat.complete` / `chat.complete_async` and the streaming variants
 (`chat.stream` / `chat.stream_async`) are automatically traced.
 
-### 7. AWS Bedrock wrapper (automatic LLM tracing)
+### 7. AWS Bedrock wrapper (automatic LLM tracing) — _beta_
 
 ```python
 import boto3
@@ -149,7 +149,7 @@ from pandaprobe.wrappers import wrap_bedrock
 client = wrap_bedrock(boto3.client("bedrock-runtime", region_name="us-east-1"))
 
 response = client.converse(
-    modelId="anthropic.claude-3-5-haiku-20241022-v1:0",
+    modelId="us.anthropic.claude-haiku-4-5-20251001-v1:0",
     system=[{"text": "You are a concise assistant."}],
     messages=[{"role": "user", "content": [{"text": "Explain recursion in one sentence."}]}],
     inferenceConfig={"temperature": 0.5, "maxTokens": 200},
