@@ -6,6 +6,7 @@ import inspect
 import io
 import json
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
@@ -468,6 +469,112 @@ class TestConverseExtraEvents:
             )
 
     @respx.mock
+    def test_sync_converse_stream_finalizes_on_mid_iteration_error(self, monkeypatch):
+        """Regression: a non-StopIteration error mid-stream must finalize the
+        span as an error, not leak it.
+
+        Without the fix, the wrapper's ``__next__`` only finalized on
+        ``StopIteration`` — any other exception propagated past the wrapper
+        without ever closing the LLM span.
+        """
+        respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
+
+        from pandaprobe.wrappers.bedrock import wrapper as bedrock_wrapper
+
+        error_calls: list[BaseException] = []
+
+        def _capture_error(span_ctx, exc):
+            error_calls.append(exc)
+
+        monkeypatch.setattr(bedrock_wrapper, "error_llm_span", _capture_error)
+
+        def _exploding_stream():
+            yield {"contentBlockDelta": {"delta": {"text": "partial"}}}
+            raise RuntimeError("network-blip")
+
+        client, _, converse_stream_fn, *_ = _make_mock_bedrock_client()
+        converse_stream_fn.return_value = {"stream": _exploding_stream()}
+        wrap_bedrock(client)
+
+        resp = client.converse_stream(
+            modelId="anthropic.claude-3-5-haiku-20241022-v1:0",
+            messages=[{"role": "user", "content": [{"text": "Hi"}]}],
+        )
+
+        with pytest.raises(RuntimeError, match="network-blip"):
+            list(resp["stream"])
+
+        assert len(error_calls) == 1, "span was not finalized as error on mid-stream failure"
+        assert isinstance(error_calls[0], RuntimeError)
+        assert "network-blip" in str(error_calls[0])
+
+    @respx.mock
+    def test_sync_converse_stream_finalizes_on_with_block_exit(self, monkeypatch):
+        """Regression: ``with`` block exit must finalize the span — covers the
+        new ``__enter__`` / ``__exit__`` safety net mirroring the base
+        ``SyncStreamReducer`` API.
+        """
+        respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
+
+        from pandaprobe.wrappers.bedrock import wrapper as bedrock_wrapper
+
+        close_calls: list[Any] = []
+        monkeypatch.setattr(bedrock_wrapper, "close_llm_span", lambda ctx: close_calls.append(ctx))
+
+        events = [
+            {"contentBlockDelta": {"delta": {"text": "Hi"}}},
+            {"metadata": {"usage": {"inputTokens": 1, "outputTokens": 1, "totalTokens": 2}}},
+        ]
+
+        client, _, converse_stream_fn, *_ = _make_mock_bedrock_client()
+        converse_stream_fn.return_value = {"stream": iter(events)}
+        wrap_bedrock(client)
+
+        resp = client.converse_stream(
+            modelId="anthropic.claude-3-5-haiku-20241022-v1:0",
+            messages=[{"role": "user", "content": [{"text": "Hi"}]}],
+        )
+
+        with resp["stream"] as stream:
+            collected = [event for event in stream]
+
+        assert len(collected) == 2
+        assert len(close_calls) == 1, "span was not closed on with-block exit"
+
+    @respx.mock
+    def test_sync_invoke_model_stream_finalizes_on_mid_iteration_error(self, monkeypatch):
+        """Regression: same span-leak fix for the InvokeModel streaming path."""
+        respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
+
+        from pandaprobe.wrappers.bedrock import wrapper as bedrock_wrapper
+
+        error_calls: list[BaseException] = []
+        monkeypatch.setattr(
+            bedrock_wrapper,
+            "error_llm_span",
+            lambda span_ctx, exc: error_calls.append(exc),
+        )
+
+        def _exploding_stream():
+            yield {"chunk": {"bytes": b'{"completion":"partial"}'}}
+            raise RuntimeError("invoke-stream-down")
+
+        client, _, _, _, invoke_stream_fn = _make_mock_bedrock_client()
+        invoke_stream_fn.return_value = {"body": _exploding_stream(), "contentType": "application/json"}
+        wrap_bedrock(client)
+
+        resp = client.invoke_model_with_response_stream(
+            modelId="anthropic.claude-3-5-haiku-20241022-v1:0",
+            body=b'{"messages":[]}',
+        )
+
+        with pytest.raises(RuntimeError, match="invoke-stream-down"):
+            list(resp["body"])
+
+        assert len(error_calls) == 1
+        assert isinstance(error_calls[0], RuntimeError)
+
+    @respx.mock
     def test_invoke_model_error_propagates(self):
         respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
         client, _, _, invoke_fn, _ = _make_mock_bedrock_client()
@@ -547,6 +654,47 @@ class TestAsyncBedrock:
             body=b'{"messages":[]}',
         )
         assert result is invoke_resp
+
+    @respx.mock
+    async def test_async_converse_stream_finalizes_on_mid_iteration_error(self, monkeypatch):
+        """Regression: async Converse streaming must finalize the span on a
+        mid-iteration exception, not just on StopAsyncIteration.
+        """
+        respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
+
+        from pandaprobe.wrappers.bedrock import wrapper as bedrock_wrapper
+
+        error_calls: list[BaseException] = []
+        monkeypatch.setattr(
+            bedrock_wrapper,
+            "error_llm_span",
+            lambda span_ctx, exc: error_calls.append(exc),
+        )
+
+        async def _exploding_aiter():
+            yield {"contentBlockDelta": {"delta": {"text": "partial"}}}
+            raise RuntimeError("async-stream-down")
+
+        stream_resp = {"stream": _exploding_aiter(), "ResponseMetadata": {}}
+        client = SimpleNamespace(
+            converse=AsyncMock(),
+            converse_stream=AsyncMock(return_value=stream_resp),
+            invoke_model=AsyncMock(),
+            invoke_model_with_response_stream=AsyncMock(),
+        )
+        wrap_bedrock(client)
+
+        resp = await client.converse_stream(
+            modelId="anthropic.claude-3-5-haiku-20241022-v1:0",
+            messages=[{"role": "user", "content": [{"text": "Hi"}]}],
+        )
+
+        with pytest.raises(RuntimeError, match="async-stream-down"):
+            async for _ in resp["stream"]:
+                pass
+
+        assert len(error_calls) == 1
+        assert isinstance(error_calls[0], RuntimeError)
 
     @respx.mock
     async def test_async_invoke_model_aioboto3_body_remains_readable(self):
