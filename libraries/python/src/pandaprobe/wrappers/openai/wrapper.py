@@ -189,14 +189,20 @@ def _reduce_openai_stream(span_ctx: Any, chunks: list[Any]) -> None:
                 **_extract_token_details(u),
             }
 
-    if content_parts:
-        span_ctx.set_output({"messages": [{"role": "assistant", "content": "".join(content_parts)}]})
-    if model:
-        span_ctx.set_model(model)
-    if usage:
-        span_ctx.set_token_usage(**usage)
+    try:
+        if content_parts:
+            span_ctx.set_output({"messages": [{"role": "assistant", "content": "".join(content_parts)}]})
+        if model:
+            span_ctx.set_model(model)
+        if usage:
+            span_ctx.set_token_usage(**usage)
+    except Exception:
+        logger.debug("Error populating OpenAI stream span data", exc_info=True)
 
-    close_llm_span(span_ctx)
+    try:
+        close_llm_span(span_ctx)
+    except Exception:
+        logger.debug("close_llm_span failed during OpenAI stream finalize", exc_info=True)
 
 
 # ---------------------------------------------------------------------------
@@ -276,7 +282,10 @@ def _finish_span_from_chat_response(span_ctx: Any, response: Any) -> None:
     except Exception as exc:
         logger.debug("Error extracting OpenAI response data: %s", exc)
 
-    close_llm_span(span_ctx)
+    try:
+        close_llm_span(span_ctx)
+    except Exception:
+        logger.debug("close_llm_span failed during OpenAI blocking finalize", exc_info=True)
 
 
 def _maybe_parse_raw(response: Any) -> Any:
@@ -530,7 +539,10 @@ def _finish_from_response(span_ctx: Any, response: Any) -> None:
     except Exception as exc:
         logger.debug("Error creating tool child spans: %s", exc)
 
-    close_llm_span(span_ctx)
+    try:
+        close_llm_span(span_ctx)
+    except Exception:
+        logger.debug("close_llm_span failed during OpenAI Responses finalize", exc_info=True)
 
 
 def _set_responses_usage(span_ctx: Any, usage: Any) -> None:

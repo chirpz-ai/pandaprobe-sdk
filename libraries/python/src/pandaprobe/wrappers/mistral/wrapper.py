@@ -187,16 +187,22 @@ def _reduce_mistral_stream(span_ctx: Any, chunks: list[Any]) -> None:
         if chunk_usage is not None:
             usage = _extract_mistral_usage(chunk_usage) or usage
 
-    if content_parts:
-        span_ctx.set_output(
-            {"messages": [{"role": "assistant", "content": "".join(content_parts)}]},
-        )
-    if model:
-        span_ctx.set_model(model)
-    if usage:
-        span_ctx.set_token_usage(**usage)
+    try:
+        if content_parts:
+            span_ctx.set_output(
+                {"messages": [{"role": "assistant", "content": "".join(content_parts)}]},
+            )
+        if model:
+            span_ctx.set_model(model)
+        if usage:
+            span_ctx.set_token_usage(**usage)
+    except Exception:
+        logger.debug("Error populating Mistral stream span data", exc_info=True)
 
-    close_llm_span(span_ctx)
+    try:
+        close_llm_span(span_ctx)
+    except Exception:
+        logger.debug("close_llm_span failed during Mistral stream finalize", exc_info=True)
 
 
 # ---------------------------------------------------------------------------
@@ -239,7 +245,10 @@ def _finish_mistral_span(span_ctx: Any, response: Any) -> None:
     except Exception as exc:
         logger.debug("Error extracting Mistral response usage: %s", exc)
 
-    close_llm_span(span_ctx)
+    try:
+        close_llm_span(span_ctx)
+    except Exception:
+        logger.debug("close_llm_span failed during Mistral blocking finalize", exc_info=True)
 
 
 def _extract_mistral_usage(usage: Any) -> dict[str, int]:

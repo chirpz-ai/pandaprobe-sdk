@@ -275,6 +275,116 @@ class TestAsyncWrapper:
 
 
 # ---------------------------------------------------------------------------
+# Span-finalize defensiveness — telemetry-side failures must not leak the
+# span open, and the close path must be independently guarded so a setter
+# failure can't skip ``close_llm_span``.
+#
+# This is provider-specific because the bug lives in ``_reduce_mistral_stream``
+# (subclass-level), not in the base reducer.  Every provider's ``_reduce_*_stream``
+# follows the same pattern; if you add another provider, mirror this test.
+# ---------------------------------------------------------------------------
+
+
+class TestStreamFinalizeDefensiveness:
+    @respx.mock
+    def test_setter_failure_in_reduce_stream_still_closes_span(self, monkeypatch):
+        """Regression: ``_reduce_mistral_stream`` used to call ``set_output`` /
+        ``set_model`` / ``set_token_usage`` followed by ``close_llm_span`` in
+        an unguarded flow.  A setter raise would skip the close, the outer
+        ``SyncStreamReducer._finalize`` would swallow the exception, and the
+        span (and any standalone trace) would silently leak open.
+        """
+        respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
+
+        from pandaprobe.tracing.span import SpanContext
+        from pandaprobe.wrappers.mistral import wrapper as mistral_wrapper
+
+        close_calls: list[object] = []
+        monkeypatch.setattr(mistral_wrapper, "close_llm_span", lambda ctx: close_calls.append(ctx))
+
+        def _broken_set_token_usage(self, **kwargs):
+            raise RuntimeError("set_token_usage exploded")
+
+        monkeypatch.setattr(SpanContext, "set_token_usage", _broken_set_token_usage)
+
+        usage = SimpleNamespace(prompt_tokens=10, completion_tokens=5, total_tokens=15)
+        events = [
+            SimpleNamespace(
+                data=SimpleNamespace(
+                    model="mistral-small-latest",
+                    choices=[SimpleNamespace(index=0, delta=SimpleNamespace(role="assistant", content="Hi"))],
+                    usage=None,
+                ),
+            ),
+            SimpleNamespace(
+                data=SimpleNamespace(
+                    model="mistral-small-latest",
+                    choices=[SimpleNamespace(index=0, delta=SimpleNamespace(content=None))],
+                    usage=usage,
+                ),
+            ),
+        ]
+
+        client, _, _, stream_fn, _, _ = _make_mock_mistral_client()
+        stream_fn.return_value = iter(events)
+        wrap_mistral(client)
+
+        stream = client.chat.stream(
+            model="mistral-small-latest",
+            messages=[{"role": "user", "content": "Hi"}],
+        )
+
+        collected = list(stream)
+        assert len(collected) == 2
+        assert len(close_calls) == 1, "span did not close — setter failure leaked the span"
+
+    @respx.mock
+    def test_close_failure_in_reduce_stream_does_not_propagate(self, monkeypatch):
+        """Regression: ``close_llm_span`` itself raising during stream
+        finalize must not surface as an iteration exception — the user's
+        normal stream consumption must complete cleanly.
+        """
+        respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
+
+        from pandaprobe.wrappers.mistral import wrapper as mistral_wrapper
+
+        def _broken_close(span_ctx):
+            raise RuntimeError("close-blew-up")
+
+        monkeypatch.setattr(mistral_wrapper, "close_llm_span", _broken_close)
+
+        usage = SimpleNamespace(prompt_tokens=10, completion_tokens=5, total_tokens=15)
+        events = [
+            SimpleNamespace(
+                data=SimpleNamespace(
+                    model="mistral-small-latest",
+                    choices=[SimpleNamespace(index=0, delta=SimpleNamespace(role="assistant", content="Hi"))],
+                    usage=None,
+                ),
+            ),
+            SimpleNamespace(
+                data=SimpleNamespace(
+                    model="mistral-small-latest",
+                    choices=[SimpleNamespace(index=0, delta=SimpleNamespace(content=None))],
+                    usage=usage,
+                ),
+            ),
+        ]
+
+        client, _, _, stream_fn, _, _ = _make_mock_mistral_client()
+        stream_fn.return_value = iter(events)
+        wrap_mistral(client)
+
+        stream = client.chat.stream(
+            model="mistral-small-latest",
+            messages=[{"role": "user", "content": "Hi"}],
+        )
+
+        collected = list(stream)
+        assert len(collected) == 2
+
+
+# ---------------------------------------------------------------------------
 # Schema compliance — gates the universal-trace contract
 # ---------------------------------------------------------------------------
 
