@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import functools
 import inspect
+import io
 import json
 import logging
 from datetime import datetime, timezone
@@ -399,7 +400,7 @@ def _make_async_invoke_model_wrapper(original):  # noqa: ANN001
         span_ctx = enter_bedrock_span(kwargs, "bedrock-invoke-model", api="invoke_model")
         try:
             response = await original(*args, **kwargs)
-            _finish_invoke_model_span(span_ctx, response, kwargs.get("modelId"))
+            await _finish_invoke_model_span_async(span_ctx, response, kwargs.get("modelId"))
             return response
         except Exception as exc:
             error_llm_span(span_ctx, exc)
@@ -408,32 +409,124 @@ def _make_async_invoke_model_wrapper(original):  # noqa: ANN001
     return wrapper
 
 
+def _rewindable_streaming_body(raw: bytes) -> Any:
+    """Return a botocore-``StreamingBody``-compatible wrapper over ``raw``.
+
+    Falls back to a plain ``io.BytesIO`` if botocore is not importable — the
+    ``.read()`` surface is sufficient for the documented user-code pattern
+    (``response["body"].read()``).
+    """
+    buf = io.BytesIO(raw)
+    try:
+        from botocore.response import StreamingBody  # type: ignore[import-not-found]
+
+        return StreamingBody(buf, len(raw))
+    except Exception:
+        return buf
+
+
+def _decode_invoke_payload(raw: Any, response: Any, consumed_stream: bool) -> Any:
+    """Shared post-read decoding + rewind for the InvokeModel response body."""
+    if raw is None:
+        return None
+    if isinstance(raw, (bytes, bytearray)):
+        raw_bytes: bytes | None = bytes(raw)
+        try:
+            text: str | None = raw_bytes.decode("utf-8")
+        except Exception:
+            text = None
+    elif isinstance(raw, str):
+        text = raw
+        raw_bytes = raw.encode("utf-8") if consumed_stream else None
+    else:
+        # Unexpected type (e.g. unawaited coroutine slipped through) — bail out
+        # rather than corrupting the body.
+        return None
+
+    if consumed_stream and raw_bytes is not None and isinstance(response, dict):
+        try:
+            response["body"] = _rewindable_streaming_body(raw_bytes)
+        except Exception:
+            logger.debug("Failed to rewind Bedrock InvokeModel body", exc_info=True)
+
+    if text is None:
+        return None
+    try:
+        return json.loads(text)
+    except Exception:
+        return text
+
+
 def _read_invoke_body(response: Any) -> Any:
-    """Decode an InvokeModel response body to a Python object (best-effort)."""
+    """Synchronously decode an InvokeModel response body (boto3 path).
+
+    Botocore's ``StreamingBody`` is a one-shot stream — naively calling
+    ``body.read()`` here would consume the response and any subsequent
+    ``response["body"].read()`` from user code would silently return ``b""``.
+    To avoid that, we read the bytes once and replace ``response["body"]``
+    with a fresh in-memory streaming body holding the same payload, so
+    downstream consumers see an unread body.
+    """
     if not isinstance(response, dict):
         return None
     body = response.get("body")
     if body is None:
         return None
-    raw: bytes | str | None = None
+
+    raw: Any = None
+    consumed_stream = False
     if hasattr(body, "read"):
+        # Async clients (aioboto3) expose `read` as a coroutine function — we
+        # cannot await here and must defer to ``_read_invoke_body_async``.
+        if inspect.iscoroutinefunction(getattr(body, "read", None)):
+            return None
         try:
             raw = body.read()
+            consumed_stream = True
+        except Exception:
+            return None
+        if inspect.iscoroutine(raw):
+            # Defensive: some hybrid clients return an awaitable from a
+            # non-``async def`` ``read``. Close it so we don't leak an
+            # unawaited coroutine, and bail out of the sync path.
+            raw.close()
+            return None
+    elif isinstance(body, (bytes, bytearray, str)):
+        raw = body
+
+    return _decode_invoke_payload(raw, response, consumed_stream)
+
+
+async def _read_invoke_body_async(response: Any) -> Any:
+    """Asynchronously decode an InvokeModel response body (aioboto3 path).
+
+    Mirrors :func:`_read_invoke_body` but awaits ``body.read()`` when it is a
+    coroutine function (the aioboto3 ``StreamingBody`` shape).  Falls back to
+    synchronous reads when the body is already a sync stream / bytes / str so
+    the same wrapper covers mixed clients.
+    """
+    if not isinstance(response, dict):
+        return None
+    body = response.get("body")
+    if body is None:
+        return None
+
+    raw: Any = None
+    consumed_stream = False
+    if hasattr(body, "read"):
+        try:
+            value = body.read()
+            if inspect.iscoroutine(value):
+                raw = await value
+            else:
+                raw = value
+            consumed_stream = True
         except Exception:
             return None
     elif isinstance(body, (bytes, bytearray, str)):
         raw = body
-    if raw is None:
-        return None
-    if isinstance(raw, (bytes, bytearray)):
-        try:
-            raw = raw.decode("utf-8")
-        except Exception:
-            return None
-    try:
-        return json.loads(raw)
-    except Exception:
-        return raw
+
+    return _decode_invoke_payload(raw, response, consumed_stream)
 
 
 def _extract_invoke_model_text(parsed: Any) -> str | None:
@@ -478,12 +571,8 @@ def _extract_invoke_model_text(parsed: Any) -> str | None:
     return None
 
 
-def _finish_invoke_model_span(span_ctx: Any, response: Any, model_id: str | None) -> None:
-    if span_ctx is None:
-        return
-
-    parsed = _read_invoke_body(response)
-
+def _finalize_invoke_model_span(span_ctx: Any, parsed: Any, model_id: str | None) -> None:
+    """Span population shared by the sync and async InvokeModel wrappers."""
     try:
         text = _extract_invoke_model_text(parsed)
         if text is not None:
@@ -507,6 +596,26 @@ def _finish_invoke_model_span(span_ctx: Any, response: Any, model_id: str | None
         logger.debug("Error extracting Bedrock InvokeModel usage: %s", exc)
 
     close_llm_span(span_ctx)
+
+
+def _finish_invoke_model_span(span_ctx: Any, response: Any, model_id: str | None) -> None:
+    """Sync entry point — used by the boto3 InvokeModel wrapper."""
+    if span_ctx is None:
+        return
+    parsed = _read_invoke_body(response)
+    _finalize_invoke_model_span(span_ctx, parsed, model_id)
+
+
+async def _finish_invoke_model_span_async(span_ctx: Any, response: Any, model_id: str | None) -> None:
+    """Async entry point — used by the aioboto3 InvokeModel wrapper.
+
+    aioboto3's ``StreamingBody.read()`` is a coroutine — calling it from the
+    sync path leaks an unawaited coroutine *and* fails to capture span output.
+    """
+    if span_ctx is None:
+        return
+    parsed = await _read_invoke_body_async(response)
+    _finalize_invoke_model_span(span_ctx, parsed, model_id)
 
 
 # ---------------------------------------------------------------------------

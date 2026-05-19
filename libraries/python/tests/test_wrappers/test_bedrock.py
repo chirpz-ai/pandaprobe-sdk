@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import io
 import json
 from types import SimpleNamespace
@@ -348,6 +349,52 @@ class TestInvokeModelBlocking:
         invoke_fn.assert_called_once()
 
     @respx.mock
+    def test_response_body_remains_readable_by_user_code(self):
+        """Regression: wrapper must not exhaust the StreamingBody.
+
+        Botocore's StreamingBody is a one-shot stream. The wrapper reads it to
+        populate the LLM span; if it doesn't restore a re-readable body, user
+        code calling ``response["body"].read()`` (the documented pattern) gets
+        empty bytes and silently loses the entire response.
+        """
+        respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
+
+        body = json.dumps(
+            {
+                "id": "msg_xyz",
+                "type": "message",
+                "role": "assistant",
+                "content": [{"type": "text", "text": "Bytes preserved"}],
+                "model": "claude-3-5-haiku-20241022",
+                "usage": {"input_tokens": 1, "output_tokens": 2},
+            }
+        ).encode()
+
+        response = {"body": _FakeStreamingBody(body), "contentType": "application/json"}
+
+        client, _, _, invoke_fn, _ = _make_mock_bedrock_client()
+        invoke_fn.return_value = response
+        wrap_bedrock(client)
+
+        result = client.invoke_model(
+            modelId="anthropic.claude-3-5-haiku-20241022-v1:0",
+            body=json.dumps(
+                {
+                    "anthropic_version": "bedrock-2023-05-31",
+                    "max_tokens": 50,
+                    "messages": [{"role": "user", "content": "Hi"}],
+                }
+            ).encode(),
+        )
+
+        # User code should still be able to read the body in full — the wrapper
+        # must have rewound / replaced it after consuming the stream internally.
+        raw = result["body"].read()
+        assert raw == body, "wrapper consumed the response body — user code would lose the response"
+        parsed = json.loads(raw)
+        assert parsed["content"][0]["text"] == "Bytes preserved"
+
+    @respx.mock
     def test_titan_body(self):
         respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
 
@@ -500,6 +547,61 @@ class TestAsyncBedrock:
             body=b'{"messages":[]}',
         )
         assert result is invoke_resp
+
+    @respx.mock
+    async def test_async_invoke_model_aioboto3_body_remains_readable(self):
+        """Regression: the async InvokeModel wrapper must await aioboto3's
+        coroutine ``StreamingBody.read`` (not call it sync) and must rewind
+        the body so user code can still consume it.
+
+        Modeled after aioboto3's real shape, where ``read`` is an ``async def``
+        method on the StreamingBody.
+        """
+        respx.post("http://testserver/traces").mock(return_value=httpx.Response(202, json={}))
+
+        class _AsyncStreamingBody:
+            def __init__(self, payload: bytes) -> None:
+                self._buf = io.BytesIO(payload)
+
+            async def read(self, *args, **kwargs) -> bytes:
+                return self._buf.read(*args, **kwargs)
+
+        body = json.dumps(
+            {
+                "id": "msg_async",
+                "type": "message",
+                "role": "assistant",
+                "content": [{"type": "text", "text": "Async bytes preserved"}],
+                "model": "claude-3-5-haiku-20241022",
+                "usage": {"input_tokens": 3, "output_tokens": 5},
+            }
+        ).encode()
+
+        invoke_resp = {"body": _AsyncStreamingBody(body), "contentType": "application/json"}
+
+        client = SimpleNamespace(
+            converse=AsyncMock(),
+            converse_stream=AsyncMock(),
+            invoke_model=AsyncMock(return_value=invoke_resp),
+            invoke_model_with_response_stream=AsyncMock(),
+        )
+        wrap_bedrock(client)
+
+        result = await client.invoke_model(
+            modelId="anthropic.claude-3-5-haiku-20241022-v1:0",
+            body=b'{"messages":[]}',
+        )
+
+        # User code (potentially `await result["body"].read()` in real aioboto3,
+        # or `.read()` sync against the rewound BytesIO/StreamingBody) must see
+        # the full payload — not empty bytes from a consumed stream.
+        readable = result["body"]
+        raw = readable.read()
+        if inspect.iscoroutine(raw):
+            raw = await raw
+        assert raw == body, "async wrapper consumed the body — user code would lose the response"
+        parsed = json.loads(raw)
+        assert parsed["content"][0]["text"] == "Async bytes preserved"
 
     @respx.mock
     async def test_async_converse_stream(self):
