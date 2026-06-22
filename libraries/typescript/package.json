@@ -1,0 +1,149 @@
+{
+  "name": "pandaprobe",
+  "version": "0.4.0",
+  "description": "TypeScript SDK for PandaProbe — open source agent engineering platform",
+  "license": "MIT",
+  "author": "PandaProbe | Chirpz AI <support@chirpz.ai>",
+  "homepage": "https://github.com/chirpz-ai/pandaprobe-sdk",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chirpz-ai/pandaprobe-sdk.git",
+    "directory": "libraries/typescript"
+  },
+  "keywords": ["ai", "agents", "tracing", "observability", "evaluation", "llm"],
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./wrappers/openai": {
+      "types": "./dist/wrappers/openai/index.d.ts",
+      "import": "./dist/wrappers/openai/index.js",
+      "require": "./dist/wrappers/openai/index.cjs"
+    },
+    "./wrappers/anthropic": {
+      "types": "./dist/wrappers/anthropic/index.d.ts",
+      "import": "./dist/wrappers/anthropic/index.js",
+      "require": "./dist/wrappers/anthropic/index.cjs"
+    },
+    "./wrappers/gemini": {
+      "types": "./dist/wrappers/gemini/index.d.ts",
+      "import": "./dist/wrappers/gemini/index.js",
+      "require": "./dist/wrappers/gemini/index.cjs"
+    },
+    "./wrappers/bedrock": {
+      "types": "./dist/wrappers/bedrock/index.d.ts",
+      "import": "./dist/wrappers/bedrock/index.js",
+      "require": "./dist/wrappers/bedrock/index.cjs"
+    },
+    "./wrappers/mistral": {
+      "types": "./dist/wrappers/mistral/index.d.ts",
+      "import": "./dist/wrappers/mistral/index.js",
+      "require": "./dist/wrappers/mistral/index.cjs"
+    },
+    "./integrations/langchain": {
+      "types": "./dist/integrations/langchain/index.d.ts",
+      "import": "./dist/integrations/langchain/index.js",
+      "require": "./dist/integrations/langchain/index.cjs"
+    },
+    "./integrations/langgraph": {
+      "types": "./dist/integrations/langgraph/index.d.ts",
+      "import": "./dist/integrations/langgraph/index.js",
+      "require": "./dist/integrations/langgraph/index.cjs"
+    },
+    "./integrations/deepagents": {
+      "types": "./dist/integrations/deepagents/index.d.ts",
+      "import": "./dist/integrations/deepagents/index.js",
+      "require": "./dist/integrations/deepagents/index.cjs"
+    },
+    "./integrations/claude-agent-sdk": {
+      "types": "./dist/integrations/claude-agent-sdk/index.d.ts",
+      "import": "./dist/integrations/claude-agent-sdk/index.js",
+      "require": "./dist/integrations/claude-agent-sdk/index.cjs"
+    },
+    "./integrations/openai-agents": {
+      "types": "./dist/integrations/openai-agents/index.d.ts",
+      "import": "./dist/integrations/openai-agents/index.js",
+      "require": "./dist/integrations/openai-agents/index.cjs"
+    },
+    "./integrations/vercel-ai": {
+      "types": "./dist/integrations/vercel-ai/index.d.ts",
+      "import": "./dist/integrations/vercel-ai/index.js",
+      "require": "./dist/integrations/vercel-ai/index.cjs"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "test": "vitest run",
+    "test:cov": "vitest run --coverage",
+    "clean": "rm -rf dist coverage node_modules/.cache"
+  },
+  "peerDependencies": {
+    "@anthropic-ai/claude-agent-sdk": ">=0.1.0",
+    "@anthropic-ai/sdk": ">=0.30.0",
+    "@aws-sdk/client-bedrock-runtime": ">=3.600.0",
+    "@google/genai": ">=0.3.0",
+    "@langchain/core": ">=0.3.0",
+    "@mistralai/mistralai": ">=1.0.0",
+    "@openai/agents": ">=0.0.5",
+    "openai": ">=4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "openai": {
+      "optional": true
+    },
+    "@anthropic-ai/sdk": {
+      "optional": true
+    },
+    "@google/genai": {
+      "optional": true
+    },
+    "@aws-sdk/client-bedrock-runtime": {
+      "optional": true
+    },
+    "@mistralai/mistralai": {
+      "optional": true
+    },
+    "@langchain/core": {
+      "optional": true
+    },
+    "@anthropic-ai/claude-agent-sdk": {
+      "optional": true
+    },
+    "@openai/agents": {
+      "optional": true
+    },
+    "ai": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@anthropic-ai/sdk": ">=0.30.0",
+    "@aws-sdk/client-bedrock-runtime": ">=3.600.0",
+    "@biomejs/biome": "^1.9.4",
+    "@google/genai": ">=0.3.0",
+    "@langchain/core": ">=0.3.0",
+    "@langchain/openai": ">=0.3.0",
+    "@mistralai/mistralai": ">=1.0.0",
+    "@types/node": "^22.10.0",
+    "@vitest/coverage-v8": "^2.1.8",
+    "openai": ">=4.0.0",
+    "tsup": "^8.3.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
