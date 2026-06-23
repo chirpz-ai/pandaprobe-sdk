@@ -98,3 +98,7 @@ Provider/framework SDKs are **optional `peerDependencies`** (the optional-extras
 
 - **vitest** with `globals: true`; HTTP is mocked by stubbing `global.fetch` (the `respx` analog) via `test/helpers.ts`, which records outgoing payloads for assertions. `test/setup.ts` clears `PANDAPROBE_*` env, pins the endpoint to `http://testserver`, and resets the client singleton between tests (the `conftest.py` analog). Tests must never hit a real backend.
 - Tests mirror `src/` under `test/`, `test/wrappers/<provider>`, and `test/integrations/<framework>`.
+
+### TS Versioning & Release
+
+`src/version.ts` (`VERSION`) is the single source of truth (the `_version.py` analog) — it's both the runtime User-Agent version and the release trigger. The release workflow (`.github/workflows/release-typescript.yml`, triggered by pushes to `main` touching `src/version.ts`) gates on the full CI, syncs `package.json`'s version from `version.ts` (`npm pkg set version`), builds, tags `typescript-v<version>`, creates a GitHub release, and publishes to npm. Publishing is **tokenless via OIDC Trusted Publishing** (the PyPI trusted-publisher analog) — no `NPM_TOKEN` secret; auth uses the workflow `id-token` and provenance is automatic. Requires a Trusted Publisher configured on the npm package and npm CLI ≥ 11.5.1 (the workflow upgrades npm). The first-ever publish is manual (claims the name), then Trusted Publishing handles CI releases. The TS package version is intentionally aligned with the Python package version for cross-language parity.
