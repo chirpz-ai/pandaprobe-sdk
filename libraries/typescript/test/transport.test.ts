@@ -98,4 +98,28 @@ describe("Transport", () => {
     expect(captured.length).toBe(0);
     await t.shutdown();
   });
+
+  it("invokes the onError callback after retries are exhausted on network errors", async () => {
+    const errors: unknown[] = [];
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async () => {
+      throw new Error("network down");
+    }) as unknown as typeof fetch;
+
+    const config = resolveConfig({ apiKey: "sk_test", projectName: "proj", flushInterval: 60 });
+    const t = new Transport(config, (e) => errors.push(e));
+    t.enqueueTrace({ trace_id: "n", name: "t" });
+    await t.flush();
+
+    globalThis.fetch = originalFetch;
+    expect(errors.length).toBe(1);
+    expect(String(errors[0])).toContain("network down");
+    await t.shutdown();
+  }, 15000);
+
+  it("shutdown is idempotent", async () => {
+    const t = makeTransport();
+    await t.shutdown();
+    await expect(t.shutdown()).resolves.toBeUndefined();
+  });
 });
