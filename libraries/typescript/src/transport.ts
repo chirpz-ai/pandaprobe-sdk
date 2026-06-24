@@ -229,15 +229,22 @@ export class Transport {
         }
 
         if (RETRIABLE_STATUSES.has(resp.status)) {
-          const retryAfter = parseRetryAfter(resp);
-          const backoff = retryAfter ?? INITIAL_BACKOFF * 2 ** attempt;
-          logger.warning(
-            `${method} ${url} → ${resp.status}, retrying in ${backoff.toFixed(1)}s (attempt ${
-              attempt + 1
-            }/${MAX_RETRIES})`,
-          );
-          await sleep(backoff);
-          continue;
+          if (attempt < MAX_RETRIES) {
+            const retryAfter = parseRetryAfter(resp);
+            const backoff = retryAfter ?? INITIAL_BACKOFF * 2 ** attempt;
+            logger.warning(
+              `${method} ${url} → ${resp.status}, retrying in ${backoff.toFixed(1)}s (attempt ${
+                attempt + 1
+              }/${MAX_RETRIES})`,
+            );
+            await sleep(backoff);
+            continue;
+          }
+          // Retries exhausted on a persistent retriable status — log the drop
+          // instead of falling out of the loop silently.
+          const text = (await resp.text()).slice(0, 500);
+          logger.error(`${method} ${url} → ${resp.status} after ${MAX_RETRIES} retries (giving up): ${text}`);
+          return;
         }
 
         const text = (await resp.text()).slice(0, 500);

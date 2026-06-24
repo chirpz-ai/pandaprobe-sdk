@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { resolveConfig } from "../src/config.js";
 import { Transport } from "../src/transport.js";
-import { captured, queueStatuses, requestsTo } from "./helpers.js";
+import { captured, queueStatuses, requestsTo, setStatus } from "./helpers.js";
 
 function makeTransport(overrides = {}) {
   const config = resolveConfig({
@@ -144,4 +144,23 @@ describe("Transport", () => {
     }
     await t.shutdown();
   });
+
+  it("logs and stops (does not silently drop) after exhausting retries on a persistent 503", async () => {
+    const t = makeTransport();
+    setStatus(503); // every request returns 503
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      t.enqueueTrace({ trace_id: "fail", name: "t" });
+      await t.flush();
+
+      // 1 initial attempt + MAX_RETRIES(3) = 4 fetches, then it gives up.
+      expect(requestsTo("/traces").length).toBe(4);
+      // The give-up is logged (not a silent drop / no bogus "attempt 4/3").
+      const loggedGiveUp = errSpy.mock.calls.some((c) => String(c[0]).includes("giving up"));
+      expect(loggedGiveUp).toBe(true);
+    } finally {
+      errSpy.mockRestore();
+    }
+    await t.shutdown();
+  }, 15000);
 });
