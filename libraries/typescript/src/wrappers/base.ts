@@ -128,7 +128,10 @@ export function openLlmSpan(options: OpenLlmSpanOptions): SpanContext | null {
     sessionId: getCurrentSessionId(),
     userId: getCurrentUserId(),
   });
-  standalone.start();
+  // start(false): do NOT enter the global AsyncLocalStorage store — the span
+  // nests via the trace's own spanStack. Entering would leak this standalone
+  // trace into the caller's async frame and break subsequent wrapper calls.
+  standalone.start(false);
 
   const span = standalone.span(methodName, { kind: SpanKind.LLM, model });
   span.start();
