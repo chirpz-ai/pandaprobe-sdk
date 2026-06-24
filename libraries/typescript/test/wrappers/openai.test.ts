@@ -48,6 +48,33 @@ describe("wrapOpenAI — chat.completions", () => {
     expect(span.model_parameters).toEqual({ temperature: 0.5 });
   });
 
+  it("creates a separate standalone trace per call (no context leak)", async () => {
+    // Regression: the standalone-trace path must not leak its ALS store into
+    // the caller's frame, or a second call nests into the first (ended) trace.
+    const client: any = {
+      chat: {
+        completions: {
+          create: async () => ({
+            model: "gpt-4o-mini",
+            choices: [{ message: { role: "assistant", content: "ok" } }],
+          }),
+        },
+      },
+    };
+    wrapOpenAI(client);
+    await client.chat.completions.create({ model: "gpt-4o-mini", messages: [{ role: "user", content: "one" }] });
+    await client.chat.completions.create({ model: "gpt-4o-mini", messages: [{ role: "user", content: "two" }] });
+    await flush();
+
+    const traces = requestsTo("/traces");
+    expect(traces.length).toBe(2);
+    for (const t of traces) {
+      const spans = (t.body as Record<string, unknown>).spans as Array<Record<string, unknown>>;
+      // Each trace has exactly one LLM span — none nested into the other.
+      expect(spans.filter((s) => s.kind === "LLM")).toHaveLength(1);
+    }
+  });
+
   it("reduces a streaming call into a single output", async () => {
     async function* gen() {
       yield { model: "gpt-4o", choices: [{ delta: { content: "Hel" } }] };
