@@ -7,13 +7,18 @@
  * `config: { callbacks: [handler] }` without a hard dependency on
  * `@langchain/core`. Maps run events keyed by `runId` / `parentRunId` to
  * PandaProbe spans and submits one trace when the outermost chain finishes.
+ *
+ * Per-run state is keyed by the **root run id** (each run id is routed to its
+ * root via its parent chain), so a single handler instance can be shared across
+ * concurrent `invoke`/`stream` calls without interleaving their spans into one
+ * trace. State is released when each root finishes.
  */
 
 import { logger } from "../../logger.js";
 import { SpanData, SpanKind, SpanStatusCode, TraceData, TraceStatus } from "../../schemas.js";
 import { getCurrentSessionId, getCurrentUserId } from "../../tracing/session.js";
 import { extractLastUserMessage } from "../../validation.js";
-import { type AdapterOptions, BaseIntegrationAdapter } from "../base.js";
+import { BaseIntegrationAdapter } from "../base.js";
 import {
   extractModelParameters,
   extractName,
@@ -28,24 +33,27 @@ import {
 
 type Any = any;
 
+/** Per-invocation state, keyed by the root run id. */
+interface TraceState {
+  rootRunId: string;
+  spans: Map<string, SpanData>;
+  traceInput: unknown;
+  traceOutput: unknown;
+  traceStartedAt: Date;
+  traceName: string;
+  runIds: Set<string>;
+}
+
 export class BasePandaProbeCallbackHandler extends BaseIntegrationAdapter {
   /** Required by LangChain's CallbackHandlerMethods. */
   readonly name: string = "PandaProbeCallbackHandler";
   /** Trace name used until the root chain start overwrites it. */
   protected static DEFAULT_TRACE_NAME = "LangChain";
 
-  private spans = new Map<string, SpanData>();
-  private parents = new Map<string, string | null>();
-  private rootRunId: string | null = null;
-  private traceInput: unknown = null;
-  private traceOutput: unknown = null;
-  private traceStartedAt: Date | null = null;
-  private traceName: string;
-
-  constructor(options: AdapterOptions = {}) {
-    super(options);
-    this.traceName = (this.constructor as typeof BasePandaProbeCallbackHandler).DEFAULT_TRACE_NAME;
-  }
+  /** Active traces keyed by root run id. */
+  private traces = new Map<string, TraceState>();
+  /** Maps any run id → its root run id, so interleaved events route correctly. */
+  private runToRoot = new Map<string, string>();
 
   // ------------------------------------------------------------------
   // Override hooks
@@ -57,6 +65,54 @@ export class BasePandaProbeCallbackHandler extends BaseIntegrationAdapter {
 
   protected filterRootChainName(name: string): string {
     return name;
+  }
+
+  // ------------------------------------------------------------------
+  // Per-run state routing
+  // ------------------------------------------------------------------
+
+  private get defaultTraceName(): string {
+    return (this.constructor as typeof BasePandaProbeCallbackHandler).DEFAULT_TRACE_NAME;
+  }
+
+  /** Resolve (creating if needed) the trace state a starting run belongs to. */
+  private startState(rid: string, pid: string | null): TraceState {
+    if (pid !== null) {
+      const root = this.runToRoot.get(pid);
+      const state = root !== undefined ? this.traces.get(root) : undefined;
+      if (root !== undefined && state) {
+        this.runToRoot.set(rid, root);
+        state.runIds.add(rid);
+        return state;
+      }
+    }
+    // Root run (no parent), or a run whose parent is unknown → start a new trace.
+    const state: TraceState = {
+      rootRunId: rid,
+      spans: new Map(),
+      traceInput: null,
+      traceOutput: null,
+      traceStartedAt: new Date(),
+      traceName: this.defaultTraceName,
+      runIds: new Set([rid]),
+    };
+    this.traces.set(rid, state);
+    this.runToRoot.set(rid, rid);
+    return state;
+  }
+
+  /** Look up the live span (and its trace) for a run id, if tracked. */
+  private spanFor(rid: string): { state: TraceState; span: SpanData } | undefined {
+    const root = this.runToRoot.get(rid);
+    if (root === undefined) {
+      return undefined;
+    }
+    const state = this.traces.get(root);
+    const span = state?.spans.get(rid);
+    if (!state || !span) {
+      return undefined;
+    }
+    return { state, span };
   }
 
   // ------------------------------------------------------------------
@@ -75,53 +131,54 @@ export class BasePandaProbeCallbackHandler extends BaseIntegrationAdapter {
   ): void {
     const rid = String(runId);
     const pid = parentRunId ? String(parentRunId) : null;
-    this.parents.set(rid, pid);
+    const state = this.startState(rid, pid);
     let name = runName || extractName(chain, "chain");
 
-    if (pid === null) {
+    if (state.rootRunId === rid) {
       name = this.filterRootChainName(name);
-      this.rootRunId = rid;
-      const normalized = normalizeLangchainInput(safeOutput(inputs));
-      this.traceInput = extractLastUserMessage(normalized);
-      this.traceStartedAt = new Date();
-      this.traceName = name;
+      state.traceName = name;
+      state.traceInput = extractLastUserMessage(normalizeLangchainInput(safeOutput(inputs)));
     }
 
-    const span = new SpanData({
-      spanId: rid,
-      parentSpanId: pid,
-      name,
-      kind: this.classifyChainKind(pid !== null),
-      input: normalizeLangchainInput(safeOutput(inputs)),
-      startedAt: new Date(),
-    });
-    this.spans.set(rid, span);
+    state.spans.set(
+      rid,
+      new SpanData({
+        spanId: rid,
+        parentSpanId: pid,
+        name,
+        kind: this.classifyChainKind(pid !== null),
+        input: normalizeLangchainInput(safeOutput(inputs)),
+        startedAt: new Date(),
+      }),
+    );
   }
 
   handleChainEnd(outputs: Any, runId: string): void {
-    const span = this.spans.get(String(runId));
-    if (!span) {
+    const found = this.spanFor(String(runId));
+    if (!found) {
       return;
     }
+    const { state, span } = found;
     span.output = normalizeTypeToRole(safeOutput(outputs));
     span.status = SpanStatusCode.OK;
     span.endedAt = new Date();
-    if (String(runId) === this.rootRunId) {
-      this.traceOutput = normalizeLangchainOutput(safeOutput(outputs));
-      this.finalizeTrace(false);
+    if (String(runId) === state.rootRunId) {
+      state.traceOutput = normalizeLangchainOutput(safeOutput(outputs));
+      this.finalizeTrace(state, false);
     }
   }
 
   handleChainError(error: Any, runId: string): void {
-    const span = this.spans.get(String(runId));
-    if (!span) {
+    const found = this.spanFor(String(runId));
+    if (!found) {
       return;
     }
+    const { state, span } = found;
     span.error = String(error?.message ?? error);
     span.status = SpanStatusCode.ERROR;
     span.endedAt = new Date();
-    if (String(runId) === this.rootRunId) {
-      this.finalizeTrace(true);
+    if (String(runId) === state.rootRunId) {
+      this.finalizeTrace(state, true);
     }
   }
 
@@ -141,9 +198,9 @@ export class BasePandaProbeCallbackHandler extends BaseIntegrationAdapter {
   ): void {
     const rid = String(runId);
     const pid = parentRunId ? String(parentRunId) : null;
-    this.parents.set(rid, pid);
+    const state = this.startState(rid, pid);
     const params = extraParams?.invocation_params ?? {};
-    this.spans.set(
+    state.spans.set(
       rid,
       new SpanData({
         spanId: rid,
@@ -170,7 +227,7 @@ export class BasePandaProbeCallbackHandler extends BaseIntegrationAdapter {
   ): void {
     const rid = String(runId);
     const pid = parentRunId ? String(parentRunId) : null;
-    this.parents.set(rid, pid);
+    const state = this.startState(rid, pid);
     const params = extraParams?.invocation_params ?? {};
 
     const serializedMsgs: unknown[] = [];
@@ -181,7 +238,7 @@ export class BasePandaProbeCallbackHandler extends BaseIntegrationAdapter {
       }
     }
 
-    this.spans.set(
+    state.spans.set(
       rid,
       new SpanData({
         spanId: rid,
@@ -197,10 +254,11 @@ export class BasePandaProbeCallbackHandler extends BaseIntegrationAdapter {
   }
 
   handleLLMEnd(output: Any, runId: string): void {
-    const span = this.spans.get(String(runId));
-    if (!span) {
+    const found = this.spanFor(String(runId));
+    if (!found) {
       return;
     }
+    const { span } = found;
     try {
       const normalized = normalizeLlmGenerationOutput(output);
       if (normalized !== null) {
@@ -219,13 +277,13 @@ export class BasePandaProbeCallbackHandler extends BaseIntegrationAdapter {
   }
 
   handleLLMError(error: Any, runId: string): void {
-    const span = this.spans.get(String(runId));
-    if (!span) {
+    const found = this.spanFor(String(runId));
+    if (!found) {
       return;
     }
-    span.error = String(error?.message ?? error);
-    span.status = SpanStatusCode.ERROR;
-    span.endedAt = new Date();
+    found.span.error = String(error?.message ?? error);
+    found.span.status = SpanStatusCode.ERROR;
+    found.span.endedAt = new Date();
   }
 
   // ------------------------------------------------------------------
@@ -243,8 +301,8 @@ export class BasePandaProbeCallbackHandler extends BaseIntegrationAdapter {
   ): void {
     const rid = String(runId);
     const pid = parentRunId ? String(parentRunId) : null;
-    this.parents.set(rid, pid);
-    this.spans.set(
+    const state = this.startState(rid, pid);
+    state.spans.set(
       rid,
       new SpanData({
         spanId: rid,
@@ -258,23 +316,23 @@ export class BasePandaProbeCallbackHandler extends BaseIntegrationAdapter {
   }
 
   handleToolEnd(output: Any, runId: string): void {
-    const span = this.spans.get(String(runId));
-    if (!span) {
+    const found = this.spanFor(String(runId));
+    if (!found) {
       return;
     }
-    span.output = normalizeTypeToRole(safeOutput(output));
-    span.status = SpanStatusCode.OK;
-    span.endedAt = new Date();
+    found.span.output = normalizeTypeToRole(safeOutput(output));
+    found.span.status = SpanStatusCode.OK;
+    found.span.endedAt = new Date();
   }
 
   handleToolError(error: Any, runId: string): void {
-    const span = this.spans.get(String(runId));
-    if (!span) {
+    const found = this.spanFor(String(runId));
+    if (!found) {
       return;
     }
-    span.error = String(error?.message ?? error);
-    span.status = SpanStatusCode.ERROR;
-    span.endedAt = new Date();
+    found.span.error = String(error?.message ?? error);
+    found.span.status = SpanStatusCode.ERROR;
+    found.span.endedAt = new Date();
   }
 
   // ------------------------------------------------------------------
@@ -292,8 +350,8 @@ export class BasePandaProbeCallbackHandler extends BaseIntegrationAdapter {
   ): void {
     const rid = String(runId);
     const pid = parentRunId ? String(parentRunId) : null;
-    this.parents.set(rid, pid);
-    this.spans.set(
+    const state = this.startState(rid, pid);
+    state.spans.set(
       rid,
       new SpanData({
         spanId: rid,
@@ -307,47 +365,43 @@ export class BasePandaProbeCallbackHandler extends BaseIntegrationAdapter {
   }
 
   handleRetrieverEnd(documents: Any, runId: string): void {
-    const span = this.spans.get(String(runId));
-    if (!span) {
+    const found = this.spanFor(String(runId));
+    if (!found) {
       return;
     }
-    span.output = normalizeTypeToRole(safeOutput(documents));
-    span.status = SpanStatusCode.OK;
-    span.endedAt = new Date();
+    found.span.output = normalizeTypeToRole(safeOutput(documents));
+    found.span.status = SpanStatusCode.OK;
+    found.span.endedAt = new Date();
   }
 
   // ------------------------------------------------------------------
   // Finalization
   // ------------------------------------------------------------------
 
-  private finalizeTrace(error: boolean): void {
+  private finalizeTrace(state: TraceState, error: boolean): void {
     try {
       const client = this.resolveClient();
-      const spans = Array.from(this.spans.values());
-      const sessionId = this.sessionId ?? getCurrentSessionId();
-      const userId = this.userId ?? getCurrentUserId();
       const trace = new TraceData({
-        name: this.traceName,
+        name: state.traceName,
         status: error ? TraceStatus.ERROR : TraceStatus.COMPLETED,
-        input: this.traceInput,
-        output: this.traceOutput,
+        input: state.traceInput,
+        output: state.traceOutput,
         metadata: { ...this.metadata },
-        startedAt: this.traceStartedAt ?? new Date(),
+        startedAt: state.traceStartedAt,
         endedAt: new Date(),
-        sessionId,
-        userId,
+        sessionId: this.sessionId ?? getCurrentSessionId(),
+        userId: this.userId ?? getCurrentUserId(),
         tags: [...this.tags],
-        spans,
+        spans: Array.from(state.spans.values()),
       });
       client.logTrace(trace);
     } catch (exc) {
       logger.error(`${this.name} failed to submit trace: ${String(exc)}`);
     } finally {
-      this.spans.clear();
-      this.parents.clear();
-      this.rootRunId = null;
-      this.traceInput = null;
-      this.traceOutput = null;
+      this.traces.delete(state.rootRunId);
+      for (const rid of state.runIds) {
+        this.runToRoot.delete(rid);
+      }
     }
   }
 }

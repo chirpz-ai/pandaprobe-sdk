@@ -3,6 +3,8 @@ import { flush, init } from "../../src/index.js";
 import { LangGraphCallbackHandler } from "../../src/integrations/langgraph/index.js";
 import { requestsTo } from "../helpers.js";
 
+type Any = any;
+
 beforeEach(() => {
   init({ apiKey: "sk_test", projectName: "proj", flushInterval: 60 });
 });
@@ -70,5 +72,41 @@ describe("LangGraphCallbackHandler", () => {
     const tool = spans.find((s) => s.span_id === "tool1")!;
     expect(tool.kind).toBe("TOOL");
     expect(tool.output).toBe("results");
+  });
+
+  it("keeps concurrent interleaved runs on one handler in separate traces", async () => {
+    // Regression: a single handler instance shared across concurrent invoke()
+    // calls must not merge their spans. Interleave two runs (roots A and B).
+    const h = new LangGraphCallbackHandler();
+    const llmEnd = (content: string) => ({
+      generations: [[{ message: { _getType: () => "ai", content } }]],
+    });
+
+    h.handleChainStart({ name: "LangGraph" }, { messages: [{ role: "user", content: "A" }] }, "rootA");
+    h.handleChainStart({ name: "LangGraph" }, { messages: [{ role: "user", content: "B" }] }, "rootB");
+    h.handleChatModelStart({ name: "m" }, [[{ _getType: () => "human", content: "A" }]], "llmA", "rootA");
+    h.handleChatModelStart({ name: "m" }, [[{ _getType: () => "human", content: "B" }]], "llmB", "rootB");
+    h.handleLLMEnd(llmEnd("answer A"), "llmA");
+    h.handleLLMEnd(llmEnd("answer B"), "llmB");
+    h.handleChainEnd({ messages: [{ role: "assistant", content: "answer B" }] }, "rootB");
+    h.handleChainEnd({ messages: [{ role: "assistant", content: "answer A" }] }, "rootA");
+    await flush();
+
+    const traces = requestsTo("/traces").map((r) => r.body as Record<string, unknown>);
+    const byInput = (c: string) =>
+      traces.find((t) => (t.input as Any)?.messages?.[0]?.content === c) as Record<string, unknown>;
+
+    const a = byInput("A");
+    const b = byInput("B");
+    const aSpans = a.spans as Array<Record<string, unknown>>;
+    const bSpans = b.spans as Array<Record<string, unknown>>;
+
+    // Each trace holds exactly its own root + LLM span — no cross-contamination.
+    expect(aSpans.map((s) => s.span_id).sort()).toEqual(["llmA", "rootA"]);
+    expect(bSpans.map((s) => s.span_id).sort()).toEqual(["llmB", "rootB"]);
+    expect(aSpans.find((s) => s.span_id === "llmA")?.parent_span_id).toBe("rootA");
+    expect(bSpans.find((s) => s.span_id === "llmB")?.parent_span_id).toBe("rootB");
+    expect(a.output).toEqual({ messages: [{ role: "assistant", content: "answer A" }] });
+    expect(b.output).toEqual({ messages: [{ role: "assistant", content: "answer B" }] });
   });
 });
