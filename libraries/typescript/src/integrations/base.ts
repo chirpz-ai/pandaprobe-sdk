@@ -1,45 +1,11 @@
 /** Base utilities and adapter class shared by all framework integrations. */
 
 import { type Client, getClient } from "../client.js";
+import { safeSerialize } from "../util.js";
 
-// ---------------------------------------------------------------------------
-// Shared serialization utilities
-// ---------------------------------------------------------------------------
-
-/** Best-effort JSON-safe serialization of an arbitrary object. */
-export function safeSerialize(obj: unknown): unknown {
-  if (obj === null || obj === undefined) {
-    return obj;
-  }
-  const t = typeof obj;
-  if (t === "string" || t === "number" || t === "boolean") {
-    return obj;
-  }
-  if (t === "bigint") {
-    return String(obj);
-  }
-  if (Array.isArray(obj)) {
-    return obj.map((v) => safeSerialize(v));
-  }
-  if (t === "object") {
-    const toJson = (obj as { toJSON?: () => unknown }).toJSON;
-    if (typeof toJson === "function") {
-      try {
-        return safeSerialize(toJson.call(obj));
-      } catch {
-        // fall through
-      }
-    }
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
-      if (!k.startsWith("_")) {
-        out[k] = safeSerialize(v);
-      }
-    }
-    return out;
-  }
-  return String(obj);
-}
+// Re-export shared serialization (single source of truth in ../util.js) so
+// integration sub-packages keep importing it from `../base.js`.
+export { safeSerialize };
 
 // ---------------------------------------------------------------------------
 // Shared model-parameter utilities
