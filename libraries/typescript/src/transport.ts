@@ -49,7 +49,7 @@ export class Transport {
   private draining: Promise<void> | null = null;
   private shuttingDown = false;
   private readonly exitHandler: () => void;
-  private readonly signalHandler: () => void;
+  private readonly signalHandler: (signal: NodeJS.Signals) => void;
 
   constructor(config: SdkConfig, onError?: (exc: unknown) => void) {
     this.config = config;
@@ -64,8 +64,14 @@ export class Transport {
     this.exitHandler = () => {
       void this.flush(10.0);
     };
-    this.signalHandler = () => {
-      void this.shutdown();
+    this.signalHandler = (signal: NodeJS.Signals) => {
+      void this.shutdown().finally(() => {
+        try {
+          process.kill(process.pid, signal);
+        } catch {
+          // process is already terminating
+        }
+      });
     };
 
     if (config.enabled) {

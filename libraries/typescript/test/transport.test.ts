@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { resolveConfig } from "../src/config.js";
 import { Transport } from "../src/transport.js";
 import { captured, queueStatuses, requestsTo } from "./helpers.js";
@@ -121,5 +121,27 @@ describe("Transport", () => {
     const t = makeTransport();
     await t.shutdown();
     await expect(t.shutdown()).resolves.toBeUndefined();
+  });
+
+  it("flushes buffered traces then re-raises the signal on SIGTERM", async () => {
+    const t = makeTransport();
+    t.enqueueTrace({ trace_id: "sig", name: "t" });
+
+    // Grab the handler the constructor registered (re-raising is mocked so the
+    // test process is not actually terminated).
+    const listeners = process.listeners("SIGTERM");
+    const handler = listeners[listeners.length - 1] as (s: NodeJS.Signals) => void;
+    const killSpy = vi.spyOn(process, "kill").mockImplementation(() => true);
+
+    try {
+      handler("SIGTERM");
+      await new Promise((r) => setTimeout(r, 50)); // let shutdown drain + finally run
+
+      expect(requestsTo("/traces").length).toBe(1); // buffered trace was flushed
+      expect(killSpy).toHaveBeenCalledWith(process.pid, "SIGTERM"); // signal re-raised
+    } finally {
+      killSpy.mockRestore();
+    }
+    await t.shutdown();
   });
 });
