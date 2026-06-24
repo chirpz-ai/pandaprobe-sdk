@@ -8,9 +8,11 @@ export {
 export { SpanContext, type SpanContextOptions } from "./span.js";
 export {
   getCurrentSessionId,
+  getCurrentUserId,
+  runWithSession,
+  runWithUser,
   setCurrentSessionId,
   resetCurrentSessionId,
-  getCurrentUserId,
   setCurrentUserId,
   resetCurrentUserId,
   type SessionToken,
