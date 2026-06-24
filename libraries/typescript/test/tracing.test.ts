@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { getClient } from "../src/client.js";
 import { SpanKind, flush, getCurrentTrace, init, startTrace, withSpan, withTrace } from "../src/index.js";
 import { requestsTo } from "./helpers.js";
+
+type Any = any;
 
 beforeEach(() => {
   init({ apiKey: "sk_test", projectName: "proj", flushInterval: 60 });
@@ -139,5 +142,33 @@ describe("concurrent traces", () => {
     expect(bSpans).toHaveLength(1);
     expect(aSpans[0]?.name).toBe("span-a");
     expect(bSpans[0]?.name).toBe("span-b");
+  });
+});
+
+describe("run() finalizes exactly once", () => {
+  it("nested run() on the same context submits one trace with all spans", async () => {
+    await withTrace("agent", async (t) => {
+      await withSpan("a", { kind: SpanKind.CHAIN }, async () => {});
+      // Re-entrant run on the SAME context passed to the callback.
+      await t.run(async () => {
+        await withSpan("b", { kind: SpanKind.LLM }, async () => {});
+      });
+    });
+    await flush();
+
+    const traces = requestsTo("/traces");
+    expect(traces).toHaveLength(1); // exactly one trace, not two
+    const spans = (traces[0]?.body as Any).spans as Array<Record<string, unknown>>;
+    expect(spans.map((s) => s.name).sort()).toEqual(["a", "b"]); // both spans captured
+  });
+
+  it("calling run() twice on the same context does not double-submit", async () => {
+    const t = getClient()!.trace("repeat");
+    await t.run(async () => {});
+    await t.run(async () => {});
+    await flush();
+
+    const traces = requestsTo("/traces").filter((r) => (r.body as Any).name === "repeat");
+    expect(traces).toHaveLength(1);
   });
 });

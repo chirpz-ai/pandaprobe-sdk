@@ -61,6 +61,7 @@ export class TraceContext {
   private prevStore: TraceStore | undefined;
   private entered = false;
   private isEnded = false;
+  private finalized = false;
 
   constructor(client: TraceClient, name: string, options: TraceContextOptions = {}) {
     this.client = client;
@@ -129,6 +130,9 @@ export class TraceContext {
 
   /** Run *fn* within this trace's context (callback form). */
   async run<T>(fn: (ctx: TraceContext) => T | Promise<T>): Promise<T> {
+    if (getCurrentTrace() === this) {
+      return await fn(this);
+    }
     return traceStorage.run({ trace: this }, async () => {
       this.startedAt = new Date();
       try {
@@ -237,6 +241,10 @@ export class TraceContext {
   // ------------------------------------------------------------------
 
   private finalize(): void {
+    if (this.finalized) {
+      return;
+    }
+    this.finalized = true;
     try {
       const trace = new TraceData({
         traceId: this._traceId,
