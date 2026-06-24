@@ -1,0 +1,63 @@
+name: CI — TypeScript SDK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "libraries/typescript/**"
+      - ".github/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "libraries/typescript/**"
+      - ".github/**"
+  workflow_call:
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: libraries/typescript
+
+jobs:
+  typescript-lint:
+    name: TypeScript Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+          cache-dependency-path: libraries/typescript/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - name: Check formatting
+        run: pnpm exec biome format .
+      - name: Lint
+        run: pnpm exec biome check .
+      - name: Typecheck
+        run: pnpm exec tsc --noEmit
+
+  typescript-test:
+    name: TypeScript Test (Node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: ["18", "20", "22"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: pnpm
+          cache-dependency-path: libraries/typescript/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - name: Test
+        run: pnpm exec vitest run --coverage
+      - name: Build
+        run: pnpm run build

@@ -24,6 +24,15 @@ htmlcov/
 .ruff_cache/
 .mypy_cache/
 
+# Node / TypeScript
+node_modules/
+*.tsbuildinfo
+coverage/
+.pnpm-store/
+npm-debug.log*
+pnpm-debug.log*
+yarn-error.log*
+
 # IDE
 .vscode/
 .cursor/plans/
