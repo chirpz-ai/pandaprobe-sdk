@@ -17,10 +17,12 @@ let autoInitAttempted = false;
 
 /** Configure and set the global PandaProbe client singleton. */
 export function init(options: ConfigOptions = {}): Client {
-  if (globalClient !== null) {
-    void globalClient.shutdown();
-  }
+  const previous = globalClient;
   globalClient = new Client(options);
+  if (previous !== null) {
+    // Drain the previous client's buffered traces in the background, then release its resources.
+    void previous.shutdown().catch(() => {});
+  }
   return globalClient;
 }
 
