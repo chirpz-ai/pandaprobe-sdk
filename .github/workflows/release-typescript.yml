@@ -43,7 +43,7 @@ jobs:
       - name: Read version from version.ts
         id: version
         run: |
-          VERSION=$(node -e "const s=require('fs').readFileSync('src/version.ts','utf8'); const m=s.match(/[\"']([0-9][^\"']*)[\"']/); if(!m){console.error('version not found'); process.exit(1)} ; console.log(m[1])")
+          VERSION=$(node -e "const s=require('fs').readFileSync('src/version.ts','utf8'); const m=s.match(/\bVERSION\b\s*=\s*[\"']([^\"']+)[\"']/); if(!m){console.error('VERSION export not found in src/version.ts'); process.exit(1)} ; console.log(m[1])")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Detected version: $VERSION"
 
@@ -90,6 +90,20 @@ jobs:
       - name: Verify package contents
         run: npm pack --dry-run
 
+      # Publish to npm before tagging. If already published, skip publish but create the tag/release.
+      - name: Publish to npm
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          # Compare the returned version string (not the exit code): `npm view`
+          # for a missing version/package returns empty or errors, both of which
+          # mean "not published yet".
+          PUBLISHED=$(npm view "pandaprobe@${VERSION}" version 2>/dev/null || true)
+          if [ "$PUBLISHED" = "$VERSION" ]; then
+            echo "pandaprobe@${VERSION} is already on npm — skipping publish."
+          else
+            npm publish --access public
+          fi
+
       - name: Pack tarball (for the GitHub release)
         run: npm pack
 
@@ -103,10 +117,4 @@ jobs:
           commit: ${{ github.sha }}
           draft: false
           generateReleaseNotes: true
-
-      # Tokenless publish via OIDC Trusted Publishing (the PyPI trusted-publisher
-      # analog). No NPM_TOKEN needed — authentication uses the workflow id-token,
-      # and provenance is generated automatically. Requires a Trusted Publisher
-      # configured on the npm package (npmjs.com → package → Settings).
-      - name: Publish to npm
-        run: npm publish --access public
+          allowUpdates: true
