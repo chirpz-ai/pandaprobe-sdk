@@ -353,10 +353,6 @@ export class OpenAIAgentsAdapter extends BaseIntegrationAdapter {
       agents.addTraceProcessor(processor);
       return true;
     }
-    if (typeof agents.setTraceProcessors === "function") {
-      agents.setTraceProcessors([processor]);
-      return true;
-    }
     const tracing = agents.tracing ?? agents.getGlobalTraceProvider?.();
     if (tracing && typeof tracing.registerProcessor === "function") {
       tracing.registerProcessor(processor);
