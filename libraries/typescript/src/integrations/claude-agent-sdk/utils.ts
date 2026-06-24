@@ -1,4 +1,6 @@
-/** Claude Agent SDK normalization helpers. */
+/** Claude Agent SDK normalization and extraction utilities (ports claude_agent_sdk/utils.py). */
+
+import { SAFE_MODEL_PARAM_KEYS, configToDict, safeSerialize } from "../base.js";
 
 type Any = any;
 
@@ -13,25 +15,76 @@ export function extractPromptText(prompt: Any): string {
   return "";
 }
 
-/** Pull text and thinking from an assistant message's content blocks. */
-export function splitAssistantContent(content: Any): { text: string; thinking: string } {
-  const textParts: string[] = [];
-  const thinkingParts: string[] = [];
+/** Extract a string system prompt from ClaudeAgentOptions (ignores preset objects). */
+export function extractSystemPrompt(options: Any): string | null {
+  const sys = options?.systemPrompt ?? options?.system_prompt;
+  if (typeof sys === "string" && sys) {
+    return sys;
+  }
+  return null;
+}
+
+/** Visible text from content blocks, excluding thinking. */
+export function normalizeContentToText(content: Any): string | null {
+  if (content == null) {
+    return null;
+  }
+  if (typeof content === "string") {
+    return content;
+  }
   if (Array.isArray(content)) {
+    const parts: string[] = [];
     for (const block of content) {
-      if (!block || typeof block !== "object") {
-        continue;
-      }
-      if (block.type === "text" && typeof block.text === "string") {
-        textParts.push(block.text);
-      } else if (block.type === "thinking" && typeof block.thinking === "string") {
-        thinkingParts.push(block.thinking);
+      if (typeof block === "string") {
+        parts.push(block);
+      } else if (block && typeof block === "object") {
+        if (block.type === "thinking") {
+          continue;
+        }
+        if (block.type === "text") {
+          parts.push(String(block.text ?? ""));
+        }
       }
     }
-  } else if (typeof content === "string") {
-    textParts.push(content);
+    return parts.length > 0 ? parts.join(" ") : null;
   }
-  return { text: textParts.join(""), thinking: thinkingParts.join("\n\n") };
+  return String(content);
+}
+
+/** Concatenated thinking text from content blocks, or null. */
+export function extractThinkingFromContent(content: Any): string | null {
+  if (!Array.isArray(content)) {
+    return null;
+  }
+  const parts: string[] = [];
+  for (const block of content) {
+    if (block && typeof block === "object" && block.type === "thinking") {
+      const text = block.thinking ?? block.text;
+      if (text) {
+        parts.push(String(text));
+      }
+    }
+  }
+  return parts.length > 0 ? parts.join("\n\n") : null;
+}
+
+/** True when content has thinking blocks but no text or tool_use (SDK emits a thinking-only turn). */
+export function isThinkingOnly(content: Any): boolean {
+  if (!Array.isArray(content) || content.length === 0) {
+    return false;
+  }
+  let hasThinking = false;
+  for (const block of content) {
+    if (!block || typeof block !== "object") {
+      return false;
+    }
+    if (block.type === "thinking") {
+      hasThinking = true;
+    } else {
+      return false; // text / tool_use / other → not thinking-only
+    }
+  }
+  return hasThinking;
 }
 
 /** Collect tool_use blocks from an assistant message. */
@@ -48,35 +101,79 @@ export function extractToolUses(content: Any): Array<{ id: string; name: string;
 }
 
 /** Collect tool_result blocks from a user message. */
-export function extractToolResults(content: Any): Array<{ toolUseId: string; content: unknown }> {
-  const results: Array<{ toolUseId: string; content: unknown }> = [];
+export function extractToolResults(content: Any): Array<{ toolUseId: string; content: unknown; isError: boolean }> {
+  const results: Array<{ toolUseId: string; content: unknown; isError: boolean }> = [];
   if (Array.isArray(content)) {
     for (const block of content) {
       if (block && typeof block === "object" && block.type === "tool_result") {
-        results.push({ toolUseId: String(block.tool_use_id ?? ""), content: block.content });
+        results.push({
+          toolUseId: String(block.tool_use_id ?? ""),
+          content: block.content,
+          isError: Boolean(block.is_error),
+        });
       }
     }
   }
   return results;
 }
 
-/** Map Claude usage fields to PandaProbe token usage. */
-export function extractClaudeUsage(usage: Any): Record<string, number> | null {
-  if (!usage || typeof usage !== "object") {
+/** Map Claude Agent SDK ResultMessage.usage to the universal token-usage format. */
+export function extractTokenUsage(usage: Any): Record<string, number> | null {
+  if (!usage) {
     return null;
   }
-  const out: Record<string, number> = {};
-  if (typeof usage.input_tokens === "number") {
-    out.prompt_tokens = usage.input_tokens;
+  const g = (k: string): Any => (usage == null ? undefined : usage[k]);
+  const result: Record<string, number> = {};
+  const input = g("input_tokens");
+  const output = g("output_tokens");
+  const cacheRead = g("cache_read_input_tokens");
+  const cacheCreation = g("cache_creation_input_tokens");
+  if (input != null) {
+    result.prompt_tokens = Math.trunc(Number(input));
   }
-  if (typeof usage.output_tokens === "number") {
-    out.completion_tokens = usage.output_tokens;
+  if (output != null) {
+    result.completion_tokens = Math.trunc(Number(output));
   }
-  if (typeof usage.cache_read_input_tokens === "number" && usage.cache_read_input_tokens > 0) {
-    out.cache_read_tokens = usage.cache_read_input_tokens;
+  if (input != null && output != null) {
+    result.total_tokens = Math.trunc(Number(input)) + Math.trunc(Number(output));
   }
-  if (typeof usage.cache_creation_input_tokens === "number" && usage.cache_creation_input_tokens > 0) {
-    out.cache_creation_tokens = usage.cache_creation_input_tokens;
+  if (cacheRead != null && Math.trunc(Number(cacheRead)) > 0) {
+    result.cache_read_tokens = Math.trunc(Number(cacheRead));
   }
-  return Object.keys(out).length > 0 ? out : null;
+  if (cacheCreation != null && Math.trunc(Number(cacheCreation)) > 0) {
+    result.cache_creation_tokens = Math.trunc(Number(cacheCreation));
+  }
+  return Object.keys(result).length > 0 ? result : null;
+}
+
+/** Extract safe model parameters from ClaudeAgentOptions (captures thinking as thinking_config). */
+export function extractModelParameters(options: Any): Record<string, unknown> | null {
+  if (!options) {
+    return null;
+  }
+  const dict = configToDict(options);
+  const params: Record<string, unknown> = {};
+  for (const key of SAFE_MODEL_PARAM_KEYS) {
+    if (key === "thinking") {
+      continue;
+    }
+    if (dict[key] !== undefined && dict[key] !== null) {
+      params[key] = safeSerialize(dict[key]);
+    }
+  }
+  if (dict.thinking) {
+    params.thinking_config = safeSerialize(dict.thinking);
+  }
+  return Object.keys(params).length > 0 ? params : null;
+}
+
+/** Serialize a tool response to a string for span output (JSON for objects/arrays). */
+export function serializeToolResponse(resp: Any): string {
+  if (resp && typeof resp === "object") {
+    return JSON.stringify(resp);
+  }
+  if (resp === null || resp === undefined) {
+    return "";
+  }
+  return String(resp);
 }
