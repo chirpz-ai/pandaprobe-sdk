@@ -9,6 +9,18 @@ describe("client singleton", () => {
     expect(getClient()).toBe(c);
   });
 
+  it("re-init drains the previous client's buffered traces (no data loss)", async () => {
+    const c1 = init({ apiKey: "sk_test", projectName: "proj", flushInterval: 60 });
+    // Buffer a trace in c1 without flushing it.
+    await c1.trace("first-client-trace").run(async () => {});
+    // Replacing the global client must not drop c1's buffered trace.
+    init({ apiKey: "sk_test", projectName: "proj", flushInterval: 60 });
+    // Let the previous client's background shutdown-drain complete.
+    await new Promise((r) => setTimeout(r, 200));
+    const names = requestsTo("/traces").map((t) => (t.body as Record<string, unknown>).name);
+    expect(names).toContain("first-client-trace");
+  });
+
   it("auto-initializes from env vars on first getClient()", () => {
     process.env.PANDAPROBE_API_KEY = "envk";
     process.env.PANDAPROBE_PROJECT_NAME = "envp";
