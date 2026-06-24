@@ -3,14 +3,15 @@
  *
  * For LLM spans (kind="LLM"), input/output must follow the messages schema.
  * Other span kinds accept arbitrary input/output. Parent-child relationships
- * are managed via the shared span stack in the trace's async context.
+ * are managed via the owning trace's own span stack (`traceCtx.spanStack`), so
+ * spans always nest within their own trace regardless of the global context.
  */
 
 import { logger } from "../logger.js";
 import { SpanData, SpanKind, SpanStatusCode, newUuid } from "../schemas.js";
 import { isThenable } from "../util.js";
 import { warnIfInvalidMessages } from "../validation.js";
-import { type TraceContext, getSpanStack } from "./context.js";
+import type { TraceContext } from "./context.js";
 
 export interface SpanContextOptions {
   kind?: SpanKind;
@@ -64,10 +65,10 @@ export class SpanContext {
   // Lifecycle
   // ------------------------------------------------------------------
 
-  /** Enter the span: record start time, set parent, push onto the span stack. */
+  /** Enter the span: record start time, set parent, push onto the trace's stack. */
   start(): this {
     this.startedAt = new Date();
-    const stack = getSpanStack();
+    const stack = this.traceCtx.spanStack;
     if (stack.length > 0) {
       this.parentSpanId = stack[stack.length - 1] ?? null;
     }
@@ -75,7 +76,7 @@ export class SpanContext {
     return this;
   }
 
-  /** End the span: record end time/status, finalize, pop from the span stack. */
+  /** End the span: record end time/status, finalize, pop from the trace's stack. */
   end(error?: unknown): void {
     this.endedAt = new Date();
     if (error !== undefined && error !== null) {
@@ -85,7 +86,7 @@ export class SpanContext {
       this.status = SpanStatusCode.OK;
     }
     this.finalize();
-    const stack = getSpanStack();
+    const stack = this.traceCtx.spanStack;
     if (stack.length > 0 && stack[stack.length - 1] === this._spanId) {
       stack.pop();
     }
