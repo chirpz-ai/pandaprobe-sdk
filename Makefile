@@ -1,4 +1,4 @@
-.PHONY: py-install py-install-langgraph py-install-langchain py-install-deepagents py-install-google-adk py-install-claude-agent-sdk py-install-crewai py-install-openai-agents py-lock py-lint py-format py-format-check py-test py-test-cov py-build py-clean ts-install ts-install-langgraph ts-install-langchain ts-install-deepagents ts-install-claude-agent-sdk ts-install-openai-agents ts-install-vercel-ai ts-lint ts-format ts-format-check ts-typecheck ts-test ts-test-cov ts-build ts-clean
+.PHONY: py-install py-install-langgraph py-install-langchain py-install-deepagents py-install-google-adk py-install-claude-agent-sdk py-install-crewai py-install-openai-agents py-lock py-lint py-format py-format-check py-test py-test-cov py-build py-clean ts-install ts-install-base ts-install-langgraph ts-install-langchain ts-install-deepagents ts-install-claude-agent-sdk ts-install-openai-agents ts-install-vercel-ai ts-lint ts-format ts-format-check ts-typecheck ts-test ts-test-cov ts-build ts-clean
 
 PYTHON_DIR = libraries/python
 TYPESCRIPT_DIR = libraries/typescript
@@ -57,6 +57,9 @@ py-clean:
 
 ts-install:
 	$(MAKE) -C $(TYPESCRIPT_DIR) install
+
+ts-install-base:
+	$(MAKE) -C $(TYPESCRIPT_DIR) install-base
 
 ts-install-langgraph:
 	$(MAKE) -C $(TYPESCRIPT_DIR) install-langgraph

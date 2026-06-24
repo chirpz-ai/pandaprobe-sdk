@@ -1,9 +1,11 @@
-.PHONY: install install-langgraph install-langchain install-deepagents install-claude-agent-sdk install-openai-agents install-vercel-ai lint format format-check typecheck test test-cov build clean
+.PHONY: install install-base install-langgraph install-langchain install-deepagents install-claude-agent-sdk install-openai-agents install-vercel-ai lint format format-check typecheck test test-cov build clean
 
-# Base install: dev tooling + lightweight LLM provider SDKs + LangChain glue.
-# Heavy agent frameworks are NOT pulled (auto-install-peers=false in .npmrc).
+# Base install: dev tooling
 install:
 	pnpm install
+
+install-base:
+	pnpm add -D openai @anthropic-ai/sdk @google/genai @mistralai/mistralai @aws-sdk/client-bedrock-runtime @langchain/core @langchain/openai
 
 # Agent frameworks — install ONE at a time (the analog of Python's
 # `uv sync --extra <name>`). Each adds the framework to devDependencies; install

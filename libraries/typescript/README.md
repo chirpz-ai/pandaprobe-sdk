@@ -104,7 +104,7 @@ await session("conv-123", async () => {
 ## Development
 
 ```bash
-make ts-install        # pnpm install — dev tooling + lightweight LLM provider SDKs + LangChain glue
+make ts-install        # pnpm install — dev tooling only (Biome, tsup, tsx, TypeScript, Vitest)
 make ts-typecheck      # tsc --noEmit
 make ts-lint           # biome check
 make ts-format-check   # biome format (check only)
@@ -113,13 +113,19 @@ make ts-test-cov       # vitest run --coverage
 make ts-build          # tsup → dist (ESM + CJS + .d.ts)
 ```
 
-### Installing agent frameworks (one at a time)
+The base install is deliberately minimal: the build/typecheck/test/lint toolchain is all that's
+needed to develop the core, and every dev dependency supports **Node ≥ 18**, so the CI matrix
+(Node 18/20/22) installs cleanly. Provider/framework SDKs are optional `peerDependencies` and are
+installed on demand (below) — several (e.g. `@aws-sdk/client-bedrock-runtime`, `@langchain/*`)
+require Node ≥ 20, so they're kept out of the base install.
 
-Agent frameworks are heavyweight and frequently conflict on transitive deps, so — like the
-Python SDK's `uv sync --extra <name>` — they are **not** part of the base install (gated by
-`auto-install-peers=false` in `.npmrc`). Install them on demand, one at a time:
+### Installing provider SDKs and agent frameworks (on demand)
+
+Like the Python SDK's `uv sync --extra <name>`, the SDKs are installed on demand rather than as part
+of the base install (also gated by `auto-install-peers=false` in `.npmrc`):
 
 ```bash
+make ts-install-base                # LLM provider SDKs + LangChain glue (to run the examples)
 make ts-install-langgraph           # @langchain/langgraph + glue
 make ts-install-langchain           # langchain + glue
 make ts-install-deepagents          # deepagents
@@ -128,7 +134,7 @@ make ts-install-openai-agents       # @openai/agents
 make ts-install-vercel-ai           # ai + @ai-sdk/openai
 ```
 
-Each target adds its framework to `devDependencies`. Install only the one you're working with —
+Each target adds its packages to `devDependencies`. Install only what you're working with —
 unlike Python's shared environment, JS frameworks coexist in nested `node_modules` without
 conflicting. To reset to a clean base: `git checkout -- package.json pnpm-lock.yaml && make ts-install`.
 
