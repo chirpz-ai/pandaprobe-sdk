@@ -11,7 +11,11 @@ import { getCurrentTrace } from "../tracing/context.js";
 import type { TraceContext } from "../tracing/context.js";
 import { getCurrentSessionId, getCurrentUserId } from "../tracing/session.js";
 import type { SpanContext } from "../tracing/span.js";
+import { safeSerialize } from "../util.js";
 import { extractLastUserMessage } from "../validation.js";
+
+// Re-export shared serialization so provider sub-packages keep importing it from `../base.js`.
+export { safeSerialize };
 
 // ---------------------------------------------------------------------------
 // Safe parameter whitelists
@@ -47,40 +51,6 @@ export function extractModelParams(
     }
   }
   return out;
-}
-
-/** Best-effort JSON-safe serialization of an arbitrary object. */
-export function safeSerialize(obj: unknown): unknown {
-  if (obj === null || obj === undefined) {
-    return obj;
-  }
-  const t = typeof obj;
-  if (t === "string" || t === "number" || t === "boolean") {
-    return obj;
-  }
-  if (t === "bigint") {
-    return String(obj);
-  }
-  if (Array.isArray(obj)) {
-    return obj.map((v) => safeSerialize(v));
-  }
-  if (t === "object") {
-    // Prefer a toJSON() hook when present (mirrors Pydantic model_dump()).
-    const maybeToJson = (obj as { toJSON?: () => unknown }).toJSON;
-    if (typeof maybeToJson === "function") {
-      try {
-        return safeSerialize(maybeToJson.call(obj));
-      } catch {
-        // fall through to key walk
-      }
-    }
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
-      out[String(k)] = safeSerialize(v);
-    }
-    return out;
-  }
-  return String(obj);
 }
 
 // ---------------------------------------------------------------------------
