@@ -7,6 +7,7 @@
  * the native `fetch`. Process-exit hooks flush remaining items (atexit analog).
  */
 
+import { randomUUID } from "node:crypto";
 import type { SdkConfig } from "./config.js";
 import { logger } from "./logger.js";
 import { VERSION } from "./version.js";
@@ -204,7 +205,7 @@ export class Transport {
 
   private async send(item: QueueItem): Promise<void> {
     const { url, method, body } = this.buildRequest(item);
-    const headers = { ...this.baseHeaders, "X-Request-ID": crypto.randomUUID() };
+    const headers = { ...this.baseHeaders, "X-Request-ID": randomUUID() };
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {

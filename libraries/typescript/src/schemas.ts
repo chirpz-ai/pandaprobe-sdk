@@ -6,6 +6,8 @@
  * enum string values).
  */
 
+import { randomUUID } from "node:crypto";
+
 // ---------------------------------------------------------------------------
 // Enums (string-literal unions backed by const objects)
 // ---------------------------------------------------------------------------
@@ -81,7 +83,7 @@ export function safeJson(value: unknown): unknown {
 
 /** Generate a UUID v4 string. */
 export function newUuid(): string {
-  return crypto.randomUUID();
+  return randomUUID();
 }
 
 // ---------------------------------------------------------------------------
