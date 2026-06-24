@@ -21,7 +21,6 @@ export interface TraceClient {
 
 interface TraceStore {
   trace: TraceContext | null;
-  spanStack: string[];
 }
 
 const traceStorage = new AsyncLocalStorage<TraceStore>();
@@ -30,8 +29,9 @@ export function getCurrentTrace(): TraceContext | null {
   return traceStorage.getStore()?.trace ?? null;
 }
 
+/** The span stack of the active trace (each trace owns its own stack). */
 export function getSpanStack(): string[] {
-  return traceStorage.getStore()?.spanStack ?? [];
+  return getCurrentTrace()?.spanStack ?? [];
 }
 
 export interface TraceContextOptions {
@@ -57,7 +57,10 @@ export class TraceContext {
   private startedAt: Date | null = null;
   private endedAt: Date | null = null;
   private readonly spans: SpanData[] = [];
+  readonly spanStack: string[] = [];
   private prevStore: TraceStore | undefined;
+  private entered = false;
+  private isEnded = false;
 
   constructor(client: TraceClient, name: string, options: TraceContextOptions = {}) {
     this.client = client;
@@ -79,28 +82,54 @@ export class TraceContext {
   // Lifecycle — imperative (start/end) and callback (run)
   // ------------------------------------------------------------------
 
-  /** Enter the trace context imperatively. Pair with `end()`. */
-  start(): this {
+  /**
+   * Enter the trace context imperatively. Pair with `end()`.
+   *
+   * When *enterStore* is true (the default, for the imperative `startTrace`
+   * API) the trace is pushed onto the AsyncLocalStorage store so ambient
+   * lookups (`getCurrentTrace`) find it. Wrappers that create a standalone
+   * trace pass `false` — their spans nest via this trace's own `spanStack`, so
+   * they must NOT mutate the global store (`enterWith` would leak the trace
+   * into the caller's async frame and contaminate later, unrelated calls).
+   */
+  start(enterStore = true): this {
     this.startedAt = new Date();
-    this.prevStore = traceStorage.getStore();
-    traceStorage.enterWith({ trace: this, spanStack: [] });
+    if (enterStore) {
+      this.prevStore = traceStorage.getStore();
+      this.entered = true;
+      traceStorage.enterWith({ trace: this });
+    }
     return this;
   }
 
-  /** End the trace, finalize, and restore the previous context. */
+  /**
+   * End the trace, finalize, and restore the previous ambient context.
+   *
+   * Imperative `start()`/`end()` is intended for LIFO (properly nested) usage,
+   * the analog of Python's `with`. For overlapping or concurrent traces prefer
+   * the scoped {@link run} / `withTrace` form. To stay safe under out-of-order
+   * end() the restore is guarded: it only rewrites the ambient store when THIS
+   * trace is still the active one (so ending an inner trace out of order can't
+   * wipe a newer active trace), and it never restores to an already-ended
+   * parent (which would resurrect a finished trace as "current").
+   */
   end(error?: unknown): void {
     this.endedAt = new Date();
     if (error !== undefined && error !== null) {
       this.status = TS.ERROR;
       this.error = String(error instanceof Error ? error.message : error);
     }
+    this.isEnded = true;
     this.finalize();
-    traceStorage.enterWith(this.prevStore ?? { trace: null, spanStack: [] });
+    if (this.entered && getCurrentTrace() === this) {
+      const parent = this.prevStore?.trace ?? null;
+      traceStorage.enterWith({ trace: parent?.isEnded ? null : parent });
+    }
   }
 
   /** Run *fn* within this trace's context (callback form). */
   async run<T>(fn: (ctx: TraceContext) => T | Promise<T>): Promise<T> {
-    return traceStorage.run({ trace: this, spanStack: [] }, async () => {
+    return traceStorage.run({ trace: this }, async () => {
       this.startedAt = new Date();
       try {
         return await fn(this);
@@ -123,7 +152,7 @@ export class TraceContext {
    * a sync invocation returns synchronously, an async one returns a Promise.
    */
   instrument<T>(invoke: () => T, captureOutput: boolean): T {
-    return traceStorage.run({ trace: this, spanStack: [] }, (): T => {
+    return traceStorage.run({ trace: this }, (): T => {
       this.startedAt = new Date();
       let result: T;
       try {
