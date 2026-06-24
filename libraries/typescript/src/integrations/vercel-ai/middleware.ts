@@ -72,35 +72,65 @@ export function pandaProbeMiddleware(options: VercelMiddlewareOptions = {}) {
       const textParts: string[] = [];
       let usage: Record<string, number> | null = null;
       let first = true;
+      let finalized = false;
 
-      const transform = new TransformStream({
-        transform(chunk: Any, controller: Any) {
-          if (span !== null && first) {
-            span.setCompletionStartTime(new Date());
-            first = false;
-          }
-          if (chunk?.type === "text-delta" && typeof chunk.delta === "string") {
-            textParts.push(chunk.delta);
-          } else if (chunk?.type === "text" && typeof chunk.text === "string") {
-            textParts.push(chunk.text);
-          }
-          if (chunk?.type === "finish" && chunk.usage) {
-            usage = extractVercelUsage(chunk.usage);
-          }
-          controller.enqueue(chunk);
-        },
-        flush() {
-          if (span !== null) {
-            if (textParts.length > 0) {
-              span.setOutput({ messages: [{ role: "assistant", content: textParts.join("") }] });
+      // Finalize the span exactly once, on ANY stream termination: normal
+      // completion, a read error, or downstream cancellation / partial read.
+      // (A TransformStream's `flush` only runs on normal completion, leaking the
+      // span — and any standalone trace — on the other paths.)
+      const finalize = (error?: unknown): void => {
+        if (finalized || span === null) {
+          return;
+        }
+        finalized = true;
+        if (error !== undefined) {
+          errorLlmSpan(span, error);
+          return;
+        }
+        if (textParts.length > 0) {
+          span.setOutput({ messages: [{ role: "assistant", content: textParts.join("") }] });
+        }
+        setSpanUsage(span, usage);
+        closeLlmSpan(span);
+      };
+
+      const reader = (result.stream as ReadableStream<Any>).getReader();
+      const wrapped = new ReadableStream<Any>({
+        async pull(controller) {
+          try {
+            const { done, value } = await reader.read();
+            if (done) {
+              finalize();
+              controller.close();
+              return;
             }
-            setSpanUsage(span, usage);
-            closeLlmSpan(span);
+            if (span !== null && first) {
+              span.setCompletionStartTime(new Date());
+              first = false;
+            }
+            if (value?.type === "text-delta" && typeof value.delta === "string") {
+              textParts.push(value.delta);
+            } else if (value?.type === "text" && typeof value.text === "string") {
+              textParts.push(value.text);
+            }
+            if (value?.type === "finish" && value.usage) {
+              usage = extractVercelUsage(value.usage);
+            }
+            controller.enqueue(value);
+          } catch (exc) {
+            finalize(exc);
+            controller.error(exc);
           }
+        },
+        cancel(reason) {
+          // Downstream cancelled / didn't read to completion — finalize with
+          // whatever was collected, then release the source.
+          finalize();
+          return reader.cancel(reason);
         },
       });
 
-      return { ...result, stream: result.stream.pipeThrough(transform) };
+      return { ...result, stream: wrapped };
     },
   };
 }
