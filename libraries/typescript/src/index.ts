@@ -4,12 +4,7 @@
 
 import { getClient } from "./client.js";
 import type { ScoreDataType } from "./schemas.js";
-import {
-  resetCurrentSessionId,
-  resetCurrentUserId,
-  setCurrentSessionId,
-  setCurrentUserId,
-} from "./tracing/session.js";
+import { runWithSession, runWithUser, setCurrentSessionId, setCurrentUserId } from "./tracing/session.js";
 
 export { VERSION } from "./version.js";
 export { Client, init, getClient } from "./client.js";
@@ -77,17 +72,14 @@ export function setSession(sessionId: string): void {
 }
 
 /**
- * Run *fn* with a session ID set for its scope (resets afterwards).
+ * Run *fn* with a session ID set for its scope (the callback analog of Python's
+ * `with pandaprobe.session(id):`).
  *
- * The callback analog of Python's `with pandaprobe.session(id):`.
+ * Uses `AsyncLocalStorage.run()`, so concurrent `session(...)` scopes on one
+ * process stay fully isolated — no cross-conversation leakage.
  */
 export async function session<T>(sessionId: string, fn: () => T | Promise<T>): Promise<T> {
-  const token = setCurrentSessionId(sessionId);
-  try {
-    return await fn();
-  } finally {
-    resetCurrentSessionId(token);
-  }
+  return runWithSession(sessionId, async () => fn());
 }
 
 // ---------------------------------------------------------------------------
@@ -99,12 +91,7 @@ export function setUser(userId: string): void {
   setCurrentUserId(userId);
 }
 
-/** Run *fn* with a user ID set for its scope (resets afterwards). */
+/** Run *fn* with a user ID set for its scope (concurrency-safe, run-based). */
 export async function user<T>(userId: string, fn: () => T | Promise<T>): Promise<T> {
-  const token = setCurrentUserId(userId);
-  try {
-    return await fn();
-  } finally {
-    resetCurrentUserId(token);
-  }
+  return runWithUser(userId, async () => fn());
 }
