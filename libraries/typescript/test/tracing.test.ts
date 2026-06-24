@@ -91,6 +91,27 @@ describe("imperative startTrace / end", () => {
     await flush();
     expect(lastTrace().status).toBe("ERROR");
   });
+
+  it("restores the parent trace on LIFO end()", () => {
+    const t1 = startTrace("A");
+    const t2 = startTrace("B");
+    expect(getCurrentTrace()).toBe(t2);
+    t2.end();
+    expect(getCurrentTrace()).toBe(t1);
+    t1.end();
+    expect(getCurrentTrace()).toBeNull();
+  });
+
+  it("out-of-order end() does not wipe a still-active trace or resurrect an ended one", () => {
+    const t1 = startTrace("A");
+    const t2 = startTrace("B");
+    // End the outer trace first (out of order) — the active inner trace must survive.
+    t1.end();
+    expect(getCurrentTrace()).toBe(t2);
+    // Ending the inner trace must not restore the already-ended outer trace.
+    t2.end();
+    expect(getCurrentTrace()).toBeNull();
+  });
 });
 
 describe("concurrent traces", () => {
