@@ -64,7 +64,7 @@ jobs:
           echo "::error::Version ${{ steps.version.outputs.version }} already released. Bump src/version.ts to release again."
           exit 1
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 9
 
