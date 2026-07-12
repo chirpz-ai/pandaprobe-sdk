@@ -57,7 +57,7 @@ def main():
     )
     adapter.instrument()
 
-    llm = LLM(model="gemini/gemini-3.1-flash-lite-preview")
+    llm = LLM(model="gemini/gemini-3.1-flash-lite")
 
     city_expert = Agent(
         role="City Information Expert",
