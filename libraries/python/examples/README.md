@@ -88,6 +88,16 @@ uv run python examples/openai/01_chat_completion.py
 | `anthropic/01_chat_completion.py` | messages.create with extended thinking and automatic tracing via `wrap_anthropic` |
 | `anthropic/02_multi_turn.py` | Multi-turn conversation with extended thinking and session grouping via `pandaprobe.session()` + `wrap_anthropic` |
 
+### LiteLLM Wrapper
+
+| Example | Description |
+|---|---|
+| `litellm/01_openai.py` | `litellm.completion` routed to an OpenAI model with automatic tracing via `wrap_litellm` |
+| `litellm/02_claude.py` | `litellm.completion` routed to an Anthropic Claude model via `wrap_litellm` |
+| `litellm/03_gemini.py` | `litellm.completion` routed to a Google Gemini model via `wrap_litellm` |
+
+> Running LiteLLM as a **proxy** instead of the embedded SDK? The proxy exposes an OpenAI-compatible endpoint, so point the `openai` client at the proxy base URL and trace it with [`wrap_openai`](#openai-wrapper) — no LiteLLM-specific wrapping needed.
+
 ### LangGraph
 
 | Example | Description |
