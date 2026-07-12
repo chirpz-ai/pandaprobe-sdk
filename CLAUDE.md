@@ -57,7 +57,9 @@ The SDK is layered. Each layer above the core delegates to the one below it; und
 
 ### Wrappers (`src/pandaprobe/wrappers/<provider>/`)
 
-These **monkey-patch SDK clients** (OpenAI, Anthropic, Gemini) to emit LLM spans automatically. Each provider has its own subdirectory with `wrapper.py` (the patching) and `utils.py` (provider-specific serialization). Shared parameter whitelists and serializers live in `wrappers/_base.py` (see `SAFE_INVOCATION_PARAMS` — only these kwargs are recorded; anything else is dropped to avoid leaking secrets/large payloads).
+These **monkey-patch SDK clients** (OpenAI, Anthropic, Gemini, Mistral, Bedrock) to emit LLM spans automatically. Each provider has its own subdirectory with `wrapper.py` (the patching) and `utils.py` (provider-specific serialization). Shared parameter whitelists and serializers live in `wrappers/_base.py` (see `SAFE_INVOCATION_PARAMS` — only these kwargs are recorded; anything else is dropped to avoid leaking secrets/large payloads).
+
+- **LiteLLM** (`wrappers/litellm/`, `wrap_litellm`) is the exception to "patch a client instance": `litellm.completion`/`acompletion` are module-level functions, so `wrap_litellm(litellm_module=None)` patches those attributes on the module (idempotent via a `_pandaprobe_wrapped` marker). Responses are OpenAI ChatCompletion-shaped, so extraction mirrors the OpenAI wrapper. The LiteLLM **proxy** exposes an OpenAI-compatible endpoint and is traced via `wrap_openai` (no LiteLLM-specific code).
 
 ### Integrations (`src/pandaprobe/integrations/<framework>/`)
 
