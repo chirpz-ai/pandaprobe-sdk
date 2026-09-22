@@ -14,7 +14,7 @@ async function main(): Promise<void> {
 
   for await (const message of tracedQuery({
     prompt: "What is the capital of France?",
-    options: { model: "claude-sonnet-4-20250514" },
+    options: { model: "claude-sonnet-5" },
   })) {
     if (message.type === "result" && "result" in message) {
       console.log("Bot:", message.result);
