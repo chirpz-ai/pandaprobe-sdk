@@ -18,7 +18,7 @@ export function collapseContent(content: Any): Any {
   for (const item of content) {
     if (item && typeof item === "object") {
       const t = item.type ?? "";
-      if (t === "output_text" || t === "text") {
+      if (t === "input_text" || t === "output_text" || t === "text") {
         const text = item.text;
         if (text != null) {
           parts.push(String(text));
@@ -37,6 +37,22 @@ export function collapseContent(content: Any): Any {
 /** Retrieve a value from a dict/object (plain-object access). */
 function get(obj: Any, key: string): Any {
   return obj == null ? undefined : obj[key];
+}
+
+/**
+ * Read the model input captured by an OpenAI Agents ResponseSpanData.
+ *
+ * Current SDK releases expose third-party tracing data as `_input`; older
+ * releases used `input`. Keep the legacy fallback so upgrading PandaProbe does
+ * not require upgrading the Agents SDK at the same time.
+ */
+export function getResponseSpanInput(spanData: Any): Any {
+  return get(spanData, "_input") ?? get(spanData, "input");
+}
+
+/** Read the raw response from current (`_response`) or legacy (`response`) span data. */
+export function getResponseSpanResponse(spanData: Any): Any {
+  return get(spanData, "_response") ?? get(spanData, "response");
 }
 
 // ---------------------------------------------------------------------------
@@ -94,14 +110,14 @@ function normalizeInputItem(item: Any): Record<string, Any> | null {
 /** Build `{messages: [...]}` from a ResponseSpanData (instructions + input). */
 export function normalizeResponseInput(spanData: Any): { messages: Any[] } {
   const messages: Any[] = [];
-  const response = get(spanData, "response");
+  const response = getResponseSpanResponse(spanData);
   if (response != null) {
     const instructions = get(response, "instructions");
     if (typeof instructions === "string" && instructions.trim()) {
       messages.push({ role: "system", content: instructions });
     }
   }
-  const rawInput = get(spanData, "input");
+  const rawInput = getResponseSpanInput(spanData);
   if (rawInput != null) {
     if (typeof rawInput === "string") {
       messages.push({ role: "user", content: rawInput });
@@ -147,9 +163,9 @@ function normalizeOutputItem(item: Any): Record<string, Any> | null {
   return { role: "assistant", content: safeSerialize(item) };
 }
 
-/** Build `{messages: [...]}` from ResponseSpanData.response.output (reasoning stripped). */
+/** Build `{messages: [...]}` from a ResponseSpanData response (reasoning stripped). */
 export function normalizeResponseOutput(spanData: Any): { messages: Any[] } {
-  const response = get(spanData, "response");
+  const response = getResponseSpanResponse(spanData);
   if (response == null) {
     return { messages: [] };
   }
