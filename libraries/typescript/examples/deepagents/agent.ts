@@ -1,21 +1,24 @@
 /**
  * DeepAgents integration — callback-based instrumentation.
  *
- * Install: pnpm add deepagents @langchain/core
+ * Requires: OPENAI_API_KEY
+ * Install:  make install-deepagents
  * Run:     pnpm exec tsx examples/deepagents/agent.ts
  *
  * A deep agent is a LangGraph compiled graph under the hood, so the standard
  * LangChain callback interface captures the full trace tree (incl. sub-agents).
  */
 
-import { createDeepAgent } from "deepagents";
+import { ChatOpenAI } from "@langchain/openai";
+import { type DeepAgent, createDeepAgent } from "deepagents";
 import { flush } from "pandaprobe";
 import { DeepAgentsCallbackHandler } from "pandaprobe/integrations/deepagents";
 
 async function main(): Promise<void> {
-  const agent = createDeepAgent({
+  const agent: DeepAgent = createDeepAgent({
+    model: new ChatOpenAI({ model: "gpt-5.6-terra", useResponsesApi: true }),
     tools: [],
-    instructions: "You are a helpful research assistant. Be concise.",
+    systemPrompt: "You are a helpful research assistant. Be concise.",
   });
 
   const handler = new DeepAgentsCallbackHandler({ tags: ["deepagents"] });
