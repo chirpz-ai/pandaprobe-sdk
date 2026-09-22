@@ -5,7 +5,8 @@
  *   1. Callback wrappers — `withTrace` / `withSpan` and `startTrace`, the
  *      idiomatic analog of Python's `with client.trace(...)` context managers.
  *   2. TS class-method decorators — `@trace` / `@span`, the closest visual match
- *      to Python's `@trace` / `@span` (require `experimentalDecorators`).
+ *      to Python's `@trace` / `@span`. Both Stage 3 and legacy TypeScript
+ *      decorator runtimes are supported.
  */
 
 import { getClient } from "./client.js";
@@ -117,6 +118,21 @@ export interface SpanDecoratorOptions {
 
 // Legacy decorator target is a prototype object (or constructor for statics).
 type LegacyTarget = object;
+type RuntimeMethod = (this: unknown, ...args: unknown[]) => unknown;
+type DecoratedMethod<This, Args extends unknown[], Result> = (this: This, ...args: Args) => Result;
+
+type Stage3MethodDecorator = <This, Args extends unknown[], Result>(
+  value: DecoratedMethod<This, Args, Result>,
+  context: ClassMethodDecoratorContext<This, DecoratedMethod<This, Args, Result>>,
+) => DecoratedMethod<This, Args, Result>;
+
+/** A method decorator accepted by both current and legacy TypeScript emitters. */
+export type CompatibleMethodDecorator = MethodDecorator & Stage3MethodDecorator;
+
+interface Stage3MethodContextLike {
+  kind: "method";
+  name: string | symbol;
+}
 
 function captureInput(args: unknown[]): unknown {
   // Single object arg: pass through (so `{messages: [...]}` is preserved for
@@ -128,53 +144,86 @@ function captureInput(args: unknown[]): unknown {
   return { args };
 }
 
-function makeTraceDecorator(options: TraceDecoratorOptions) {
-  return (_target: LegacyTarget, propertyKey: string | symbol, descriptor: PropertyDescriptor): PropertyDescriptor => {
-    const original = descriptor.value as (...args: unknown[]) => unknown;
-    const traceName = options.name ?? String(propertyKey);
-
-    descriptor.value = function instrumented(this: unknown, ...args: unknown[]): unknown {
-      const client = getClient();
-      if (client === null || !client.enabled) {
-        return original.apply(this, args);
-      }
-      const fnInput = captureInput(args);
-      const ctx = client.trace(traceName, {
-        input: extractLastUserMessage(fnInput),
-        sessionId: options.sessionId,
-        userId: options.userId,
-        tags: options.tags,
-        metadata: options.metadata,
-      });
-      return ctx.instrument(() => original.apply(this, args), true);
-    };
-    return descriptor;
+function wrapTraceMethod(original: RuntimeMethod, methodName: string | symbol, options: TraceDecoratorOptions) {
+  const traceName = options.name ?? String(methodName);
+  return function instrumented(this: unknown, ...args: unknown[]): unknown {
+    const client = getClient();
+    if (client === null || !client.enabled) {
+      return original.apply(this, args);
+    }
+    const fnInput = captureInput(args);
+    const ctx = client.trace(traceName, {
+      input: extractLastUserMessage(fnInput),
+      sessionId: options.sessionId,
+      userId: options.userId,
+      tags: options.tags,
+      metadata: options.metadata,
+    });
+    return ctx.instrument(() => original.apply(this, args), true);
   };
 }
 
-function makeSpanDecorator(options: SpanDecoratorOptions) {
-  return (_target: LegacyTarget, propertyKey: string | symbol, descriptor: PropertyDescriptor): PropertyDescriptor => {
-    const original = descriptor.value as (...args: unknown[]) => unknown;
-    const spanName = options.name ?? String(propertyKey);
-
-    descriptor.value = function instrumented(this: unknown, ...args: unknown[]): unknown {
-      const traceCtx = getCurrentTrace();
-      if (traceCtx === null) {
-        return original.apply(this, args);
-      }
-      const span = traceCtx.span(spanName, {
-        kind: options.kind ?? SpanKind.OTHER,
-        model: options.model,
-        metadata: options.metadata,
-      });
-      return span.instrument(() => original.apply(this, args), captureInput(args));
-    };
-    return descriptor;
+function wrapSpanMethod(original: RuntimeMethod, methodName: string | symbol, options: SpanDecoratorOptions) {
+  const spanName = options.name ?? String(methodName);
+  return function instrumented(this: unknown, ...args: unknown[]): unknown {
+    const traceCtx = getCurrentTrace();
+    if (traceCtx === null) {
+      return original.apply(this, args);
+    }
+    const span = traceCtx.span(spanName, {
+      kind: options.kind ?? SpanKind.OTHER,
+      model: options.model,
+      metadata: options.metadata,
+    });
+    return span.instrument(() => original.apply(this, args), captureInput(args));
   };
 }
 
-function isBareUsage(args: unknown[]): args is [LegacyTarget, string | symbol, PropertyDescriptor] {
+function isLegacyBareUsage(args: unknown[]): args is [LegacyTarget, string | symbol, PropertyDescriptor] {
   return args.length === 3 && (typeof args[1] === "string" || typeof args[1] === "symbol");
+}
+
+function isStage3BareUsage(args: unknown[]): args is [RuntimeMethod, Stage3MethodContextLike] {
+  if (args.length !== 2 || typeof args[0] !== "function") {
+    return false;
+  }
+  const context = args[1];
+  if (context === null || typeof context !== "object") {
+    return false;
+  }
+  const kind = (context as { kind?: unknown }).kind;
+  const name = (context as { name?: unknown }).name;
+  return kind === "method" && (typeof name === "string" || typeof name === "symbol");
+}
+
+function makeTraceDecorator(options: TraceDecoratorOptions): CompatibleMethodDecorator {
+  const decorator = (...args: unknown[]): unknown => {
+    if (isStage3BareUsage(args)) {
+      return wrapTraceMethod(args[0], args[1].name, options);
+    }
+    if (isLegacyBareUsage(args)) {
+      const descriptor = args[2];
+      descriptor.value = wrapTraceMethod(descriptor.value as RuntimeMethod, args[1], options);
+      return descriptor;
+    }
+    throw new TypeError("@trace can only decorate class methods");
+  };
+  return decorator as CompatibleMethodDecorator;
+}
+
+function makeSpanDecorator(options: SpanDecoratorOptions): CompatibleMethodDecorator {
+  const decorator = (...args: unknown[]): unknown => {
+    if (isStage3BareUsage(args)) {
+      return wrapSpanMethod(args[0], args[1].name, options);
+    }
+    if (isLegacyBareUsage(args)) {
+      const descriptor = args[2];
+      descriptor.value = wrapSpanMethod(descriptor.value as RuntimeMethod, args[1], options);
+      return descriptor;
+    }
+    throw new TypeError("@span can only decorate class methods");
+  };
+  return decorator as CompatibleMethodDecorator;
 }
 
 /**
@@ -183,14 +232,21 @@ function isBareUsage(args: unknown[]): args is [LegacyTarget, string | symbol, P
  * Usable bare (`@trace`) or with options (`@trace({ name: "x" })`). Works with
  * sync and async methods.
  */
-export function trace(options?: TraceDecoratorOptions): MethodDecorator;
+export function trace(options?: TraceDecoratorOptions): CompatibleMethodDecorator;
+export function trace<This, Args extends unknown[], Result>(
+  value: DecoratedMethod<This, Args, Result>,
+  context: ClassMethodDecoratorContext<This, DecoratedMethod<This, Args, Result>>,
+): DecoratedMethod<This, Args, Result>;
 export function trace(target: LegacyTarget, propertyKey: string | symbol, descriptor: PropertyDescriptor): void;
-export function trace(...args: unknown[]): MethodDecorator | void {
-  if (isBareUsage(args)) {
+export function trace(...args: unknown[]): unknown {
+  if (isStage3BareUsage(args)) {
+    return wrapTraceMethod(args[0], args[1].name, {});
+  }
+  if (isLegacyBareUsage(args)) {
     makeTraceDecorator({})(args[0], args[1], args[2]);
     return;
   }
-  return makeTraceDecorator((args[0] as TraceDecoratorOptions) ?? {}) as MethodDecorator;
+  return makeTraceDecorator((args[0] as TraceDecoratorOptions) ?? {});
 }
 
 /**
@@ -199,12 +255,19 @@ export function trace(...args: unknown[]): MethodDecorator | void {
  * No-ops (runs the method directly) when there is no active trace, mirroring
  * Python's `@span`. Usable bare (`@span`) or with options.
  */
-export function span(options?: SpanDecoratorOptions): MethodDecorator;
+export function span(options?: SpanDecoratorOptions): CompatibleMethodDecorator;
+export function span<This, Args extends unknown[], Result>(
+  value: DecoratedMethod<This, Args, Result>,
+  context: ClassMethodDecoratorContext<This, DecoratedMethod<This, Args, Result>>,
+): DecoratedMethod<This, Args, Result>;
 export function span(target: LegacyTarget, propertyKey: string | symbol, descriptor: PropertyDescriptor): void;
-export function span(...args: unknown[]): MethodDecorator | void {
-  if (isBareUsage(args)) {
+export function span(...args: unknown[]): unknown {
+  if (isStage3BareUsage(args)) {
+    return wrapSpanMethod(args[0], args[1].name, {});
+  }
+  if (isLegacyBareUsage(args)) {
     makeSpanDecorator({})(args[0], args[1], args[2]);
     return;
   }
-  return makeSpanDecorator((args[0] as SpanDecoratorOptions) ?? {}) as MethodDecorator;
+  return makeSpanDecorator((args[0] as SpanDecoratorOptions) ?? {});
 }

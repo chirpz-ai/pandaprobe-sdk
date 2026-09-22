@@ -19,6 +19,7 @@ import {
   extractReasoning,
   extractResponseModelParameters,
   extractTokenUsage,
+  getResponseSpanResponse,
   mapSpanKind,
   normalizeGenerationInput,
   normalizeGenerationOutput,
@@ -160,6 +161,12 @@ export class OpenAIAgentsAdapter extends BaseIntegrationAdapter {
           case "generation":
             this.fillGenerationSpan(sd, spanData, state);
             break;
+          case "task":
+            this.fillTaskSpan(sd, spanData);
+            break;
+          case "turn":
+            this.fillTurnSpan(sd, spanData);
+            break;
           case "function":
             this.fillFunctionSpan(sd, spanData);
             break;
@@ -227,19 +234,22 @@ export class OpenAIAgentsAdapter extends BaseIntegrationAdapter {
   // ------------------------------------------------------------------
 
   private propagateLlmToParentAgent(span: SpanData, state: TraceState): void {
-    const parentId = span.parentSpanId;
-    if (!parentId) {
-      return;
-    }
-    const parent = state.spans.get(parentId);
-    if (!parent || parent.kind !== SpanKind.AGENT) {
-      return;
-    }
-    if ((parent.input === null || parent.input === undefined) && span.input) {
-      parent.input = span.input;
-    }
-    if (span.output) {
-      parent.output = span.output;
+    let parentId = span.parentSpanId;
+    while (parentId) {
+      const parent = state.spans.get(parentId);
+      if (!parent) {
+        return;
+      }
+      if (parent.kind === SpanKind.AGENT) {
+        if ((parent.input === null || parent.input === undefined) && span.input) {
+          parent.input = span.input;
+        }
+        if (span.output) {
+          parent.output = span.output;
+        }
+        return;
+      }
+      parentId = parent.parentSpanId;
     }
   }
 
@@ -264,7 +274,7 @@ export class OpenAIAgentsAdapter extends BaseIntegrationAdapter {
   private fillResponseSpan(span: SpanData, spanData: Any, state: TraceState): void {
     span.input = normalizeResponseInput(spanData);
     span.output = normalizeResponseOutput(spanData);
-    const response = spanData.response;
+    const response = getResponseSpanResponse(spanData);
     if (response) {
       if (response.model) {
         span.model = String(response.model);
@@ -296,6 +306,27 @@ export class OpenAIAgentsAdapter extends BaseIntegrationAdapter {
     span.modelParameters = extractGenerationModelParameters(spanData);
     this.propagateLlmToParentAgent(span, state);
     this.updateChainAndTraceIo(span, state);
+  }
+
+  private fillTaskSpan(span: SpanData, spanData: Any): void {
+    if (spanData.usage) {
+      span.tokenUsage = extractTokenUsage(spanData.usage);
+    }
+    if (spanData.usage?.requests != null) {
+      span.metadata.requests = spanData.usage.requests;
+    }
+  }
+
+  private fillTurnSpan(span: SpanData, spanData: Any): void {
+    if (spanData.usage) {
+      span.tokenUsage = extractTokenUsage(spanData.usage);
+    }
+    if (spanData.turn != null) {
+      span.metadata.turn = spanData.turn;
+    }
+    if (spanData.agent_name) {
+      span.metadata.agent_name = String(spanData.agent_name);
+    }
   }
 
   private fillFunctionSpan(span: SpanData, spanData: Any): void {

@@ -128,7 +128,7 @@ of the base install (also gated by `auto-install-peers=false` in `.npmrc`):
 make ts-install-base                # LLM provider SDKs + LangChain glue (to run the examples)
 make ts-install-langgraph           # @langchain/langgraph + glue
 make ts-install-langchain           # langchain + glue
-make ts-install-deepagents          # deepagents
+make ts-install-deepagents          # deepagents + OpenAI/LangChain runtime peers
 make ts-install-claude-agent-sdk    # @anthropic-ai/claude-agent-sdk
 make ts-install-openai-agents       # @openai/agents
 make ts-install-vercel-ai           # ai + @ai-sdk/openai

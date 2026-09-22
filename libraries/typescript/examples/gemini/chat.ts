@@ -13,9 +13,9 @@ async function main(): Promise<void> {
   const client = wrapGemini(new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY }));
 
   const response = await client.models.generateContent({
-    model: "gemini-2.5-flash",
+    model: "gemini-3.8-flash",
     contents: "What is the capital of France?",
-    config: { temperature: 0.2 },
+    config: { temperature: 1.0 },
   });
   console.log("Bot:", response.text);
 

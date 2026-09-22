@@ -2,7 +2,7 @@
  * Manual instrumentation with @trace / @span method decorators.
  *
  * Run: pnpm exec tsx examples/decorators/agent.ts
- * Requires: tsconfig with experimentalDecorators (this repo's tsconfig has it).
+ * Supports both current Stage 3 and legacy TypeScript decorator runtimes.
  */
 
 import { flush, span, trace } from "pandaprobe";

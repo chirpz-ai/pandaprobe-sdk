@@ -70,6 +70,38 @@ describe("withSpan", () => {
 });
 
 describe("@trace / @span method decorators", () => {
+  it("supports the Stage 3 decorator runtime used by tsx", async () => {
+    type Messages = { messages: { role: string; content: string }[] };
+
+    const toolMethod = async function (this: object): Promise<string> {
+      return "context";
+    };
+    const decoratedTool = span({ kind: SpanKind.TOOL })(toolMethod, {
+      kind: "method",
+      name: "tool",
+    } as ClassMethodDecoratorContext<object, typeof toolMethod>);
+
+    const runMethod = async function (this: object, input: Messages): Promise<Messages> {
+      await decoratedTool.call(this);
+      return { messages: [{ role: "assistant", content: `answer with ${input.messages.length} message` }] };
+    };
+    const decoratedRun = trace({ name: "stage-3-agent" })(runMethod, {
+      kind: "method",
+      name: "run",
+    } as ClassMethodDecoratorContext<object, typeof runMethod>);
+
+    await decoratedRun.call({}, { messages: [{ role: "user", content: "question" }] });
+    await flush();
+
+    const body = lastTrace();
+    expect(body.name).toBe("stage-3-agent");
+    expect(body.input).toEqual({ messages: [{ role: "user", content: "question" }] });
+    expect(body.output).toEqual({ messages: [{ role: "assistant", content: "answer with 1 message" }] });
+    const spans = body.spans as Array<Record<string, unknown>>;
+    expect(spans).toHaveLength(1);
+    expect(spans[0]).toMatchObject({ name: "tool", kind: "TOOL", input: { args: [] }, output: "context" });
+  });
+
   it("instruments async methods and captures output", async () => {
     class Agent {
       @trace({ name: "run-agent" })

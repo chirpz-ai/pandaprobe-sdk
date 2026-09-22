@@ -13,7 +13,7 @@ async function main(): Promise<void> {
   const client = wrapMistral(new Mistral({ apiKey: process.env.MISTRAL_API_KEY }));
 
   const response = await client.chat.complete({
-    model: "mistral-large-latest",
+    model: "mistral-small-latest",
     messages: [{ role: "user", content: "What is the capital of France?" }],
   });
   const content = response.choices?.[0]?.message?.content;

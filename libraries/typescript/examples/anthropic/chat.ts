@@ -13,8 +13,8 @@ async function main(): Promise<void> {
   const client = wrapAnthropic(new Anthropic());
 
   const message = await client.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 256,
+    model: "claude-sonnet-5",
+    max_tokens: 2048,
     system: "You are concise.",
     messages: [{ role: "user", content: "What is the capital of France?" }],
   });

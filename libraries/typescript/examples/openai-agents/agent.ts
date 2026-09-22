@@ -16,7 +16,7 @@ async function main(): Promise<void> {
   const agent = new Agent({
     name: "Assistant",
     instructions: "You are concise.",
-    model: "gpt-4o-mini",
+    model: "gpt-5.6-terra",
   });
 
   const result = await run(agent, "What is the capital of France?");

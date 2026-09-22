@@ -27,10 +27,46 @@ export OPENAI_API_KEY="sk-..."
 export GOOGLE_API_KEY="..."
 export ANTHROPIC_API_KEY="sk-ant-..."
 export MISTRAL_API_KEY="..."
-# Bedrock uses the standard AWS credential chain.
 ```
 
 The SDK auto-initializes from these environment variables — no `init()` call is needed.
+
+#### AWS Bedrock
+
+The Bedrock example uses the AWS SDK for JavaScript credential chain. Set the region and configure exactly one of these authentication methods.
+
+Bedrock API key:
+
+```bash
+export AWS_REGION="us-east-1"
+export AWS_BEARER_TOKEN_BEDROCK="..."
+```
+
+AWS access keys:
+
+```bash
+export AWS_REGION="us-east-1"
+export AWS_ACCESS_KEY_ID="..."
+export AWS_SECRET_ACCESS_KEY="..."
+export AWS_SESSION_TOKEN="..."  # only for temporary credentials
+```
+
+Shared AWS profile or IAM Identity Center:
+
+```bash
+export AWS_REGION="us-east-1"
+export AWS_PROFILE="my-profile"
+aws sso login --profile "$AWS_PROFILE"  # only for an SSO profile
+aws sts get-caller-identity --profile "$AWS_PROFILE"  # verify credentials resolve
+```
+
+Claude Sonnet 5 uses the global inference profile by default:
+
+```bash
+export AWS_BEDROCK_MODEL_ID="global.anthropic.claude-sonnet-5"  # optional; this is the example default
+```
+
+The AWS identity needs `bedrock:InvokeModel` permission. Before the first Anthropic invocation, complete the Anthropic first-time-use form in the Bedrock model catalog and ensure the account can subscribe to the model. See the [AWS credential-chain documentation](https://docs.aws.amazon.com/sdk-for-javascript/v3/developer-guide/setting-credentials-node.html) and [Claude Sonnet 5 model card](https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-anthropic-claude-sonnet-5.html).
 
 Optional:
 
