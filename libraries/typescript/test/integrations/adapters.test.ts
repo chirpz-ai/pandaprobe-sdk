@@ -125,6 +125,119 @@ describe("Claude Agent SDK — wrapClaudeAgentQuery", () => {
 });
 
 describe("OpenAI Agents — trace processor", () => {
+  it("captures current ResponseSpanData fields and propagates through task/turn spans", async () => {
+    const adapter = new OpenAIAgentsAdapter();
+    const proc = adapter.createTraceProcessor();
+
+    // @openai/agents >=0.18 exposes third-party response tracing data through
+    // `_input` and `_response`, and nests response spans below a turn span.
+    const response = {
+      type: "response",
+      _input: [
+        {
+          type: "message",
+          role: "user",
+          content: [{ type: "input_text", text: "What is the capital of France?" }],
+        },
+      ],
+      _response: {
+        id: "resp_1",
+        model: "gpt-5.6-terra",
+        instructions: "You are concise.",
+        output: [
+          { type: "reasoning", summary: [{ type: "summary_text", text: "Recall the capital." }] },
+          {
+            type: "message",
+            role: "assistant",
+            content: [{ type: "output_text", text: "Paris." }],
+          },
+        ],
+        usage: {
+          input_tokens: 14,
+          output_tokens: 6,
+          total_tokens: 20,
+          output_tokens_details: { reasoning_tokens: 2 },
+        },
+        temperature: 1,
+      },
+    };
+    const task = {
+      type: "task",
+      name: "Agent workflow",
+      usage: { input_tokens: 14, output_tokens: 6, total_tokens: 20, requests: 1 },
+    };
+    const turn = {
+      type: "turn",
+      turn: 1,
+      agent_name: "Assistant",
+      usage: { input_tokens: 14, output_tokens: 6 },
+    };
+
+    proc.onTraceStart({ traceId: "tr-current", name: "Agent workflow" });
+    proc.onSpanStart({ traceId: "tr-current", spanId: "task-1", parentId: null, spanData: task });
+    proc.onSpanStart({
+      traceId: "tr-current",
+      spanId: "agent-1",
+      parentId: "task-1",
+      spanData: { type: "agent", name: "Assistant" },
+    });
+    proc.onSpanStart({ traceId: "tr-current", spanId: "turn-1", parentId: "agent-1", spanData: turn });
+    proc.onSpanStart({ traceId: "tr-current", spanId: "response-1", parentId: "turn-1", spanData: response });
+    proc.onSpanEnd({ traceId: "tr-current", spanId: "response-1", parentId: "turn-1", spanData: response });
+    proc.onSpanEnd({ traceId: "tr-current", spanId: "turn-1", parentId: "agent-1", spanData: turn });
+    proc.onSpanEnd({
+      traceId: "tr-current",
+      spanId: "agent-1",
+      parentId: "task-1",
+      spanData: { type: "agent", name: "Assistant" },
+    });
+    proc.onSpanEnd({ traceId: "tr-current", spanId: "task-1", parentId: null, spanData: task });
+    proc.onTraceEnd({ traceId: "tr-current", name: "Agent workflow" });
+    await flush();
+
+    const body = lastTrace();
+    const spans = body.spans as Array<Record<string, unknown>>;
+    const llm = spans.find((span) => span.kind === "LLM")!;
+    const agent = spans.find((span) => span.kind === "AGENT")!;
+    const taskSpan = spans.find((span) => span.name === "Agent workflow" && span.kind === "OTHER")!;
+    const turnSpan = spans.find((span) => span.name === "Turn" && span.kind === "OTHER")!;
+
+    const input = {
+      messages: [
+        { role: "system", content: "You are concise." },
+        { role: "user", content: "What is the capital of France?" },
+      ],
+    };
+    const output = { messages: [{ role: "assistant", content: "Paris." }] };
+
+    expect(llm).toMatchObject({
+      name: "gpt-5.6-terra",
+      model: "gpt-5.6-terra",
+      input,
+      output,
+      token_usage: {
+        prompt_tokens: 14,
+        completion_tokens: 6,
+        total_tokens: 20,
+        reasoning_tokens: 2,
+      },
+      model_parameters: { temperature: 1 },
+      metadata: { reasoning_summary: "Recall the capital." },
+    });
+    expect(agent.input).toEqual(input);
+    expect(agent.output).toEqual(output);
+    expect(taskSpan).toMatchObject({
+      token_usage: { prompt_tokens: 14, completion_tokens: 6, total_tokens: 20 },
+      metadata: { requests: 1 },
+    });
+    expect(turnSpan).toMatchObject({
+      token_usage: { prompt_tokens: 14, completion_tokens: 6, total_tokens: 20 },
+      metadata: { turn: 1, agent_name: "Assistant" },
+    });
+    expect(body.input).toEqual({ messages: [{ role: "user", content: "What is the capital of France?" }] });
+    expect(body.output).toEqual(output);
+  });
+
   it("builds a root CHAIN span and maps the SDK span tree with normalized I/O", async () => {
     const adapter = new OpenAIAgentsAdapter({ tags: ["agents"] });
     const proc = adapter.createTraceProcessor();
