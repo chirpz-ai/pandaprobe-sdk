@@ -4,6 +4,7 @@
  * Install: pnpm add @aws-sdk/client-bedrock-runtime
  * Run:     pnpm exec tsx examples/bedrock/converse.ts
  * Uses the standard AWS credential chain + AWS_REGION.
+ * Model:   Claude Sonnet 5 via the global Bedrock inference profile.
  */
 
 import { BedrockRuntimeClient, ConverseCommand } from "@aws-sdk/client-bedrock-runtime";
@@ -15,14 +16,14 @@ async function main(): Promise<void> {
 
   const response = await client.send(
     new ConverseCommand({
-      modelId: "anthropic.claude-3-5-sonnet-20241022-v2:0",
+      modelId: process.env.AWS_BEDROCK_MODEL_ID ?? "global.anthropic.claude-sonnet-5",
       system: [{ text: "You are concise." }],
       messages: [{ role: "user", content: [{ text: "What is the capital of France?" }] }],
-      inferenceConfig: { temperature: 0.5, maxTokens: 256 },
+      inferenceConfig: { maxTokens: 256 },
     }),
   );
-  const block = response.output?.message?.content?.[0];
-  console.log("Bot:", block && "text" in block ? block.text : "");
+  const textBlock = response.output?.message?.content?.find((block) => "text" in block);
+  console.log("Bot:", textBlock && "text" in textBlock ? textBlock.text : "");
 
   await flush();
 }
