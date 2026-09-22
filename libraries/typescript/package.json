@@ -10,14 +10,7 @@
     "url": "https://github.com/chirpz-ai/pandaprobe-sdk.git",
     "directory": "libraries/typescript"
   },
-  "keywords": [
-    "ai",
-    "agents",
-    "tracing",
-    "observability",
-    "evaluation",
-    "llm"
-  ],
+  "keywords": ["ai", "agents", "tracing", "observability", "evaluation", "llm"],
   "type": "module",
   "engines": {
     "node": ">=18"
@@ -87,10 +80,7 @@
       "require": "./dist/integrations/vercel-ai/index.cjs"
     }
   },
-  "files": [
-    "dist",
-    "README.md"
-  ],
+  "files": ["dist", "README.md"],
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit",
