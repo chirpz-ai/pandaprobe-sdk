@@ -12,7 +12,7 @@ import { pandaProbeMiddleware } from "pandaprobe/integrations/vercel-ai";
 
 async function main(): Promise<void> {
   const model = wrapLanguageModel({
-    model: openai("gpt-4o-mini"),
+    model: openai("gpt-5.6-terra"),
     middleware: pandaProbeMiddleware(),
   });
 
