@@ -18,7 +18,9 @@ install-langchain:
 	pnpm add -D langchain @langchain/openai @langchain/core
 
 install-deepagents:
-	pnpm add -D deepagents @langchain/core
+	pnpm add -D deepagents @langchain/core @langchain/openai \
+		@langchain/langgraph @langchain/langgraph-checkpoint \
+		@langchain/langgraph-sdk langchain "langsmith@>=0.7.1 <0.10.0"
 
 install-claude-agent-sdk:
 	pnpm add -D @anthropic-ai/claude-agent-sdk
