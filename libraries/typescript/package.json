@@ -141,6 +141,7 @@
     }
   },
   "devDependencies": {
+    "@ai-sdk/openai": "^4.0.72",
     "@anthropic-ai/claude-agent-sdk": "^0.3.278",
     "@anthropic-ai/sdk": "^0.127.0",
     "@aws-sdk/client-bedrock-runtime": "^3.1137.0",
@@ -155,6 +156,7 @@
     "@openai/agents": "^0.18.0",
     "@types/node": "^22.10.0",
     "@vitest/coverage-v8": "^2.1.8",
+    "ai": "^7.0.109",
     "deepagents": "^1.14.0",
     "langchain": "^1.5.12",
     "langsmith": "^0.9.0",
