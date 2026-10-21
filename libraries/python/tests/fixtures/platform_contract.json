@@ -1,0 +1,1353 @@
+{
+  "creation_headers": [],
+  "operations": {
+    "GET /evaluations/trace-metrics": {
+      "responses": {
+        "200": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "items": {
+                  "$ref": "#/components/schemas/MetricSummary"
+                },
+                "title": "Response Get Available Metrics Evaluations Trace Metrics Get",
+                "type": "array"
+              }
+            }
+          },
+          "description": "Successful Response"
+        }
+      }
+    },
+    "GET /evaluations/trace-runs/{run_id}": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "run_id",
+          "required": true,
+          "schema": {
+            "format": "uuid",
+            "title": "Run Id",
+            "type": "string"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvalRunResponse"
+              }
+            }
+          },
+          "description": "Successful Response"
+        },
+        "422": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          },
+          "description": "Validation Error"
+        }
+      }
+    },
+    "GET /evaluations/trace-runs/{run_id}/scores": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "run_id",
+          "required": true,
+          "schema": {
+            "format": "uuid",
+            "title": "Run Id",
+            "type": "string"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "items": {
+                  "$ref": "#/components/schemas/TraceScoreResponse"
+                },
+                "title": "Response Get Scores For Run Evaluations Trace Runs  Run Id  Scores Get",
+                "type": "array"
+              }
+            }
+          },
+          "description": "Successful Response"
+        },
+        "422": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          },
+          "description": "Validation Error"
+        }
+      }
+    },
+    "GET /traces": {
+      "parameters": [
+        {
+          "in": "query",
+          "name": "limit",
+          "required": false,
+          "schema": {
+            "default": 50,
+            "maximum": 200,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          }
+        },
+        {
+          "in": "query",
+          "name": "offset",
+          "required": false,
+          "schema": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Offset",
+            "type": "integer"
+          }
+        },
+        {
+          "in": "query",
+          "name": "session_id",
+          "required": false,
+          "schema": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id"
+          }
+        },
+        {
+          "in": "query",
+          "name": "status",
+          "required": false,
+          "schema": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TraceStatus"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        {
+          "in": "query",
+          "name": "user_id",
+          "required": false,
+          "schema": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          }
+        },
+        {
+          "in": "query",
+          "name": "tags",
+          "required": false,
+          "schema": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tags"
+          }
+        },
+        {
+          "in": "query",
+          "name": "name",
+          "required": false,
+          "schema": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        {
+          "in": "query",
+          "name": "started_after",
+          "required": false,
+          "schema": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started After"
+          }
+        },
+        {
+          "in": "query",
+          "name": "started_before",
+          "required": false,
+          "schema": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started Before"
+          }
+        },
+        {
+          "in": "query",
+          "name": "sort_by",
+          "required": false,
+          "schema": {
+            "$ref": "#/components/schemas/TraceSortBy",
+            "default": "started_at"
+          }
+        },
+        {
+          "in": "query",
+          "name": "sort_order",
+          "required": false,
+          "schema": {
+            "$ref": "#/components/schemas/SortOrder",
+            "default": "desc"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaginatedResponse_TraceListItem_"
+              }
+            }
+          },
+          "description": "Successful Response"
+        },
+        "422": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          },
+          "description": "Validation Error"
+        }
+      }
+    },
+    "GET /traces/{trace_id}": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "trace_id",
+          "required": true,
+          "schema": {
+            "format": "uuid",
+            "title": "Trace Id",
+            "type": "string"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TraceResponse"
+              }
+            }
+          },
+          "description": "Successful Response"
+        },
+        "422": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          },
+          "description": "Validation Error"
+        }
+      }
+    },
+    "POST /evaluations/trace-runs/batch": {
+      "requestBody": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CreateBatchEvalRunRequest"
+            }
+          }
+        },
+        "required": true
+      },
+      "responses": {
+        "202": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvalRunResponse"
+              }
+            }
+          },
+          "description": "Successful Response"
+        },
+        "422": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          },
+          "description": "Validation Error"
+        }
+      }
+    }
+  },
+  "paths": {
+    "/evaluations/trace-metrics": [
+      "get"
+    ],
+    "/evaluations/trace-runs/batch": [
+      "post"
+    ],
+    "/evaluations/trace-runs/{run_id}": [
+      "get"
+    ],
+    "/evaluations/trace-runs/{run_id}/scores": [
+      "get"
+    ],
+    "/traces": [
+      "get"
+    ],
+    "/traces/{trace_id}": [
+      "get"
+    ]
+  },
+  "schemas": {
+    "CreateBatchEvalRunRequest": {
+      "description": "Create an eval run for an explicit list of trace IDs.\n\nUse this when the user has manually selected specific traces in the\ndashboard rather than using filter-based selection.",
+      "properties": {
+        "metrics": {
+          "description": "List of metric names to run on each trace. Example: ['task_completion', 'step_efficiency'].",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Metrics",
+          "type": "array"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "LLM model string override for the judge. Null uses the system default.",
+          "title": "Model"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional human-readable label for this run.",
+          "title": "Name"
+        },
+        "trace_ids": {
+          "description": "List of trace UUIDs to evaluate. Duplicates are removed automatically.",
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Trace Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "trace_ids",
+        "metrics"
+      ],
+      "title": "CreateBatchEvalRunRequest",
+      "type": "object"
+    },
+    "EvalRunResponse": {
+      "description": "Full eval run representation used by both list and detail endpoints.",
+      "properties": {
+        "completed_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Completed At"
+        },
+        "created_at": {
+          "title": "Created At",
+          "type": "string"
+        },
+        "error_message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Error Message"
+        },
+        "evaluated_count": {
+          "title": "Evaluated Count",
+          "type": "integer"
+        },
+        "failed_count": {
+          "title": "Failed Count",
+          "type": "integer"
+        },
+        "filters": {
+          "additionalProperties": true,
+          "title": "Filters",
+          "type": "object"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "metric_names": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Metric Names",
+          "type": "array"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Model"
+        },
+        "monitor_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Monitor Id"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Name"
+        },
+        "project_id": {
+          "format": "uuid",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "sampling_rate": {
+          "title": "Sampling Rate",
+          "type": "number"
+        },
+        "status": {
+          "$ref": "#/components/schemas/EvaluationStatus"
+        },
+        "target_type": {
+          "title": "Target Type",
+          "type": "string"
+        },
+        "total_targets": {
+          "title": "Total Targets",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "status",
+        "metric_names",
+        "total_targets",
+        "evaluated_count",
+        "failed_count",
+        "created_at",
+        "completed_at",
+        "project_id",
+        "target_type",
+        "filters",
+        "sampling_rate",
+        "model",
+        "monitor_id",
+        "error_message"
+      ],
+      "title": "EvalRunResponse",
+      "type": "object"
+    },
+    "EvaluationStatus": {
+      "description": "Lifecycle status of an evaluation job.",
+      "enum": [
+        "PENDING",
+        "RUNNING",
+        "COMPLETED",
+        "FAILED"
+      ],
+      "title": "EvaluationStatus",
+      "type": "string"
+    },
+    "HTTPValidationError": {
+      "properties": {
+        "detail": {
+          "items": {
+            "$ref": "#/components/schemas/ValidationError"
+          },
+          "title": "Detail",
+          "type": "array"
+        }
+      },
+      "title": "HTTPValidationError",
+      "type": "object"
+    },
+    "MetricSummary": {
+      "description": "Lightweight metric info for the list endpoint.",
+      "properties": {
+        "category": {
+          "title": "Category",
+          "type": "string"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "description",
+        "category"
+      ],
+      "title": "MetricSummary",
+      "type": "object"
+    },
+    "PaginatedResponse_TraceListItem_": {
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/components/schemas/TraceListItem"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "limit": {
+          "title": "Limit",
+          "type": "integer"
+        },
+        "offset": {
+          "title": "Offset",
+          "type": "integer"
+        },
+        "total": {
+          "title": "Total",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "items",
+        "total",
+        "limit",
+        "offset"
+      ],
+      "title": "PaginatedResponse[TraceListItem]",
+      "type": "object"
+    },
+    "ScoreDataType": {
+      "description": "Data type for a trace score value.",
+      "enum": [
+        "NUMERIC",
+        "BOOLEAN",
+        "CATEGORICAL"
+      ],
+      "title": "ScoreDataType",
+      "type": "string"
+    },
+    "ScoreSource": {
+      "description": "Who produced the score judgment (not how it arrived).\n\nAUTOMATED -- the eval system's LLM judge produced this score\nANNOTATION -- a human assigned this score manually\nPROGRAMMATIC -- external code submitted this score via API/SDK",
+      "enum": [
+        "AUTOMATED",
+        "ANNOTATION",
+        "PROGRAMMATIC"
+      ],
+      "title": "ScoreSource",
+      "type": "string"
+    },
+    "ScoreStatus": {
+      "description": "Outcome of a trace score evaluation attempt.",
+      "enum": [
+        "SUCCESS",
+        "FAILED",
+        "PENDING"
+      ],
+      "title": "ScoreStatus",
+      "type": "string"
+    },
+    "SortOrder": {
+      "description": "Generic ascending / descending sort direction.",
+      "enum": [
+        "asc",
+        "desc"
+      ],
+      "title": "SortOrder",
+      "type": "string"
+    },
+    "SpanKind": {
+      "description": "Categorises what a span represents in an agentic workflow.",
+      "enum": [
+        "AGENT",
+        "TOOL",
+        "LLM",
+        "RETRIEVER",
+        "CHAIN",
+        "EMBEDDING",
+        "OTHER"
+      ],
+      "title": "SpanKind",
+      "type": "string"
+    },
+    "SpanResponse": {
+      "description": "Public span representation.",
+      "properties": {
+        "completion_start_time": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Completion Start Time"
+        },
+        "cost": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Cost"
+        },
+        "ended_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Ended At"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Error"
+        },
+        "input": {
+          "anyOf": [
+            {},
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Input"
+        },
+        "kind": {
+          "$ref": "#/components/schemas/SpanKind"
+        },
+        "latency_ms": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Latency Ms"
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "title": "Metadata",
+          "type": "object"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Model"
+        },
+        "model_parameters": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Model Parameters"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "output": {
+          "anyOf": [
+            {},
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Output"
+        },
+        "parent_span_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Parent Span Id"
+        },
+        "span_id": {
+          "format": "uuid",
+          "title": "Span Id",
+          "type": "string"
+        },
+        "started_at": {
+          "title": "Started At",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/components/schemas/SpanStatusCode"
+        },
+        "time_to_first_token_ms": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Time To First Token Ms"
+        },
+        "token_usage": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Token Usage"
+        },
+        "trace_id": {
+          "format": "uuid",
+          "title": "Trace Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "span_id",
+        "trace_id",
+        "parent_span_id",
+        "name",
+        "kind",
+        "status",
+        "input",
+        "output",
+        "model",
+        "token_usage",
+        "metadata",
+        "started_at",
+        "ended_at",
+        "error",
+        "completion_start_time",
+        "model_parameters",
+        "cost"
+      ],
+      "title": "SpanResponse",
+      "type": "object"
+    },
+    "SpanStatusCode": {
+      "description": "Mirrors the OTel StatusCode for a span's outcome.",
+      "enum": [
+        "UNSET",
+        "OK",
+        "ERROR"
+      ],
+      "title": "SpanStatusCode",
+      "type": "string"
+    },
+    "TraceListItem": {
+      "description": "Lightweight trace summary used in list responses.",
+      "properties": {
+        "ended_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Ended At"
+        },
+        "environment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Environment"
+        },
+        "latency_ms": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Latency Ms"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "release": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Release"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Session Id"
+        },
+        "span_count": {
+          "default": 0,
+          "title": "Span Count",
+          "type": "integer"
+        },
+        "started_at": {
+          "title": "Started At",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/components/schemas/TraceStatus"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "total_cost": {
+          "default": 0.0,
+          "title": "Total Cost",
+          "type": "number"
+        },
+        "total_tokens": {
+          "default": 0,
+          "title": "Total Tokens",
+          "type": "integer"
+        },
+        "trace_id": {
+          "format": "uuid",
+          "title": "Trace Id",
+          "type": "string"
+        },
+        "user_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "User Id"
+        }
+      },
+      "required": [
+        "trace_id",
+        "name",
+        "status",
+        "started_at",
+        "ended_at",
+        "session_id",
+        "user_id",
+        "tags"
+      ],
+      "title": "TraceListItem",
+      "type": "object"
+    },
+    "TraceResponse": {
+      "description": "Public trace representation (single-item detail), spans included.",
+      "properties": {
+        "ended_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Ended At"
+        },
+        "environment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Environment"
+        },
+        "input": {
+          "anyOf": [
+            {},
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Input"
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "title": "Metadata",
+          "type": "object"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "output": {
+          "anyOf": [
+            {},
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Output"
+        },
+        "project_id": {
+          "format": "uuid",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "release": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Release"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Session Id"
+        },
+        "spans": {
+          "items": {
+            "$ref": "#/components/schemas/SpanResponse"
+          },
+          "title": "Spans",
+          "type": "array"
+        },
+        "started_at": {
+          "title": "Started At",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/components/schemas/TraceStatus"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "total_cost": {
+          "default": 0.0,
+          "title": "Total Cost",
+          "type": "number"
+        },
+        "total_tokens": {
+          "default": 0,
+          "title": "Total Tokens",
+          "type": "integer"
+        },
+        "trace_id": {
+          "format": "uuid",
+          "title": "Trace Id",
+          "type": "string"
+        },
+        "user_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "User Id"
+        }
+      },
+      "required": [
+        "trace_id",
+        "project_id",
+        "name",
+        "status",
+        "input",
+        "output",
+        "metadata",
+        "started_at",
+        "ended_at",
+        "session_id",
+        "user_id",
+        "tags"
+      ],
+      "title": "TraceResponse",
+      "type": "object"
+    },
+    "TraceScoreResponse": {
+      "description": "Full trace score representation used by both list and detail endpoints.",
+      "properties": {
+        "author_user_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Author User Id"
+        },
+        "config_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Config Id"
+        },
+        "created_at": {
+          "title": "Created At",
+          "type": "string"
+        },
+        "data_type": {
+          "$ref": "#/components/schemas/ScoreDataType"
+        },
+        "environment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Environment"
+        },
+        "eval_run_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Eval Run Id"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "title": "Metadata",
+          "type": "object"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "project_id": {
+          "format": "uuid",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Reason"
+        },
+        "source": {
+          "$ref": "#/components/schemas/ScoreSource"
+        },
+        "status": {
+          "$ref": "#/components/schemas/ScoreStatus"
+        },
+        "trace_id": {
+          "format": "uuid",
+          "title": "Trace Id",
+          "type": "string"
+        },
+        "updated_at": {
+          "title": "Updated At",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "id",
+        "trace_id",
+        "name",
+        "value",
+        "status",
+        "source",
+        "created_at",
+        "project_id",
+        "data_type",
+        "eval_run_id",
+        "author_user_id",
+        "reason",
+        "environment",
+        "config_id",
+        "metadata",
+        "updated_at"
+      ],
+      "title": "TraceScoreResponse",
+      "type": "object"
+    },
+    "TraceSortBy": {
+      "description": "Columns available for sorting trace list results.",
+      "enum": [
+        "started_at",
+        "ended_at",
+        "name",
+        "latency",
+        "status"
+      ],
+      "title": "TraceSortBy",
+      "type": "string"
+    },
+    "TraceStatus": {
+      "description": "High-level status of a trace.",
+      "enum": [
+        "PENDING",
+        "RUNNING",
+        "COMPLETED",
+        "ERROR"
+      ],
+      "title": "TraceStatus",
+      "type": "string"
+    },
+    "ValidationError": {
+      "properties": {
+        "ctx": {
+          "title": "Context",
+          "type": "object"
+        },
+        "input": {
+          "title": "Input"
+        },
+        "loc": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "title": "Location",
+          "type": "array"
+        },
+        "msg": {
+          "title": "Message",
+          "type": "string"
+        },
+        "type": {
+          "title": "Error Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "loc",
+        "msg",
+        "type"
+      ],
+      "title": "ValidationError",
+      "type": "object"
+    }
+  },
+  "sha256": "78176d5f5bbf73977d2889b4abc9f32a6dd24da38efb3e2535adcc7d57c29ba7",
+  "source": "Exported current backend app.openapi(); refresh with scripts/update_platform_contract.py"
+}
