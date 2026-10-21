@@ -32,6 +32,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Filesystem reflection: embedded Bash, no host shell or model dependency.
+reflect = ["bashkit>=0.19.0,<0.20", "filelock>=3.16,<5"]
 # Lightweight LLM provider SDKs
 openai = ["openai>=1.0.0"]
 gemini = ["google-genai>=1.0.0"]
@@ -53,7 +55,7 @@ examples = [
     "langchain-google-genai>=4.0.0",
 ]
 dev = [
-    "pandaprobe[examples]",
+    "pandaprobe[examples,reflect]",
     "pytest>=8.0",
     "pytest-asyncio>=0.24.0",
     "pytest-cov>=6.0",
@@ -73,6 +75,11 @@ path = "src/pandaprobe/_version.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pandaprobe"]
+# Keep release metadata readable by the repository's locked Twine toolchain.
+core-metadata-version = "2.4"
+
+[tool.hatch.build.targets.sdist]
+core-metadata-version = "2.4"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
