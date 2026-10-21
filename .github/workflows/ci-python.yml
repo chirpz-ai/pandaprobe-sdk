@@ -65,3 +65,81 @@ jobs:
 
       - name: Test
         run: make test-cov
+
+  reflect-frameworks:
+    name: Reflect — ${{ matrix.framework }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {framework: langchain, python: "3.10", test: langchain_real}
+          - {framework: langgraph, python: "3.10", test: native_langgraph}
+          - {framework: openai-agents, python: "3.10", test: openai_agents_real}
+          - {framework: google-adk, python: "3.10", test: adk_real}
+          - {framework: crewai, python: "3.11", test: crewai_native}
+          - {framework: claude-agent-sdk, python: "3.10", test: claude_native}
+          - {framework: deepagents, python: "3.11", test: deepagents_factory}
+    defaults:
+      run:
+        working-directory: libraries/python
+    env:
+      CREWAI_STORAGE_DIR: ${{ runner.temp }}/reflect-crewai
+      OTEL_SDK_DISABLED: "true"
+      LITELLM_LOCAL_MODEL_COST_MAP: "true"
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: ${{ matrix.python }}
+          enable-cache: true
+      - run: uv sync --extra dev --extra ${{ matrix.framework }} --locked
+      - run: uv run pytest tests/test_reflect_integrations.py -k '${{ matrix.test }}' -v
+
+  reflect-platforms:
+    name: Reflect — ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: libraries/python
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.10"
+          enable-cache: true
+      - run: uv sync --extra dev --locked
+      - run: uv run pytest tests/test_api.py tests/test_reflect_workspace.py tests/test_reflect_shell.py tests/test_reflect_runtime.py tests/test_reflect_validation.py tests/test_reflect_e2e.py tests/test_reflect_installation.py -v
+
+  python-wheel:
+    name: Python wheel and minimal installation
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: libraries/python
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.10"
+      - run: uv build
+      - run: uv run --extra dev --locked twine check dist/*
+      - run: uv venv /tmp/pandaprobe-minimal
+      - run: uv pip install --python /tmp/pandaprobe-minimal/bin/python dist/*.whl
+      - name: Check optional import isolation in the installed wheel
+        run: |
+          cd /tmp
+          /tmp/pandaprobe-minimal/bin/python - <<'PY'
+          import importlib.util
+          import pandaprobe
+          assert importlib.util.find_spec("bashkit") is None
+          assert importlib.util.find_spec("filelock") is None
+          from pandaprobe.api import PlatformClient
+          from pandaprobe.reflect import Reflect, ReflectConfig
+          with pandaprobe.Client(enabled=False).trace("minimal"):
+              pass
+          PY
