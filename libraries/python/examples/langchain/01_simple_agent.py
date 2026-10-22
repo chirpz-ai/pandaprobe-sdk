@@ -15,6 +15,7 @@ Run:
 
 from langchain.agents import create_agent
 from langchain.tools import tool
+from langchain_openai import ChatOpenAI
 
 import pandaprobe
 from pandaprobe.integrations.langchain import LangChainCallbackHandler
@@ -27,7 +28,7 @@ def get_weather(city: str) -> str:
 
 
 agent = create_agent(
-    model="openai:gpt-5.4-nano",
+    model=ChatOpenAI(model="gpt-6-luna", reasoning_effort="none"),
     tools=[get_weather],
     system_prompt="You are a helpful weather assistant. Use the get_weather tool when asked about weather.",
 )
