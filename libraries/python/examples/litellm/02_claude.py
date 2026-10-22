@@ -23,12 +23,13 @@ wrap_litellm(litellm)
 
 if __name__ == "__main__":
     response = litellm.completion(
-        model="anthropic/claude-sonnet-4-6",
+        model="anthropic/claude-haiku-5-5",
         messages=[
             {"role": "system", "content": "You are a concise assistant. Answer in one or two sentences."},
             {"role": "user", "content": "What is the difference between a list and a tuple in Python?"},
         ],
-        max_tokens=150,
+        max_tokens=2048,
+        output_config={"effort": "low"},
     )
 
     print(f"Model: {response.model}")
