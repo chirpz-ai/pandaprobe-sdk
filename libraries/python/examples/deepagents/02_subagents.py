@@ -24,6 +24,7 @@ Run:
 
 from deepagents import create_deep_agent
 from langchain.tools import tool
+from langchain_openai import ChatOpenAI
 
 import pandaprobe
 from pandaprobe.integrations.deepagents import DeepAgentsCallbackHandler
@@ -51,12 +52,12 @@ researcher_subagent = {
         "then return a concise 2-sentence summary of what you found."
     ),
     "tools": [search_papers],
-    "model": "openai:gpt-5.4-nano",
+    "model": ChatOpenAI(model="gpt-6-luna", reasoning_effort="none"),
 }
 
 
 agent = create_deep_agent(
-    model="openai:gpt-5.4-nano",
+    model=ChatOpenAI(model="gpt-6-luna", reasoning_effort="none"),
     tools=[],
     system_prompt=(
         "You are a senior research lead. For any literature/research request, "
