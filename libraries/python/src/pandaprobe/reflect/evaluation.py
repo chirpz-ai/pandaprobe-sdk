@@ -101,8 +101,12 @@ class Evaluator:
             day = datetime.now(timezone.utc).date().isoformat()
             if state.get("evaluation_day") != day:
                 state["evaluation_day"], state["evaluation_count"] = day, 0
-            if state["evaluation_count"] >= self.config.evaluation_max_runs:
-                raise BudgetExceeded("Daily evaluation-run budget reached")
+            limit = self.config.evaluation_max_runs
+            if limit is not None and state["evaluation_count"] >= limit:
+                raise BudgetExceeded(
+                    f"Daily evaluation-run budget reached ({state['evaluation_count']}/{limit} "
+                    f"creation attempts on {day} UTC; resets at 00:00 UTC)"
+                )
             record = {
                 "status": "creating",
                 "execution_id": execution_id,
@@ -114,7 +118,11 @@ class Evaluator:
             state["evaluation_count"] += 1
             return True, record
 
-        owner, record = self.workspace.transaction(claim)
+        try:
+            owner, record = self.workspace.transaction(claim)
+        except BudgetExceeded as exc:
+            logger.warning("Reflect %s evaluation skipped for execution %s: %s", stage, execution_id, exc)
+            raise
         if record.get("status") == "completed":
             return EvaluationResult.model_validate(record["result"])
 
@@ -238,7 +246,8 @@ class Evaluator:
                         )
                         evidence["diagnostic"] = diagnostic.model_dump(mode="json")
                     except (PlatformError, BudgetExceeded) as exc:
-                        diagnostic_reason = f"Diagnostic evidence unavailable: {type(exc).__name__}"
+                        detail = str(exc) if isinstance(exc, BudgetExceeded) else type(exc).__name__
+                        diagnostic_reason = f"Diagnostic evidence unavailable: {detail}"
                         evidence["diagnostic_error"] = diagnostic_reason
                 if notice:
                     # Preserve diagnostic findings before potentially very large raw inputs.
