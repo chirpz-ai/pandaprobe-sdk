@@ -41,7 +41,7 @@ if __name__ == "__main__":
             conversation.append({"role": "user", "content": question})
 
             response = client.chat.completions.create(
-                model="gpt-5.4-nano",
+                model="gpt-6-luna",
                 messages=conversation,
                 reasoning_effort="low",
                 max_completion_tokens=80,
