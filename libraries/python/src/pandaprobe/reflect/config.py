@@ -14,7 +14,8 @@ class ReflectConfig:
     trace_visibility_timeout: float = 30.0
     evaluation_timeout: float = 120.0
     poll_interval: float = 1.0
-    evaluation_max_runs: int = 100
+    # Workspace-wide creation attempts per UTC day; None leaves the count uncapped.
+    evaluation_max_runs: int | None = None
     evaluation_max_traces: int = 32
     evaluation_sample_rate: float = 1.0
     max_concurrency: int = 4
@@ -75,8 +76,13 @@ class ReflectConfig:
                 raise ValueError(f"{name} must be finite and positive")
         if not math.isfinite(self.cooldown_seconds) or self.cooldown_seconds < 0:
             raise ValueError("cooldown_seconds must be finite and nonnegative")
+        if self.evaluation_max_runs is not None and (
+            isinstance(self.evaluation_max_runs, bool)
+            or not isinstance(self.evaluation_max_runs, int)
+            or self.evaluation_max_runs < 1
+        ):
+            raise ValueError("evaluation_max_runs must be a positive integer or None")
         for name in (
-            "evaluation_max_runs",
             "evaluation_max_traces",
             "max_concurrency",
             "reflection_max_commands",
