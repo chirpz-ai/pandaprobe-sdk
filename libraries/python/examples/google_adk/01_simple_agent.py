@@ -25,7 +25,7 @@ from pandaprobe.integrations.google_adk import GoogleADKAdapter
 
 agent = LlmAgent(
     name="chatbot",
-    model="gemini-3.1-flash-lite-preview",
+    model="gemini-3.8-flash",
     instruction="You are a helpful assistant. Keep answers concise.",
 )
 
