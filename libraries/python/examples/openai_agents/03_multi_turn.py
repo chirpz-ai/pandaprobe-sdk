@@ -40,7 +40,7 @@ async def main():
     agent = Agent(
         name="Travel Advisor",
         instructions="You are a helpful travel advisor. Keep answers to 2-3 sentences.",
-        model="gpt-5.4-nano",
+        model="gpt-6-luna",
     )
 
     questions = [
