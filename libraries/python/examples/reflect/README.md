@@ -248,8 +248,32 @@ project and credential to avoid cross-tenant collisions. Credential rotation
 creates a distinct partition; transfer existing history only after verifying its
 project ownership.
 
-Default limits include 100 evaluation runs per UTC day, four concurrent evaluations
-per instance, 32 traces per invocation, a 60-second reflection checkpoint with
+There is no daily evaluation-run count cap by default
+(`ReflectConfig.evaluation_max_runs=None`). To opt into a local cap:
+
+```python
+config = ReflectConfig(evaluation_max_runs=1000)
+reflect = Reflect(client, config=config)
+```
+
+The cap counts creation attempts per UTC day across instances and restarts using
+the same workspace partition. Detection and diagnostic runs each count; failed or
+uncertain creation attempts also count. Polling an existing run does not count and
+continues when the cap is reached. Usage is recorded even without a cap, so enabling
+one later includes attempts already made that day. Use a positive integer, or `None`
+for no count cap; zero is not an unlimited sentinel. Keep the same configured limit
+across instances sharing a workspace.
+
+At the cap, new detection runs return `status="skipped"`; unavailable diagnostics
+leave the primary evaluation and failure notice intact. Both cases include the
+limit, usage, and UTC reset time in `EvaluationOutcome.reason`, the execution report,
+the durable `evaluation_outcome` event, and a warning log. Task execution and existing
+guidance remain available. The next UTC day admits new runs; already skipped
+executions are not automatically retried. This is a local cost proxy, not a platform
+quota or monetary budget: one run can evaluate multiple traces and metrics.
+
+Other default limits include four concurrent evaluations per instance,
+32 traces per invocation, a 60-second reflection checkpoint with
 eight shell calls, 256 rule files/512 KiB total, 8 KiB per rule/active-memory file,
 12 KiB per tool output and 96 KiB total output per execution. These are byte
 bounds, not tokenizer-independent token guarantees. The agent chooses how to
@@ -302,6 +326,10 @@ recursively trigger task evaluation. Their costs remain visible. The associated
 backend prompt update distinguishes genuine memory operations from task attempts;
 it does not exempt arbitrary Bash or hide administration overhead.
 
-Live model behavior, historical Harness comparisons, TypeScript Reflect, full
-conversation rewriting, and monitor management are outside this release's test
-claims. Core-service documentation changes are deferred until operational review.
+For real model/platform exercises, run the framework-specific `04_reflect.py`
+examples described in the [live support guide](live_support.md). Their generated
+reports separate task outcomes, proposals, guidance delivery, and validation.
+Offline tests do not establish live behavior. Historical Harness comparisons,
+TypeScript Reflect, full conversation rewriting, and monitor management remain
+outside this release's test claims. Core-service documentation changes are
+deferred until operational review.
