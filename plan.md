@@ -642,3 +642,114 @@ Record commands/results and remaining limitations below the corresponding step.
   extended. No TypeScript, research-paper, original benchmark provenance,
   CLI, website, or core-service documentation changes. Actual model-level
   improvement, hosted platform coverage, and deferred follow-ups remain explicit.
+
+## Next iteration: live framework exercises and CI (2026-10-20)
+
+The user committed and pushed the first iteration. Continue on `feat/python-reflect`
+without staging or committing this follow-up.
+
+- [x] **DONE — Python layout review.** Retain `src/pandaprobe/`: this is Python's
+  import package, not a redundant TypeScript-style directory. Removing it would
+  require custom source-to-package mappings, editable-install handling, and changes
+  to release paths. Keep the conventional layout under the user's condition that
+  flattening should be easy and avoid disruption.
+- [x] **DONE — CI failure diagnosis and fix.** Run `39550762740` failed workflow
+  validation with zero jobs. Job-level `env` cannot use `runner.temp`; move it
+  to the framework test step. Keep the existing main-only push filter and PR,
+  reusable-workflow, and manual triggers. Validate Actions expressions with
+  `actionlint`, not just a YAML parser.
+- [x] **DONE —** Add runnable `04_reflect.py` examples in all seven Python agent-framework
+  folders, using a shared realistic support workload, native agents, supplied Bash,
+  repeated customer conversations, policy drift, and fresh paired validation.
+- [x] **DONE —** Record independent ledger outcomes, platform evaluation, reflection outcomes,
+  exact guidance delivery, validation decisions, latency, and trace attribution.
+  Keep failed/pending/no-proposal outcomes visible; do not manufacture improvement.
+- [x] **DONE —** Test the shared workload/verifier, native framework wiring, and example
+  runner. Run the complete SDK suite, Python compatibility checks, lint/format,
+  Actions validation, and wheel/import checks.
+- [ ] Run live framework examples when provider and PandaProbe test credentials
+  are available. Keep paid/live results separate from deterministic tests, preserve
+  reports, and document any remaining operational blockers.
+
+### Follow-up verification and remaining access
+
+- Complete SDK suite with all locked extras on Python 3.13.3: **867 passed**,
+  three upstream LangGraph deprecation warnings, 287.30 seconds. The initial
+  sandboxed run passed 835 tests and failed only because its local HTTP fixture
+  could not bind a listener. The successful full run includes the new examples.
+  One final failure-report test was added after that run's collection; the
+  finalized example suite separately passes **32 tests**, with two upstream
+  LangGraph warnings.
+- Final API/Reflect/capture/example compatibility suite: **129 passed, 23 skipped**
+  on each of Python **3.10.18, 3.11.6, and 3.12.8**. Skips are native-framework
+  tests in these deliberately framework-free environments. All seven native
+  frameworks were exercised in the installed-extras Python 3.13 environment.
+  Claude tests use native MCP handlers with mocked CLI transport; other framework
+  loops use deterministic local models. No paid model behavior is established.
+- The shared runner test exercises real Reflect Bash, detection, proposal capture,
+  paired replay, publication, fresh delivery, and separate role attribution over
+  an HTTP mock. It verifies a failed original result is preserved. Another test
+  verifies operational failure leaves an interrupted report, not a success claim.
+- The minimal-install matrix caught an example import-path collision: exposing
+  the whole `examples/` directory created namespace packages named after absent
+  frameworks. Shared helpers now live under `examples/reflect/_support/`, so
+  optional framework detection remains accurate. No SDK runtime change was needed.
+- `actionlint .github/workflows/ci-python.yml`, Ruff lint, Ruff format (173 files),
+  locked dependency validation, `git diff --check`, wheel/sdist builds, and Twine
+  checks pass. The framework CI matrix now runs the corresponding example tests.
+  Hosted CI has not rerun these uncommitted changes.
+- Wheel contains 84 entries, including `pandaprobe/reflect` and `py.typed`, with
+  no example payload. The source distribution includes all seven live examples
+  and their shared helpers. A fresh Python 3.10 wheel installation imports and
+  traces with neither Bashkit nor filelock installed. Every new example's
+  `--help` also runs in that minimal environment without framework imports.
+- **Live execution remains pending:** this session has no exported PandaProbe,
+  OpenAI, Google, or Anthropic test credentials. Requested a local credential-file
+  path or exported variables; no live model/platform evaluation calls were made.
+  The runnable scripts and `examples/reflect/live_support.md` document setup,
+  workload limits, reports, and the limits of improvement claims.
+- All follow-up changes remain unstaged/uncommitted on `feat/python-reflect`.
+  No SDK source layout, tracing implementation, dependency set, TypeScript,
+  backend, research artifact, or core-service documentation was changed.
+
+### Example model refresh and budget clarification (2026-10-20)
+
+- [x] **DONE —** Update all Python examples to `gpt-6-luna`, `gemini-3.8-flash`,
+  and `claude-haiku-5-5`, verified against official provider documentation.
+  Preserve required routing prefixes and use Bedrock's
+  `us.anthropic.claude-haiku-5-5` inference profile. Adjust incompatible thinking,
+  sampling, and Chat Completions tool-call settings; preserve Claude thinking
+  blocks across turns. No SDK runtime or dependency changes.
+- [x] **DONE —** Clarify that the daily 100-run default was introduced in Reflect,
+  is configurable through `ReflectConfig.evaluation_max_runs`, and counts local
+  evaluation creation attempts per UTC day across a reused workspace. It is not
+  an existing tracing SDK or platform quota. Budget behavior remains unchanged.
+- [x] **DONE —** Example/evaluation tests: **43 passed**, two upstream LangGraph
+  deprecation warnings. An additional temporary smoke check serialized **18 mocked
+  HTTP requests** through provider clients, LiteLLM, LangChain, Deep Agents, and
+  CrewAI, checking new model IDs and required settings. Ruff lint/format,
+  Python 3.10 syntax parsing of all 56 example files, and `git diff --check` pass.
+  Live provider acceptance and model behavior remain untested.
+
+### Optional daily evaluation cap (2026-10-21)
+
+This approved refinement supersedes the initial 100-run default recorded above.
+
+- [x] **DONE —** Default `ReflectConfig.evaluation_max_runs` to `None` (no daily count cap),
+  retaining a positive integer as an explicit opt-in workspace-wide UTC-day cap.
+- [x] **DONE —** Preserve durable counting, concurrency and sampling controls, deadlines,
+  deduplication, cooldowns, and bounded reflection. Continue polling known runs
+  without consuming another creation allowance.
+- [x] **DONE —** Report budget exhaustion with the usage, configured limit, and UTC reset
+  time in outcomes/reports, durable events, and warning logs, including when only
+  diagnostics are skipped. Preserve task results and usable primary evidence.
+- [x] **DONE —** Update SDK/example documentation and verify uncapped operation, opt-in caps,
+  restart sharing, UTC rollover, polling, diagnostics, and Python 3.10 compatibility.
+
+Verification: API/Reflect/capture suite **165 passed** on Python 3.13 with all seven
+frameworks installed (three upstream LangGraph deprecation warnings); **142 passed,
+23 skipped** on Python 3.10 without optional frameworks. Both runs include the
+local HTTP end-to-end loop; skips are framework-dependent tests. Focused evaluation
+and runtime tests **42 passed** on each of Python 3.11 and 3.12. Ruff lint/format
+(173 Python files) and `git diff --check` pass. No live model/platform calls, new
+dependencies, staging, commits, or changes to tracing instrumentation.
