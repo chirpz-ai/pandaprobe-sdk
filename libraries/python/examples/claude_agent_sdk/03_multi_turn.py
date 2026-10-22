@@ -52,9 +52,10 @@ async def main():
 
     options = ClaudeAgentOptions(
         system_prompt="You are a helpful travel advisor. Keep answers to 2-3 sentences.",
-        model="claude-haiku-4-5-20251001",
+        model="claude-haiku-5-5",
         permission_mode="bypassPermissions",
-        thinking={"type": "enabled", "budget_tokens": 5000},
+        thinking={"type": "adaptive"},
+        effort="medium",
     )
 
     questions = [
