@@ -27,12 +27,13 @@ client = wrap_bedrock(boto3.client("bedrock-runtime", region_name=os.environ.get
 
 if __name__ == "__main__":
     response = client.converse(
-        modelId="us.anthropic.claude-haiku-4-5-20251001-v1:0",
+        modelId="us.anthropic.claude-haiku-5-5",
         system=[{"text": "You are a concise assistant. Answer in one or two sentences."}],
         messages=[
             {"role": "user", "content": [{"text": "Explain what a Python decorator is."}]},
         ],
-        inferenceConfig={"temperature": 0.5, "maxTokens": 200},
+        inferenceConfig={"maxTokens": 2048},
+        additionalModelRequestFields={"output_config": {"effort": "low"}},
     )
 
     message = response["output"]["message"]
