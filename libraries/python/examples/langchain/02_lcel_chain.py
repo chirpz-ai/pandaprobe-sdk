@@ -28,7 +28,7 @@ prompt = ChatPromptTemplate.from_messages(
         ("user", "Question: {question}\nContext: {context}"),
     ]
 )
-model = ChatOpenAI(model="gpt-5.4-nano", reasoning_effort="low")
+model = ChatOpenAI(model="gpt-6-luna", reasoning_effort="low")
 parser = StrOutputParser()
 chain = prompt | model | parser
 
