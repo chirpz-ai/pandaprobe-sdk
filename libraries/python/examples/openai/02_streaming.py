@@ -24,7 +24,7 @@ if __name__ == "__main__":
     print("Streaming response:\n")
 
     stream = client.chat.completions.create(
-        model="gpt-5.4-nano",
+        model="gpt-6-luna",
         messages=[
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": "Write a short poem about debugging code."},
