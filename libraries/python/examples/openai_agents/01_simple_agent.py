@@ -36,7 +36,7 @@ async def main():
     agent = Agent(
         name="Assistant",
         instructions="You are a helpful assistant. Keep answers concise.",
-        model="gpt-5.4-nano",
+        model="gpt-6-luna",
     )
 
     result = await Runner.run(agent, "What is the capital of France?")
