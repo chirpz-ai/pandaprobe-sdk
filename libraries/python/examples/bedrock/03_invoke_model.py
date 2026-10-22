@@ -32,7 +32,8 @@ if __name__ == "__main__":
     body = json.dumps(
         {
             "anthropic_version": "bedrock-2023-05-31",
-            "max_tokens": 200,
+            "max_tokens": 2048,
+            "output_config": {"effort": "low"},
             "system": "You are a concise assistant.",
             "messages": [
                 {"role": "user", "content": "Explain what a Python decorator is in one sentence."},
@@ -41,7 +42,7 @@ if __name__ == "__main__":
     )
 
     response = client.invoke_model(
-        modelId="us.anthropic.claude-haiku-4-5-20251001-v1:0",
+        modelId="us.anthropic.claude-haiku-5-5",
         body=body,
         contentType="application/json",
         accept="application/json",
