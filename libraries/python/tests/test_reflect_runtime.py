@@ -152,6 +152,28 @@ async def test_original_task_exception_is_preserved_and_can_be_evaluated_without
     await runtime.aclose()
 
 
+async def test_configured_daily_cap_preserves_task_results_and_reports_skip(tmp_path):
+    runtime, sdk, api, _traces = setup(tmp_path, evaluation_max_runs=1)
+    original = {"answer": "original task result"}
+    phases = []
+
+    async def agent(invocation):
+        phases.append((invocation.execution.id, invocation.phase))
+        with sdk.trace(invocation.phase):
+            return original
+
+    assert await runtime.run(agent, "first", session_id="s", execution_id="one") is original
+    assert await runtime.run(agent, "second", session_id="s", execution_id="two") is original
+    assert phases == [("one", "task"), ("one", "reflection"), ("two", "task")]
+    report = runtime.report("two")
+    assert report.task_status == "completed"
+    assert report.evaluation.status == "skipped"
+    assert "1/1 creation attempts" in report.evaluation.reason
+    assert "resets at 00:00 UTC" in report.evaluation.reason
+    api.evaluations.create.assert_awaited_once()
+    await runtime.aclose()
+
+
 async def test_pending_feedback_is_resumed_explicitly_after_restart(tmp_path):
     runtime, sdk, api, _traces = setup(tmp_path)
     async with runtime.execution(session_id="s", execution_id="late"):
