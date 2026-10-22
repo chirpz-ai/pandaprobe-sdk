@@ -3,7 +3,7 @@
 Demonstrates wrap_anthropic handling a streamed response via the
 ``messages.stream(...)`` context manager.  The wrapper collects events and
 reduces them into a single LLM span with the full output text,
-time-to-first-token, reasoning summary (if extended thinking is enabled),
+time-to-first-token, reasoning summary (when returned by adaptive thinking),
 and final token usage.
 
 Required env vars:
@@ -27,8 +27,9 @@ if __name__ == "__main__":
     print("Streaming response:\n")
 
     with client.messages.stream(
-        model="claude-sonnet-4-6",
-        max_tokens=200,
+        model="claude-haiku-5-5",
+        max_tokens=2048,
+        output_config={"effort": "low"},
         system="You are a helpful assistant.",
         messages=[
             {"role": "user", "content": "Write a short poem about debugging code."},
