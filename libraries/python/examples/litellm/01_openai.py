@@ -23,12 +23,14 @@ wrap_litellm(litellm)
 
 if __name__ == "__main__":
     response = litellm.completion(
-        model="gpt-5.4-nano",
+        model="openai/gpt-6-luna",
         messages=[
             {"role": "system", "content": "You are a concise assistant. Answer in one or two sentences."},
             {"role": "user", "content": "Explain what a Python decorator is."},
         ],
-        max_tokens=150,
+        max_completion_tokens=150,
+        # Pass through when LiteLLM's bundled capability map predates this model.
+        extra_body={"reasoning_effort": "none"},
     )
 
     print(f"Model: {response.model}")
