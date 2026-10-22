@@ -42,11 +42,11 @@ if __name__ == "__main__":
             conversation.append(types.Content(role="user", parts=[types.Part.from_text(text=question)]))
 
             response = client.models.generate_content(
-                model="gemini-3.1-flash-lite-preview",
+                model="gemini-3.8-flash",
                 contents=conversation,
                 config=types.GenerateContentConfig(
                     system_instruction="You are a concise geography assistant.",
-                    thinking_config=types.ThinkingConfig(thinking_level="minimal"),
+                    thinking_config=types.ThinkingConfig(thinking_level="low"),
                     temperature=1,
                     max_output_tokens=80,
                 ),
