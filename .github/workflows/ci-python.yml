@@ -73,18 +73,17 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {framework: langchain, python: "3.10", test: langchain_real}
-          - {framework: langgraph, python: "3.10", test: native_langgraph}
-          - {framework: openai-agents, python: "3.10", test: openai_agents_real}
-          - {framework: google-adk, python: "3.10", test: adk_real}
-          - {framework: crewai, python: "3.11", test: crewai_native}
-          - {framework: claude-agent-sdk, python: "3.10", test: claude_native}
-          - {framework: deepagents, python: "3.11", test: deepagents_factory}
+          - {framework: langchain, python: "3.10", test: langchain_real, example: langchain}
+          - {framework: langgraph, python: "3.10", test: native_langgraph, example: langgraph}
+          - {framework: openai-agents, python: "3.10", test: openai_agents_real, example: openai_agents}
+          - {framework: google-adk, python: "3.10", test: adk_real, example: google_adk}
+          - {framework: crewai, python: "3.11", test: crewai_native, example: crewai}
+          - {framework: claude-agent-sdk, python: "3.10", test: claude_native, example: claude}
+          - {framework: deepagents, python: "3.11", test: deepagents_factory, example: deepagents}
     defaults:
       run:
         working-directory: libraries/python
     env:
-      CREWAI_STORAGE_DIR: ${{ runner.temp }}/reflect-crewai
       OTEL_SDK_DISABLED: "true"
       LITELLM_LOCAL_MODEL_COST_MAP: "true"
     steps:
@@ -94,7 +93,10 @@ jobs:
           python-version: ${{ matrix.python }}
           enable-cache: true
       - run: uv sync --extra dev --extra ${{ matrix.framework }} --locked
-      - run: uv run pytest tests/test_reflect_integrations.py -k '${{ matrix.test }}' -v
+      - run: uv run pytest tests/test_reflect_integrations.py tests/test_reflect_examples.py -k '${{ matrix.test }} or ${{ matrix.example }}' -v
+        env:
+          # runner is available in step env, but not in job env.
+          CREWAI_STORAGE_DIR: ${{ runner.temp }}/reflect-crewai
 
   reflect-platforms:
     name: Reflect — ${{ matrix.os }}
