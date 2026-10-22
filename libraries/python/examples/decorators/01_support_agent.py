@@ -57,11 +57,11 @@ def search_knowledge_base(query: str) -> str:
     return "No relevant articles found."
 
 
-@pandaprobe.span(name="generate-response", kind="LLM", model="gpt-5.4-nano")
+@pandaprobe.span(name="generate-response", kind="LLM", model="gpt-6-luna")
 def generate_response(messages: list) -> dict:
     """Call OpenAI to generate an answer grounded in the retrieved context."""
     response = client.chat.completions.create(
-        model="gpt-5.4-nano",
+        model="gpt-6-luna",
         messages=messages,
         reasoning_effort="low",
         max_completion_tokens=200,
