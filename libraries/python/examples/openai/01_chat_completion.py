@@ -22,7 +22,7 @@ client = wrap_openai(openai.OpenAI())
 
 if __name__ == "__main__":
     response = client.chat.completions.create(
-        model="gpt-5.4-nano",
+        model="gpt-6-luna",
         messages=[
             {"role": "system", "content": "You are a concise assistant. Answer in one or two sentences."},
             {"role": "user", "content": "Explain what a Python decorator is."},
