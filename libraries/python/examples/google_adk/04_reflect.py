@@ -6,33 +6,18 @@ See examples/reflect/live_support.md for credentials, workload, and reports.
 """
 
 import sys
+from functools import partial
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "reflect"))
-from _support.runner import AgentBinding, main
+
+from _support.agents import build_google_adk, instrument_google_adk
+from _support.runner import main
 from _support.scenario import INSTRUCTIONS
 
+build = partial(build_google_adk, instructions=INSTRUCTIONS)
 
-def instrument(sdk):
-    from pandaprobe.integrations.google_adk import GoogleADKAdapter
-
-    adapter = GoogleADKAdapter(client=sdk, tags=["reflect-support", "example"])
-    adapter.instrument()
-    return adapter
-
-
-def build(runtime, desk, model, workdir, *, validation=False):
-    from google.adk.agents import LlmAgent
-    from google.adk.agents.run_config import RunConfig
-    from google.adk.runners import Runner
-    from google.adk.sessions import InMemorySessionService
-
-    agent = runtime.agent(
-        LlmAgent, name="northstar_support", model=model, instruction=INSTRUCTIONS, tools=desk.functions
-    )
-    runner = Runner(agent=agent, app_name="northstar_support", session_service=InMemorySessionService())
-    return AgentBinding(runner, {"run_config": RunConfig(max_llm_calls=16)})
-
+instrument = partial(instrument_google_adk, tag="reflect-support")
 
 if __name__ == "__main__":
     main("google_adk", build, instrument, "gemini-3.8-flash", "GOOGLE_API_KEY")
