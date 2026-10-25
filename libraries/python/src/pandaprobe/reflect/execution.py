@@ -5,10 +5,10 @@ from __future__ import annotations
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
-from .models import DeliveryReceipt, ProposalOutcome, Rule, digest
+from .models import ProposalOutcome, Rule, digest
 from .shell import ReflectShell
 from .workspace import WorkspaceError
 
@@ -82,15 +82,11 @@ class Execution:
         self.shell = ReflectShell(
             runtime.config,
             rules if rules is not None else runtime.workspace.rules(self.base_revision),
-            execution_id=self.id,
             context=context,
             candidate_ids=self._candidate_ids,
             on_checkpoint=self._checkpoint,
-            on_receipt=self._receipt,
             usage=prior.get("usage") if restore else None,
         )
-        if restore:
-            self.shell.receipts = [DeliveryReceipt.model_validate(row) for row in prior.get("deliveries", [])]
         decisions = runtime.workspace.state()["proposals"]
         self.shell.set_decisions(
             {
@@ -98,9 +94,6 @@ class Execution:
                 for key, row in list(decisions.items())[-20:]
             }
         )
-
-    def _receipt(self, receipt: Any, text: str) -> None:
-        self.runtime.workspace.event("guidance_delivery", **receipt.model_dump(mode="json"))
 
     def _checkpoint(self, files: dict[str, str], context: str) -> None:
         self.runtime.workspace.save_execution(
@@ -121,42 +114,13 @@ class Execution:
                 "usage": self.shell.usage,
                 "candidate_ids": self.shell.candidate_ids,
                 "proposal": self.proposal.model_dump(mode="json"),
-                "deliveries": [receipt.model_dump(mode="json") for receipt in self.shell.receipts],
             },
         )
 
     def instructions(self) -> str:
-        """Build one replaceable memory block. Reading this does not prove delivery."""
+        """Build one replaceable block of filesystem instructions and active memory."""
         context = self.shell.context()
         return INSTRUCTIONS + (f"\n<reflect_active_memory>\n{context}\n</reflect_active_memory>" if context else "")
-
-    def submitted(self, content: str, *, channel: str = "active_memory") -> None:
-        """Host attestation: this exact content was included in a model request.
-
-        Tool execution alone is not this attestation. Native adapters attest the
-        input they actually supply; custom hosts call this at their model boundary.
-        """
-        self.shell.receipt(content, channel=channel, submitted=True)
-
-    def observe_model_input(self, value: Any) -> None:
-        """Record exact strings seen at an explicit model-input boundary."""
-        from .integrations import input_text
-
-        self.submitted(input_text(value), channel="tool_output")
-
-    def _observe_trace(self, payload: dict[str, Any]) -> None:
-        for span in payload.get("spans", []):
-            if span.get("kind") == "LLM" and span.get("input") is not None:
-                self.observe_model_input(span["input"])
-
-    @property
-    def delivered_versions(self) -> set[str]:
-        return {
-            version
-            for receipt in self.shell.receipts
-            if receipt.submitted
-            for version in receipt.rule_versions.values()
-        }
 
     def seal(self, *, evidence_ids: list[str] | None = None, rationale: str = "") -> ProposalOutcome:
         try:
@@ -195,7 +159,6 @@ class Execution:
             },
             session_id=self.session_id if role == "task" else f"reflect:{role}:{self.id}",
             max_traces=self.runtime.config.evaluation_max_traces + 1,
-            on_submit=self._observe_trace,
         )
         try:
             with scope:
