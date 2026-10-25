@@ -196,7 +196,6 @@ async def demonstrate(workspace: Path) -> dict:
                                 }
                             )
                             # The scripted decision consumes this exact text.
-                            request.execution.submitted(guidance, channel="tool_output")
                             result = sum(values) if "Use every number" in guidance else sum(values[:2])
                             span.set_output({"messages": [{"role": "assistant", "content": str(result)}]})
                         trace.set_output({"messages": [{"role": "assistant", "content": str(result)}]})
