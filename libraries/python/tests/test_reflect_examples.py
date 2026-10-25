@@ -18,6 +18,35 @@ EXAMPLES = Path(__file__).resolve().parents[1] / "examples"
 FRAMEWORKS = ("langchain", "langgraph", "deepagents", "openai_agents", "google_adk", "crewai", "claude_agent_sdk")
 
 
+@pytest.mark.parametrize("as_list", [False, True])
+def test_claude_example_reply_preserves_error_details(as_list):
+    load()
+    from _support.runner import reply_text
+
+    result = SimpleNamespace(
+        is_error=True,
+        subtype="error_during_execution",
+        result='API Error: 400: "thinking.type.enabled" is not supported',
+    )
+    with pytest.raises(RuntimeError) as error:
+        reply_text([result] if as_list else result)
+    assert result.subtype in str(error.value) and result.result in str(error.value)
+
+
+def test_claude_example_explicitly_disables_legacy_thinking(runtime, support, tmp_path):
+    pytest.importorskip("claude_agent_sdk")
+    from _support.agents import build_claude_agent_sdk
+
+    binding = build_claude_agent_sdk(
+        runtime,
+        support.SupportDesk(support.tickets()[0]),
+        "claude-haiku-5-5",
+        tmp_path,
+        instructions="Help the customer.",
+    )
+    assert binding.agent.thinking == {"type": "disabled"} and binding.agent.effort == "low"
+
+
 def load(framework="langchain"):
     spec = importlib.util.spec_from_file_location(
         f"reflect_example_{framework}", EXAMPLES / framework / "04_reflect.py"
