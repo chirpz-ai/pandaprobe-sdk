@@ -78,6 +78,11 @@ subsequently recovers. There is no planted wrong answer, prewritten reflection,
 automatic rule injection, or guaranteed failure. A strong agent can complete the
 workload without generating any reflection.
 
+If the support workload passes without a notice, use the framework's
+[`05_reflect_failure.py`](live_failure.md) for a separate, controlled
+stale-runbook incident. It explicitly checks proposal generation, paired validation,
+acceptance, and task-time retrieval in a new agent session with a reopened workspace.
+
 Reflect supplies `reflect_bash`, `/rules`, and editable `/context.md`; the agent
 chooses what to search, read, retain, or propose. SDK defaults bound administration.
 These examples use a `task_completion` threshold of 0.8 so the independent replay
@@ -119,21 +124,22 @@ Do not reuse a workspace across frameworks when comparing their independent runs
 - Actual replies and domain tool events, independent outcomes, and elapsed time.
 - Task execution/session/trace IDs, platform scores and notices, and reflection outcomes.
 - Proposals, accepted rule versions/sizes, and validation decisions with paired evidence.
-- Guidance delivery receipts, shell usage, active-memory bytes, and replay-arm delivery.
+- Shell usage, active-memory bytes, and independent replay-arm outcomes.
 - Observed LLM span token usage separated by task, reflection, and validation;
   missing telemetry is marked unavailable, not zero. Evaluation-model charges are
   separate and remain visible on the platform's evaluation runs.
 
-The workspace retains rule revisions, candidates, evidence, receipts, and decisions.
+The workspace retains rule revisions, candidates, evidence, and decisions.
+See the [workspace guide](workspace.md) for the folders and the accepted-rule location.
 Use trace IDs and evaluation-run IDs from the report to inspect model/tool execution
 and total operational cost in PandaProbe. If a proposal is accepted, inspect the
 paired outcomes and later fresh-customer delivery before claiming improvement.
 Acceptance only covers tested cases. A pending result is valid, including lack of
-improvement, missing delivery, or a protected case that fails its control.
+improvement, missing outcomes, or a protected case that fails its control.
 
-Claude's SDK generally does not expose complete model inputs. Actual tool-body
-delivery may remain unknown and validation can stay pending; this example does
-not invent host attestations. Claude runs with only the explicit MCP tools, no
+Claude's SDK generally does not expose complete model inputs. This limits inspection
+of retrieval in traces, but SDK validation uses independently verified outcomes
+and does not require a delivery attestation. Claude runs with only the explicit MCP tools, no
 host Bash/filesystem tools or project/user plugins. Deep Agents uses its in-memory
 scratch filesystem; its Reflect workspace is separately accessed by `reflect_bash`.
 
