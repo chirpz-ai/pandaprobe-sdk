@@ -347,6 +347,17 @@ async def test_langchain_numbered_grep_completes_validation_and_fresh_delivery(n
     )
 
 
+@pytest.mark.parametrize("mode", ["partial_grep", "fresh_partial_grep"])
+async def test_langchain_verified_excerpt_completes_loop_without_claiming_full_coverage(native_fixture, mode):
+    run, *_ = native_fixture
+    report = await run(mode)
+    assert report["status"] == "completed" and all(report["milestones"].values())
+    fresh = report["turns"][1]["task_delivery"]
+    assert fresh["before_submission_excerpt_versions"] == report["expected_accepted_versions"]
+    assert fresh["partial_model_input_versions"] == report["expected_accepted_versions"]
+    assert not fresh["model_input_versions"] and not fresh["before_submission_versions"]
+
+
 @pytest.mark.parametrize(
     "mode,stage",
     [
@@ -358,8 +369,6 @@ async def test_langchain_numbered_grep_completes_validation_and_fresh_delivery(n
         ("fresh_no_read", "fresh_delivery"),
         ("fresh_late_read", "fresh_delivery"),
         ("fresh_read_after_submit", "fresh_delivery"),
-        ("partial_grep", "fresh_delivery"),
-        ("fresh_partial_grep", "fresh_delivery"),
     ],
 )
 async def test_langchain_failure_runner_does_not_invent_missing_stages(native_fixture, mode, stage):
@@ -373,6 +382,7 @@ async def test_langchain_failure_runner_does_not_invent_missing_stages(native_fi
         assert not report["accepted_rules"]
     if mode == "fresh_no_read":
         assert report["milestones"]["fresh_task_verified"] is True
+        assert not report["turns"][1]["task_delivery"]["before_submission_excerpt_versions"]
     if mode == "fresh_late_read":
         fresh = report["turns"][1]
         assert not fresh["task_delivery"]["model_input_versions"]
@@ -382,11 +392,7 @@ async def test_langchain_failure_runner_does_not_invent_missing_stages(native_fi
         assert fresh["verification"]["success"]
         assert fresh["task_delivery"]["model_input_versions"]
         assert not fresh["task_delivery"]["before_submission_versions"]
-    if mode == "fresh_partial_grep":
-        fresh = report["turns"][1]
-        assert fresh["verification"]["success"]
-        assert not fresh["task_delivery"]["model_input_versions"]
-        assert fresh["task_delivery"]["partial_model_input_versions"] == report["expected_accepted_versions"]
+        assert not fresh["task_delivery"]["before_submission_excerpt_versions"]
 
 
 async def test_langchain_failure_runner_preserves_operational_error_and_partial_report(native_fixture, tmp_path):
