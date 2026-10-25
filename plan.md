@@ -943,3 +943,34 @@ on `feat/python-reflect`.
 No paid model or evaluation calls were made. Existing live artifacts, tracing
 instrumentation, dependency declarations/lockfile, and CI configuration are
 unchanged. Changes remain unstaged/uncommitted on `feat/python-reflect`.
+
+### Accept verified excerpts in the failure example (2026-10-25)
+
+- [x] **DONE —** Inspect LangGraph run `83b459cbd1c4`. Its fresh model input
+  contained numbered grep lines 1, 2, 4, and 5, including the merchandise-only
+  instruction, before the correct 9,250-cent refund. Acceptance and the fresh
+  platform evaluation succeeded; the example stopped because it required all six
+  nonblank rule lines. This was an example assertion failure, not an SDK failure.
+- [x] **DONE —** Change the shared example's retrieval milestone to require a
+  verified excerpt from each accepted file before the first submission. Record
+  `before_submission_excerpt_versions` separately from full-file coverage;
+  preserve exact matching, partial line counts, timing, task-only attribution,
+  fresh revision/session checks, and independent business outcomes. Retrieval
+  alone does not establish relevance, compliance, or causation. No matcher or
+  acceptance gate is added to the core SDK. Bump the example workload version to
+  4 and update its documentation; preserve original run reports.
+- [x] **DONE —** Test full and excerpt retrieval through native framework loops.
+  Verify missing/late reads still fail the example audit, and partial reads never
+  become full-coverage claims. Python 3.13 checks pass **47 tests** (25 optional
+  dependency skips). Python 3.10 example/audit checks, with LangChain and
+  LangGraph installed, pass **84 tests** (20 optional dependency skips).
+  Existing LangGraph deprecation warnings remain. Ruff and whitespace checks pass.
+- [x] **DONE —** Recheck the saved fresh cloud trace with the revised example
+  audit: the accepted excerpt is verified before submission, while complete
+  coverage remains false. Saved rule hashes, accepted decision, fresh revision,
+  empty active memory, and completed evaluations agree. Two control trace IDs
+  return 404 on repeated cloud reads; their local outcome records remain present,
+  so those two traces could not be independently re-inspected in the cloud.
+
+Only example code, its tests/documentation, and this plan changed. No SDK,
+dependency, CI, backend, or historical-artifact changes; no new paid calls.
