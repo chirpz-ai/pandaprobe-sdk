@@ -277,7 +277,6 @@ class Reflect:
             evaluation=record.get("outcome"),
             reflection=record.get("reflection", {}).get("outcome"),
             proposals=[p for p in state["proposals"].values() if p["execution_id"] == execution_id],
-            deliveries=snapshot.get("deliveries", []),
         )
 
     def proposals(self) -> list[RuleProposal]:
