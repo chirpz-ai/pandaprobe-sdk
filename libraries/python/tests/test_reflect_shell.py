@@ -16,7 +16,7 @@ def rule():
 
 
 def shell(**kwargs):
-    return ReflectShell(ReflectConfig(**kwargs), {rule().path: rule()}, execution_id="execution")
+    return ReflectShell(ReflectConfig(**kwargs), {rule().path: rule()})
 
 
 async def test_ordinary_shell_operations_cover_rule_lifecycle():
@@ -59,17 +59,6 @@ async def test_evidence_and_decisions_remain_read_only_after_rollback():
     await tool.execute("printf '%1000s' x > /context.md")
     await tool.execute("echo modified > /inbox/evidence.txt")
     assert "original evidence" in await tool.execute("cat /inbox/evidence.txt")
-    await tool.aclose()
-
-
-async def test_status_search_and_filename_do_not_count_as_full_delivery():
-    tool = shell()
-    await tool.execute("echo /rules/billing/refunds.md")
-    await tool.execute("grep authorized /rules/billing/refunds.md")
-    assert all(not receipt.rule_versions for receipt in tool.receipts)
-    await tool.execute("cat /rules/billing/refunds.md")
-    assert tool.receipts[-1].rule_versions == {rule().path: rule().version}
-    assert not tool.receipts[-1].submitted  # Framework must confirm actual model submission.
     await tool.aclose()
 
 
@@ -147,16 +136,13 @@ async def test_invalid_paths_and_symlinks_never_export_outside_rules():
     await tool.aclose()
 
 
-async def test_checkpoints_persist_working_copy_and_receipts():
-    changes, receipts = [], []
+async def test_checkpoints_persist_working_copy():
+    changes = []
     tool = ReflectShell(
         ReflectConfig(),
         {},
-        execution_id="e",
         on_checkpoint=lambda files, context: changes.append((files, context)),
-        on_receipt=lambda receipt, text: receipts.append((receipt, text)),
     )
     await tool.execute("echo 'active notes' > /context.md")
     assert changes[-1][1] == "active notes\n"
-    assert receipts[-1][0].byte_count == len(receipts[-1][1].encode())
     await tool.aclose()
