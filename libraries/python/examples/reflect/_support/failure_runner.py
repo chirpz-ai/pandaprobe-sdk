@@ -81,6 +81,7 @@ async def run_task(runtime, build, args, output, report, order, stage):
         print(f"[{stage}] ledger success={row['verification']['success']}\n{row['reply']}", flush=True)
     except BaseException as exc:
         row["error"] = type(exc).__name__
+        row["error_message"] = str(exc)
         raise
     finally:
         row["seconds"] = round(time.monotonic() - started, 3)
@@ -203,6 +204,7 @@ async def exercise(runtime, build, args, output: Path, *, framework="langchain")
                 return outcome
             except BaseException as exc:
                 row["error"] = type(exc).__name__
+                row["error_message"] = str(exc)
                 raise
             finally:
                 row["seconds"] = round(time.monotonic() - tick, 3)
