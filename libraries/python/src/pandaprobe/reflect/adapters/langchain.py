@@ -8,7 +8,7 @@ MEMORY_ID = "pandaprobe-reflect-active-memory"
 
 
 def middleware(runtime):
-    """Observe explicit model input, including Python 3.10 async loops."""
+    """Restrict reflection checkpoints to filesystem administration."""
     from langchain.agents.middleware import AgentMiddleware
 
     class ReflectMiddleware(AgentMiddleware):
@@ -19,7 +19,6 @@ def middleware(runtime):
                     request = request.override(
                         tools=[tool for tool in request.tools if getattr(tool, "name", None) == "reflect_bash"]
                     )
-                execution.observe_model_input([request.system_message, request.messages])
             return await handler(request)
 
         async def awrap_tool_call(self, request, handler):
@@ -42,18 +41,7 @@ def middleware(runtime):
 
 
 def invoker(agent: Any, **kwargs: Any):
-    from langchain_core.callbacks import AsyncCallbackHandler
     from langchain_core.messages import HumanMessage, SystemMessage, convert_to_messages
-
-    class DeliveryCallback(AsyncCallbackHandler):
-        def __init__(self, execution):
-            self.execution = execution
-
-        async def on_chat_model_start(self, serialized, messages, **options):
-            self.execution.observe_model_input(messages)
-
-        async def on_llm_start(self, serialized, prompts, **options):
-            self.execution.observe_model_input(prompts)
 
     async def invoke(request):
         config = dict(kwargs.get("config") or {})
@@ -63,14 +51,6 @@ def invoker(agent: Any, **kwargs: Any):
         else:
             configurable.setdefault("thread_id", request.execution.session_id)
         config["configurable"] = configurable
-        existing_callbacks = config.get("callbacks")
-        callback = DeliveryCallback(request.execution)
-        if existing_callbacks is not None and not isinstance(existing_callbacks, list):
-            callbacks = existing_callbacks.copy()
-            callbacks.add_handler(callback)
-        else:
-            callbacks = [*(existing_callbacks or []), callback]
-        config["callbacks"] = callbacks
         if request.phase == "reflection":
             config["recursion_limit"] = min(
                 config.get("recursion_limit", 25), request.execution.runtime.config.reflection_max_commands * 2 + 2
