@@ -71,6 +71,12 @@ credentials, longer runs, costs, and how to interpret the generated reports.
 The business tools use fictional local data; model calls and platform evaluations
 are real. The [offline demo](reflect/README.md) remains available without credentials.
 
+Each framework also includes `05_reflect_failure.py`: a controlled stale-runbook incident with
+independent ledger checks, held-out paired replay, and accepted-guidance retrieval
+on a fresh execution. See [the live failure guide](reflect/live_failure.md) for
+commands and framework evidence limits, and the [workspace guide](reflect/workspace.md)
+for the generated files.
+
 ### Context Managers
 
 | Example | Description |
