@@ -307,7 +307,6 @@ async def exercise(runtime, build: Callable, args, framework: str, output: Path)
                                 "seconds": round(time.monotonic() - replay_started, 3),
                                 "reply": reply_text(answer),
                                 "verification": outcome.__dict__,
-                                "delivered_versions": sorted(request.execution.delivered_versions),
                             }
                         )
                         save_report(report_path, report)
