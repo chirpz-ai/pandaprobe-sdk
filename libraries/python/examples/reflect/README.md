@@ -59,6 +59,12 @@ a protected successful case. A later execution retrieves the accepted rule.
 It makes zero real model calls and demonstrates orchestration, not real-model
 repair performance. The temporary workspace is removed when the demo exits.
 
+For a real model and platform exercise, see the
+[live failure scenario](live_failure.md). A controlled refund-policy incident tests
+proposal generation, independent acceptance, and retrieval on a fresh execution.
+The separate [live support queue](live_support.md) may succeed without any failures.
+Both workloads have examples for all seven supported Python agent frameworks.
+
 ## Files and authority
 
 The agent sees these paths through `reflect_bash`:
@@ -91,6 +97,8 @@ or Python execution. It is a general shell interface within the memory workspace
 not a full operating-system shell. Working files are checkpointed into durable
 filesystem records; immutable accepted revisions and lifecycle state are never
 mounted inside this tool.
+The [workspace guide](workspace.md) explains the durable files on disk and how to
+find the currently accepted rules.
 
 All shared additions, edits, merges, moves and deletions become change sets.
 Only validation publishes an accepted revision. A candidate is readable in its
@@ -154,24 +162,29 @@ resources that replay itself needs. Do not await replay while holding its requir
 semaphore, transaction, or environment lease.
 
 By default validation requires three distinct paired cases, at least one
-protected successful case, complete finite outcomes, no regression beyond the configured tolerance,
-and actual delivery of changed guidance. Removed guidance must have been
-exercised in controls. Smaller guidance can be accepted for measured
+protected successful case, complete finite outcomes, and no regression beyond
+the configured tolerance. Acceptance requires the configured measured improvement.
+Smaller guidance can instead be accepted for measured
 non-inferiority, with no claim of behavioral improvement. Otherwise results are
 accepted, rejected, or pending with recorded reasons.
+
+The SDK does not inspect rule text in model inputs or require whole-file reads.
+Agents can use relevant excerpts and arbitrary supported shell commands. Hosts
+must choose representative replay cases and independent verifiers; acceptance
+describes the tested change under those conditions, not proof that every rule
+was read or obeyed.
 
 For live trials, use `reflect.trial_execution(proposal_id, arm="control")` and
 `arm="candidate"` to obtain explicit isolated assignments. Submit matched
 `TrialCase`/`TrialArm` evidence to `reflect.validator.record_trial(...)`. Include
-independently verified scores, success, the execution IDs, submitted rule
-versions from `execution.delivered_versions`, and assigned candidate IDs.
-Unrelated successful sessions, duplicate cases, missing outcomes, and unknown
-exposure do not establish improvement. The host owns matching and environment
+independently verified scores, success, the execution IDs, and assigned candidate IDs.
+Unrelated successful sessions, duplicate cases, missing outcomes, and invalid
+assignments do not establish improvement. The host owns matching and environment
 reset; the SDK does not infer a causal trial from timestamps.
 
 Pass an explicit `execution_id` to `run()` when you want to retrieve
 `reflect.report(execution_id)`. Reports distinguish evaluation, proposal creation,
-duplicate/no-proposal, timeout/failure, delivery, and independent validation.
+duplicate/no-proposal, timeout/failure, and independent validation.
 The agent's reported rationale is retained separately from the SDK's decision
 reason, including when it leaves files unchanged because the evidence is uncertain.
 There is deliberately no boolean that calls a completed reflection a repair.
@@ -188,8 +201,6 @@ async with reflect.execution(session_id="customer", execution_id="turn-42") as t
     # Supply these instructions and reflect.tool() to your own model loop.
     # Invoke reflect.bash(command) when its supplied tool is called.
     result = await my_agent_loop(instructions, reflect.tool(), user_input)
-    # At your actual model-input boundary, attest the exact submitted text:
-    # turn.submitted(text, channel="tool_output")
 
 evaluation = await reflect.settle_evaluation("turn-42")
 ```
@@ -201,13 +212,13 @@ it should expose only the supplied filesystem tool and avoid repeating task
 actions. Native factory adapters apply this restriction where the framework
 provides the relevant hooks. Custom graph/tool nodes remain host-owned.
 
-The SDK records tool output as offered, and records submitted text separately.
-A filename, grep snippet, accessible file, or successful `cat` alone does not
-prove that the full rule reached a model request. Native model-input hooks and
-existing traced LLM inputs confirm exact rule versions. Claude's SDK does not
-generally expose full model requests: tool-body confirmation may require host
-attestation; unknown delivery keeps validation pending. Delivery is never proof
-of compliance.
+Existing tracing integrations record model and tool activity as before. Reflect
+does not add delivery-checking callbacks, scan inputs for rule text, or persist
+delivery receipts. The [failure example](live_failure.md) performs its own
+conservative audit of task inputs to demonstrate fresh retrieval, using recorded
+traces and example-owned native observation where needed.
+That audit is example code, outside the installed SDK and its acceptance policy.
+Missing trace visibility can limit the demonstration without blocking SDK validation.
 
 For externally completed work:
 
@@ -328,7 +339,8 @@ it does not exempt arbitrary Bash or hide administration overhead.
 
 For real model/platform exercises, run the framework-specific `04_reflect.py`
 examples described in the [live support guide](live_support.md). Their generated
-reports separate task outcomes, proposals, guidance delivery, and validation.
+reports separate task outcomes, proposals, and validation. The companion
+`05_reflect_failure.py` examples additionally audit fresh guidance retrieval.
 Offline tests do not establish live behavior. Historical Harness comparisons,
 TypeScript Reflect, full conversation rewriting, and monitor management remain
 outside this release's test claims. Core-service documentation changes are
