@@ -94,9 +94,6 @@ def invoker(options: Any, **kwargs: Any):
         # into its MCP dispatch tasks; no last-active-client router is used.
         async with ClaudeSDKClient(options=configured) as client:
             await client.query(request.feedback if request.phase == "reflection" else request.input)
-            # These instructions were sent to the SDK. Actual tool-body delivery
-            # is confirmed through traced model input or an explicit host receipt.
-            request.execution.submitted(memory)
             return [message async for message in client.receive_response()]
 
     return invoke
