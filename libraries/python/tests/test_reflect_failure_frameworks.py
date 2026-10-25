@@ -85,7 +85,7 @@ def local_binding(framework, module, runtime, batch, output, validation, monkeyp
     if framework in ("langchain", "langgraph", "deepagents"):
         import langchain_openai
         from langchain_core.language_models import BaseChatModel
-        from langchain_core.messages import AIMessage
+        from langchain_core.messages import AIMessage, ToolMessage
         from langchain_core.outputs import ChatGeneration, ChatResult
 
         class LocalModel(BaseChatModel):
@@ -97,6 +97,17 @@ def local_binding(framework, module, runtime, batch, output, validation, monkeyp
                 return self
 
             def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+                pending = set()
+                for message in messages:
+                    if isinstance(message, ToolMessage):
+                        assert message.tool_call_id in pending, "Tool reply has no preceding unanswered call"
+                        pending.remove(message.tool_call_id)
+                    else:
+                        assert not pending, "Tool calls must be answered before the next message"
+                        pending = (
+                            {call["id"] for call in message.tool_calls} if isinstance(message, AIMessage) else set()
+                        )
+                assert not pending
                 value = policy.choose(input_text(messages))
                 answer = (
                     AIMessage(content=value)
