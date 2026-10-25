@@ -974,3 +974,36 @@ unchanged. Changes remain unstaged/uncommitted on `feat/python-reflect`.
 
 Only example code, its tests/documentation, and this plan changed. No SDK,
 dependency, CI, backend, or historical-artifact changes; no new paid calls.
+
+### Claude example model compatibility and error reporting (2026-10-25)
+
+- [x] **DONE —** Inspect run `7804a55dbefe`, its local workspace, both cloud
+  traces, and existing evaluations. The installed Claude Agent SDK 0.1.50 and
+  bundled Claude Code 2.1.81 sent legacy enabled thinking, which Haiku 5.5
+  rejected with HTTP 400. No refund or Reflect Bash commands ran. The adapter
+  treated Claude's error result as a completed task, then attempted reflection
+  with the same incompatible settings; the example subsequently hid the error.
+- [x] **DONE —** Explicitly disable thinking and select low effort in the shared
+  Claude support/failure example factory, a configuration supported by Haiku
+  5.5. Verify without a model call that the installed native transport emits
+  `--max-thinking-tokens 0 --effort low`. Reflect preserves host-supplied model
+  settings; this is example configuration, not a runtime-wide override.
+- [x] **DONE —** Raise on native Claude `ResultMessage.is_error`, preserving the
+  subtype and provider message. Record the failed task and close the native
+  client without automatically continuing into reflection. Preserve successful
+  results and continuation behavior. Keep error messages in example reports and
+  handle both individual and collected Claude results without masking details.
+- [x] **DONE —** Reproduce the defects with five failing regression cases before
+  fixing them. Focused Claude checks pass **13 tests**. Broader native integration,
+  example, failure-loop, runtime, and Claude tracing checks pass **148 tests** on
+  Python 3.13 (49 unavailable-framework skips) and **173 tests** on Python 3.10
+  (24 unavailable-framework skips). Ruff lint/format and whitespace checks pass.
+  Existing LangGraph deprecation warnings remain.
+
+The isolated Python 3.10 environment initially installed MCP 2.3.0, which lacks
+the server API used by Claude Agent SDK 0.1.50. Aligning that temporary environment
+with the repository's locked MCP 1.26.0 resolved those unrelated test failures.
+No project dependency declarations or lockfiles changed. No new paid model or
+evaluation calls were made; a successful live rerun remains unverified. Historical
+artifacts, tracing instrumentation, and core delivery/acceptance logic are unchanged.
+Changes remain unstaged/uncommitted on `feat/python-reflect`.
