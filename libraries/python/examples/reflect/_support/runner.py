@@ -54,6 +54,10 @@ class AgentBinding:
 
 def reply_text(result: Any) -> str:
     """Materialize the actual final response, not an event/object repr."""
+    if getattr(result, "is_error", False):
+        subtype = getattr(result, "subtype", "unknown")
+        detail = getattr(result, "result", None) or "No error details returned"
+        raise RuntimeError(f"Claude Agent SDK failed ({subtype}): {detail}")
     if isinstance(result, str):
         return result
     if isinstance(result, dict) and "messages" in result:
@@ -64,8 +68,6 @@ def reply_text(result: Any) -> str:
             return value
     if isinstance(result, list):
         for item in reversed(result):
-            if getattr(item, "is_error", False):
-                raise RuntimeError("Claude returned an error result")
             if callable(getattr(item, "is_final_response", None)) and not item.is_final_response():
                 continue
             text = reply_text(item)
@@ -253,6 +255,7 @@ async def exercise(runtime, build: Callable, args, framework: str, output: Path)
                 except Exception as exc:
                     # Preserve the failure and partial artifacts, then stop. Never retry paid calls blindly.
                     turn["error"] = type(exc).__name__
+                    turn["error_message"] = str(exc)
                     raise
                 finally:
                     turn["seconds"] = round(time.monotonic() - tick, 3)
