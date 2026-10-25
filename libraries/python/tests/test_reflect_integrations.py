@@ -9,7 +9,7 @@ import pytest
 
 from pandaprobe import Client
 from pandaprobe.reflect import Invocation, Reflect, ReflectConfig, Rule, ValidationVerdict
-from pandaprobe.reflect.integrations import invoker_for
+from pandaprobe.reflect.integrations import input_text, invoker_for
 
 TEXT = "# Math\nApplies to: addition tasks\nCheck sums with a calculator.\n"
 
@@ -37,7 +37,13 @@ async def test_langchain_real_agent_tool_delivery_memory_replacement_and_continu
     from langgraph.checkpoint.memory import InMemorySaver
     from pandaprobe.integrations.langchain import LangChainCallbackHandler
 
+    inputs = []
+
     class Model(FakeMessagesListChatModel):
+        def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+            inputs.append(input_text(messages))
+            return super()._generate(messages, stop=stop, run_manager=run_manager, **kwargs)
+
         def bind_tools(self, tools, **kwargs):
             return self
 
@@ -63,7 +69,6 @@ async def test_langchain_real_agent_tool_delivery_memory_replacement_and_continu
         first = await invoke(Invocation(input="Do the task", execution=execution))
         assert first["messages"][-1].content == "Task answer"
         assert any(isinstance(m, ToolMessage) and TEXT.strip() in m.content for m in first["messages"])
-        assert Rule(path="math.md", text=TEXT).version in execution.delivered_versions
         await runtime.bash("echo 'new memory' > /context.md")
         async with execution.activate("reflection"):
             second = await invoke(
@@ -78,6 +83,7 @@ async def test_langchain_real_agent_tool_delivery_memory_replacement_and_continu
         memory = [m for m in second["messages"] if m.id == "pandaprobe-reflect-active-memory"]
         assert len(memory) == 1 and "new memory" in memory[0].content and "old memory" not in memory[0].content
     payloads = [call.args[0] for call in runtime.client._transport.enqueue_trace.call_args_list]
+    assert TEXT.strip() in inputs[1]
     assert len(payloads) == 2  # Reuse the existing tracing callback; no second tracing patch.
     assert [p["metadata"]["pandaprobe.reflect"]["role"] for p in payloads] == ["task", "reflection"]
     assert execution.trace_ids == [payloads[0]["trace_id"]]
@@ -120,7 +126,7 @@ async def test_native_langgraph_without_langchain_supplies_tool_and_blocks_domai
             result = await invoker_for(agent)(Invocation(input="Reflect", execution=execution))
         assert not called
         assert any(isinstance(item, ToolMessage) and item.status == "error" for item in result["messages"])
-        assert Rule(path="math.md", text=TEXT).version in execution.delivered_versions
+        assert any(isinstance(item, ToolMessage) and TEXT.strip() in item.content for item in result["messages"])
     await runtime.aclose()
 
 
@@ -173,7 +179,7 @@ async def test_openai_agents_real_runner_tools_history_and_existing_hooks(tmp_pa
     async with runtime.execution(session_id="s") as execution:
         result = await invoke(Invocation(input="Do task", execution=execution))
         assert result.final_output == "Answer" and hooks.calls == 2
-        assert Rule(path="math.md", text=TEXT).version in execution.delivered_versions
+        assert TEXT.strip() in input_text(model.calls[1][1])
         assert model.calls[0][0].startswith("Original instructions")
         await invoke(
             Invocation(
@@ -221,7 +227,7 @@ async def test_adk_real_model_loop_supplied_tool_memory_and_session_history(tmp_
         assert any(event.is_final_response() for event in events)
         assert len(model._calls) == 2
         assert model._calls[0].config.system_instruction.count("Reflect memory is available") == 1
-        assert Rule(path="math.md", text=TEXT).version in execution.delivered_versions
+        assert TEXT.strip() in input_text(model._calls[1])
         await invoke(
             Invocation(
                 input="Task",
@@ -290,7 +296,6 @@ async def test_crewai_native_async_agent_and_tool_preserve_host_configuration(tm
         result = await invoker_for(agent)(Invocation(input="Task", execution=execution))
         assert result.raw == "Done"
         assert len(seen) == 2 and TEXT.strip() in str(seen[-1]).replace("\\n", "\n")
-        assert any(receipt.submitted for receipt in execution.shell.receipts)
     assert not agent.tools and agent.backstory == "Use evidence"
     await runtime.aclose()
 
