@@ -87,18 +87,6 @@ class ProposalOutcome(Record):
     rationale: str = ""  # Reported by the agent, not an independently verified conclusion.
 
 
-class DeliveryReceipt(Record):
-    id: str = Field(default_factory=lambda: uuid4().hex)
-    execution_id: str
-    channel: Literal["tool_output", "active_memory"]
-    content_hash: str
-    byte_count: int
-    rule_versions: dict[str, str] = Field(default_factory=dict)
-    candidate_ids: list[str] = Field(default_factory=list)
-    submitted: bool = False
-    created_at: str = Field(default_factory=utc_now)
-
-
 class ValidationVerdict(Record):
     proposal_id: str
     outcome: Literal["accepted", "rejected", "pending"]
@@ -129,13 +117,12 @@ class EvaluationOutcome(Record):
 
 
 class TrialArm(Record):
-    """Host-verified outcome and exact exposure for one assigned trial arm."""
+    """Host-verified outcome and candidate assignment for one trial arm."""
 
     execution_id: str = Field(min_length=1)
     scores: dict[str, StrictFloat] = Field(default_factory=dict)
     success: StrictBool | None = None
     evidence: dict[str, Any] = Field(default_factory=dict)
-    delivered_versions: list[str] = Field(default_factory=list)
     candidate_ids: list[str] = Field(default_factory=list)
 
     @field_validator("scores")
@@ -163,4 +150,3 @@ class ExecutionReport(Record):
     evaluation: EvaluationOutcome | None = None
     reflection: ProposalOutcome | None = None
     proposals: list[RuleProposal] = Field(default_factory=list)
-    deliveries: list[DeliveryReceipt] = Field(default_factory=list)
