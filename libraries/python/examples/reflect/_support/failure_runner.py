@@ -116,7 +116,7 @@ async def exercise(runtime, build, args, output: Path, *, framework="langchain")
         },
         "run_id": output.name,
         "workload": "Controlled stale-runbook incident; fictional refunds, real model and platform calls",
-        "workload_version": 3,
+        "workload_version": 4,
         "agent_instructions": INSTRUCTIONS,
         "validation_inputs": [asdict(case) for case in replay_cases()],
         "initial_revision": runtime.workspace.state()["head"],
@@ -226,8 +226,7 @@ async def exercise(runtime, build, args, output: Path, *, framework="langchain")
         delivery = fresh["task_delivery"]
         retrieved = (
             bool(expected_versions)
-            and expected_versions <= set(delivery["model_input_versions"])
-            and expected_versions <= set(delivery["before_submission_versions"])
+            and expected_versions <= set(delivery["before_submission_excerpt_versions"])
             and fresh["initial_active_memory_bytes"] == 0
             and not fresh["initial_candidate_ids"]
             and fresh["base_revision"] == report["accepted_revision"]
@@ -237,7 +236,7 @@ async def exercise(runtime, build, args, output: Path, *, framework="langchain")
         if not retrieved:
             return stop(
                 "fresh_delivery",
-                "Complete accepted guidance was not verified in model input before the fresh refund attempt. "
+                "No verified excerpt from each accepted rule reached model input before the fresh refund attempt. "
                 "See the example-only task_delivery audit; SDK acceptance does not depend on this check.",
             )
         if not fresh["verification"]["success"]:
