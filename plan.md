@@ -916,3 +916,30 @@ on `feat/python-reflect`.
   audit test from the macOS/Windows platform job; the standard Python 3.10–3.13
   full-suite jobs still discover and run it. `actionlint` and whitespace checks
   pass. No test code, CI triggers, or job matrices changed.
+
+### DeepAgents reflection continuation fix (2026-10-25)
+
+- [x] **DONE —** Inspect the failed live run `23194a9c7d9c` and its cloud
+  task/reflection traces. Reflect resubmitted the task result into the existing
+  checkpoint. DeepAgents 0.6.1 deduplicated assistant messages by ID but appended
+  ID-less tool replies again, producing orphaned replies and the provider's 400.
+- [x] **DONE —** Resume checkpointed LangChain-family conversations with updated
+  Reflect memory and new feedback only. Preserve framework-owned history and
+  other state. Reconstruct from the previous result when no checkpoint history
+  exists, including a cleared checkpoint; do not filter or repair tool messages.
+- [x] **DONE —** Strengthen local model tests to reject orphaned, repeated, or
+  unanswered tool messages. Reproduce the failure before the fix in both native
+  DeepAgents continuation and the complete failure example. Cover LangChain and
+  DeepAgents with saved, absent, and cleared checkpoints, memory replacement,
+  preserved task context, and task/reflection tracing attribution. Protocol
+  assertions belong only to tests; no core delivery checker is reintroduced.
+- [x] **DONE —** Verify the fix: Python 3.13 native integration/tracing tests pass
+  **115 tests** (10 optional-framework skips); Reflect/API/trace-capture and local
+  HTTP end-to-end tests pass **171 tests**. Python 3.10 continuation, failure
+  examples, runtime, and trace-capture checks pass **26 tests** (four DeepAgents
+  skips; DeepAgents requires Python 3.11+). Existing LangGraph factory deprecation
+  warnings remain. Ruff lint/format and whitespace checks pass.
+
+No paid model or evaluation calls were made. Existing live artifacts, tracing
+instrumentation, dependency declarations/lockfile, and CI configuration are
+unchanged. Changes remain unstaged/uncommitted on `feat/python-reflect`.
