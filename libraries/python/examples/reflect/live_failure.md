@@ -30,6 +30,12 @@ same incident with Google ADK. Install one framework at a time; Deep Agents and
 CrewAI require Python 3.11+. The existing support and new failure examples share
 native agent factories in `_support/agents.py`, with separate task instructions.
 
+The Claude examples explicitly disable thinking and use low effort. The bundled
+Claude runtime in Agent SDK 0.1.50 otherwise selects legacy budget-based thinking
+for Haiku 5.5, which that model rejects. This is example configuration; Reflect
+preserves the application's thinking settings. Provider error results stop the
+invocation, and the report retains the error type and message.
+
 Required shared variables: `PANDAPROBE_API_KEY` and `PANDAPROBE_PROJECT_NAME`;
 optionally `PANDAPROBE_ENDPOINT`. Use a test project with evaluation judges
 configured. `--model` or `REFLECT_EXAMPLE_MODEL` overrides the task model.
