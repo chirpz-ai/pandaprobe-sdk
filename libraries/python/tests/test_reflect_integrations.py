@@ -378,7 +378,12 @@ async def test_claude_native_invocation_scope_continuation_and_trial_isolation(t
 
     monkeypatch.setattr(sdk, "ClaudeSDKClient", LocalClient)
     options = sdk.ClaudeAgentOptions(
-        system_prompt="Original", tools=["Read"], allowed_tools=["Read"], resume="host-session"
+        system_prompt="Original",
+        tools=["Read"],
+        allowed_tools=["Read"],
+        resume="host-session",
+        thinking={"type": "adaptive"},
+        effort="high",
     )
     invoke = invoker_for(options)
     async with runtime.execution(session_id="s") as execution:
@@ -402,8 +407,61 @@ async def test_claude_native_invocation_scope_continuation_and_trial_isolation(t
     assert observed[2].resume is None and not observed[2].continue_conversation
     assert queries == ["Task", "Review evidence", "Fresh task"]
     assert all(p.system_prompt.count("Reflect memory is available") == 1 for p in observed)
+    assert all(p.thinking == options.thinking and p.effort == options.effort for p in observed)
     assert options.system_prompt == "Original" and options.allowed_tools == ["Read"]
     await runtime.aclose()
+
+
+@pytest.mark.parametrize(
+    "subtype,detail",
+    [
+        ("error_during_execution", 'API Error: 400: "thinking.type.enabled" is not supported'),
+        ("error_max_turns", None),
+    ],
+)
+async def test_claude_native_error_result_fails_task_without_reflecting(tmp_path, monkeypatch, subtype, detail):
+    sdk = pytest.importorskip("claude_agent_sdk")
+    runtime = setup(tmp_path)
+    runtime.continue_reflection = AsyncMock()
+    terminal = sdk.ResultMessage(
+        subtype=subtype,
+        duration_ms=1,
+        duration_api_ms=1,
+        is_error=True,
+        num_turns=1,
+        session_id="native-error-session",
+        result=detail,
+    )
+    closed = []
+
+    class LocalClient:
+        def __init__(self, *, options):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_):
+            closed.append(True)
+
+        async def query(self, value):
+            pass
+
+        async def receive_response(self):
+            yield terminal
+
+    monkeypatch.setattr(sdk, "ClaudeSDKClient", LocalClient)
+    try:
+        with pytest.raises(RuntimeError) as error:
+            await runtime.run(sdk.ClaudeAgentOptions(), "Task", session_id="s", execution_id="failed-task")
+        assert subtype in str(error.value)
+        if detail:
+            assert detail in str(error.value)
+        assert closed == [True]
+        assert runtime.report("failed-task").task_status == "failed"
+        runtime.continue_reflection.assert_not_called()
+    finally:
+        await runtime.aclose()
 
 
 async def test_crewai_native_crew_reflects_with_final_task_agent(tmp_path, monkeypatch):
