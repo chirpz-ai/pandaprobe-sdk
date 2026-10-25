@@ -414,7 +414,7 @@ Keep unrelated refactoring, TypeScript work, CLI rewrites, website implementatio
   shared accepted revisions. No agent write can change authoritative acceptance
   state. Execution-local memory can change immediately. Authoring conversations
   are candidate-exposed; trials use explicit candidate overlays and fresh control
-  snapshots. Missing scores or unknown exposure remain insufficient evidence.
+  snapshots. Missing scores or invalid trial assignments remain insufficient evidence.
 - **Low-friction integration.** Existing endpoint/auth/project configuration is
   reused. Defaults own normal budgets, file layout, checkpoint instructions, and
   tool configuration. Quickstarts should require only a small integration block
@@ -455,12 +455,12 @@ Keep unrelated refactoring, TypeScript work, CLI rewrites, website implementatio
   ID collection stops when the application boundary closes.
 - `reflect/workspace.py` owns atomic immutable revisions and acceptance state;
   `shell.py` exposes only the isolated working filesystem; `execution.py` owns
-  its pinned view, active memory, usage budget and delivery receipts.
+  its pinned view, active memory, usage budget and trace attribution.
   `evaluation.py`/`signals.py` implement durable safe dispatch and deterministic
   detection. `validation.py` owns independent decisions. Lazy `adapters/`
-  modules format the tool and integrate native model-input/continuation hooks.
+  modules supply tools, active memory, reflection permissions, and continuation.
 - Public `Rule`, `RuleProposal`, `ProposalOutcome`, `ValidationVerdict`,
-  `DeliveryReceipt`, `EvaluationOutcome` and `ExecutionReport` separate model
+  `EvaluationOutcome` and `ExecutionReport` separate model
   rationale from SDK decisions and measured outcomes. `report(id)` and
   `proposals()` expose lifecycle evidence without a misleading repair-success flag.
 - `ReplayCase`, `ReplayRequest` and `Outcome` are host-owned paired replay
@@ -496,7 +496,8 @@ Record commands/results and remaining limitations below the corresponding step.
 - [x] **DONE — 3. Supplied Bash and active memory.** Optional embedded engine dependency;
   ordinary search/read/write/move/delete operations; no host/network escape;
   immutable authority outside the agent filesystem; command/output/file limits;
-  cancellation; memory replacement; delivery/version receipts; real-engine tests.
+  cancellation; memory replacement; real-engine tests. Delivery checks now live
+  only in examples/tests, per the approved 2026-10-23 refinement below.
 - [x] **DONE — 4. Detection and runtime lifecycle.** Explicit execution/trace submission,
   threshold and trajectory gates, sampling/cost/concurrency/dedup/cooldown bounds,
   event feedback, bounded task-agent reflection phases, explicit outcomes,
@@ -753,3 +754,165 @@ local HTTP end-to-end loop; skips are framework-dependent tests. Focused evaluat
 and runtime tests **42 passed** on each of Python 3.11 and 3.12. Ruff lint/format
 (173 Python files) and `git diff --check` pass. No live model/platform calls, new
 dependencies, staging, commits, or changes to tracing instrumentation.
+
+### Live failure-to-guidance scenario (2026-10-22)
+
+The two user-run LangChain support workloads passed all 21 task turns and produced
+no failure notices or proposals. Add a separate controlled incident to exercise
+the remaining lifecycle; preserve those successful runs and the original workload.
+
+- [x] **DONE —** Add a real-model LangChain example with an explicitly stale refund runbook,
+  a simulated one-submission settlement batch, and an independent ledger verifier.
+  Do not force judge scores, generate a rule in host code, or guarantee acceptance.
+- [x] **DONE —** Validate the agent's proposal once on three held-out paired cases, including
+  a protected success. Keep prompts, tools, and starting business state identical
+  across arms; only the pinned guidance revision differs.
+- [x] **DONE —** Reopen the persisted workspace in a new Reflect instance, agent conversation,
+  and customer session. Verify accepted rule text reaches a task model request
+  through Bash before the first refund attempt and the new ledger outcome succeeds,
+  without reflection/history or active-memory leakage.
+- [x] **DONE —** Save stage-by-stage evidence and stop honestly on missing failure, detection,
+  proposal, acceptance, or fresh delivery. Add offline native-agent/HTTP tests and
+  runnable documentation, and include native tests in the framework CI job.
+- [x] **DONE —** The user ran the paid LangChain incident `19e9d166f7e3` and supplied
+  its logs. Read-only inspection of the local workspace and CLI-fetched cloud
+  traces confirmed proposal, paired acceptance, and a correct fresh refund.
+  Its final delivery check falsely rejected complete numbered grep output; the
+  follow-up below corrects that check without rewriting the historical report.
+
+Verification: **17 new tests passed** on Python 3.13, exercising native LangChain
+with scripted model and HTTP fixtures, actual Bash, proposal capture, independent
+paired replay, disk publication/reopening, and exact task-time delivery. Negative
+cases cover missing failure, judge disagreement, no proposal, ineffective guidance,
+protected-case regression, missing/late reads, and operational failure reports.
+Python 3.10's new-example/runtime/validation/existing-example suite: **76 passed,
+10 skipped**, two existing LangGraph deprecation warnings; skips are uninstalled
+optional frameworks. Ruff lint/format (177 files), `actionlint`, and whitespace
+checks pass. SDK runtime, tracing, dependencies, historical reports, and the
+original support workload are unchanged. No staging or commits.
+
+Full Python 3.13 regression suite: **880 passed, 17 skipped**, three existing
+LangGraph deprecation warnings (289 seconds), including the local HTTP end-to-end
+fixtures. Skips are unavailable optional frameworks. The final additional
+read-after-submission case was added after that run's collection; the finalized
+**17-test** scenario suite passes separately on Python 3.13 and is included in
+the Python 3.10 result above. No paid model calls or production evaluations were
+made by these tests.
+
+### Numbered guidance delivery and all-framework failure examples (2026-10-23)
+
+The user-run incident `19e9d166f7e3` demonstrated independent acceptance and a
+correct fresh refund, but the final audit rejected complete guidance rendered by
+`grep -n`. Preserve that original report as historical evidence.
+
+- [x] **DONE —** Recognize numbered grep output only when paths, line numbers, and text match
+  the current rule version. Record partial coverage separately; require all
+  nonblank lines for full delivery and retain actual model-submission checks.
+- [x] **DONE —** Cover the observed live output and negative cases with regression tests.
+  Keep the example's before-action timing, empty-memory, fresh-session, and
+  independent-validation checks; do not mark incomplete retrieval successful.
+- [x] **DONE —** Add `05_reflect_failure.py` to every supported Python agent-framework example,
+  sharing workload/verifier/runner and native setup with the existing support
+  examples. Preserve framework-specific conversations, tracing, and restrictions.
+- [x] **DONE —** Verify native wiring, the full lifecycle where model-input evidence is
+  observable, supported Python versions, and tracing isolation. Document any
+  framework evidence limitation without inventing delivery attestations.
+- [x] **DONE —** Document the workspace layout and where working versus accepted rules live.
+
+Delivery receipts now include per-file `rule_coverage` (version, rendering,
+matched line numbers, total nonblank lines, completeness). Only complete coverage
+populates `rule_versions`; tool output still requires a separate actual
+model-input observation to count as delivery. Existing persisted receipts load
+without the added field. Verified numbered records can omit blank lines and can
+carry framework wrappers such as CrewAI's `Observation:` prefix; wrong paths,
+wrong line numbers, changed text, truncated output, and disjoint excerpts cannot
+establish complete coverage. Reading after the refund attempt still fails the
+example's before-action check.
+
+All seven frameworks now share native agent factories between `04_reflect.py`
+and `05_reflect_failure.py`. Scripted-model tests exercise the complete incident
+through native loops for LangChain, LangGraph, Deep Agents, OpenAI Agents, Google
+ADK, and CrewAI. Claude Agent SDK exercises the same workflow but correctly stays
+pending at validation because its public hooks do not expose complete subsequent
+model inputs. This limitation is documented; no fabricated submission attestation
+or relaxed acceptance rule was added. Framework CI includes the new scenarios.
+
+Rechecking the saved live trace with the new matcher confirms the exact accepted
+rule version in model input before the fresh refund submission. The recorded
+fictional tool output is a regression fixture. No new paid model calls or platform
+evaluation runs were made, and historical reports remain unchanged.
+
+Verification: the complete Python 3.13 suite with all seven frameworks installed
+passed **939 tests**, including local HTTP end-to-end fixtures and existing tracing
+regressions. The targeted Python 3.10 delivery/example/runtime/validation/shell/
+installation suite passed **125 tests**, with **15 skips** for uninstalled optional
+frameworks. Warnings are the existing upstream LangGraph factory deprecation.
+Ruff lint/format (187 files), `actionlint`, and `git diff --check` pass. Wheel and
+sdist builds and Twine checks pass; the wheel contains the new delivery module
+without example/test payload, while the sdist includes all seven failure examples,
+their shared helpers, the recorded-output fixture, and the workspace guide.
+A fresh Python 3.10 wheel installation passes inert imports and tracing, plus all
+14 support/failure example `--help` commands without Reflect or framework extras.
+Changes remain unstaged/uncommitted on `feat/python-reflect`; no dependency,
+tracing-instrumentation, TypeScript, backend, or research-artifact changes.
+
+
+### Remove core delivery checking — approved refinement (2026-10-23)
+
+This decision supersedes earlier requirements for SDK delivery receipts,
+whole-rule model-input matching, and delivery-based acceptance gates, including
+the numbered-grep change described above. Historical reports and verification
+logs remain unchanged; offline tests demonstrate supported wiring, not a
+universal guarantee about future agent behavior.
+
+- [x] **DONE —** Remove the core matcher, coverage/receipt models, submission APIs,
+  delivery report/trial fields, persisted receipts, and all framework hooks or
+  model wrappers used solely to inspect model inputs. Keep existing tracing,
+  supplied Bash, active-memory integration, and reflection tool restrictions.
+- [x] **DONE —** Remove whole-rule delivery requirements for additions, edits and
+  removals. Keep independent paired outcomes, protected successful cases, minimum
+  improvement or maintenance non-inferiority, valid assignments, frozen snapshots,
+  stale-revision checks, and external acceptance authority.
+- [x] **DONE —** Keep the failure demonstration's conservative retrieval audit only
+  in `examples/reflect/_support/delivery.py` and its tests. Read existing task
+  traces through the public API, using recorded LLM request timestamps; do not
+  add SDK observation hooks. Example-owned LangChain-family middleware/callbacks
+  cover Python 3.10 paths without recorded model inputs. Example audit outcomes
+  remain separate from SDK acceptance and actual business outcomes. Preserve all
+  seven framework examples.
+- [x] **DONE —** Verify native model/tool loops, partial-excerpt acceptance, missing-outcome
+  and regression rejection, local HTTP end-to-end behavior, Python compatibility,
+  and absence of the checker from the installed wheel.
+- [x] **DONE —** Update the current SDK/example documentation and workspace guide.
+  No new delivery events or receipts are written to core workspaces. Historical
+  artifacts retain the records created by the old implementation.
+
+Verification: the complete Python 3.13 suite with all seven frameworks installed
+passed **943 tests** (291 seconds). The targeted Python 3.10 Reflect, workspace,
+native integration, examples, installation, and local HTTP end-to-end suite passed
+**149 tests**, with **22 skips** for unavailable optional frameworks. Remaining
+warnings are the existing upstream LangGraph factory deprecation. Tests verify
+acceptance from a relevant unformatted excerpt, independent outcome requirements,
+regression rejection, unchanged task/reflection attribution, and the separate
+example audit's handling of complete, partial, missing, and late retrieval.
+
+Ruff lint/format (187 files), `actionlint`, and whitespace checks pass. Wheel/sdist
+builds and Twine checks pass. The 84-entry wheel contains no delivery checker,
+receipt models, matching hooks, or example/test payload. A fresh Python 3.10 wheel
+installation imports and traces without optional dependencies and runs all 14
+support/failure example help commands. The source archive retains the example-only
+audit and all seven failure scenarios. A read-only recheck of the saved live
+LangChain trace confirms its accepted guidance before the refund using only the
+example audit; the original report is preserved.
+
+No paid model calls, platform evaluations, dependency changes, tracing-core changes,
+or edits to historical workspaces were made. All changes remain unstaged/uncommitted
+on `feat/python-reflect`.
+
+### CI coverage refinement (2026-10-23)
+
+- [x] **DONE —** Keep the new failure-scenario tests in the framework matrix,
+  where each optional framework is installed. Remove the example-only delivery
+  audit test from the macOS/Windows platform job; the standard Python 3.10–3.13
+  full-suite jobs still discover and run it. `actionlint` and whitespace checks
+  pass. No test code, CI triggers, or job matrices changed.
