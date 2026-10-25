@@ -93,7 +93,10 @@ jobs:
           python-version: ${{ matrix.python }}
           enable-cache: true
       - run: uv sync --extra dev --extra ${{ matrix.framework }} --locked
-      - run: uv run pytest tests/test_reflect_integrations.py tests/test_reflect_examples.py -k '${{ matrix.test }} or ${{ matrix.example }}' -v
+      - run: >-
+          uv run pytest tests/test_reflect_integrations.py tests/test_reflect_examples.py
+          tests/test_reflect_failure_example.py tests/test_reflect_failure_frameworks.py
+          -k '${{ matrix.test }} or ${{ matrix.example }}' -v
         env:
           # runner is available in step env, but not in job env.
           CREWAI_STORAGE_DIR: ${{ runner.temp }}/reflect-crewai
@@ -115,7 +118,10 @@ jobs:
           python-version: "3.10"
           enable-cache: true
       - run: uv sync --extra dev --locked
-      - run: uv run pytest tests/test_api.py tests/test_reflect_workspace.py tests/test_reflect_shell.py tests/test_reflect_runtime.py tests/test_reflect_validation.py tests/test_reflect_e2e.py tests/test_reflect_installation.py -v
+      - run: >-
+          uv run pytest tests/test_api.py tests/test_reflect_workspace.py tests/test_reflect_shell.py
+          tests/test_reflect_runtime.py tests/test_reflect_validation.py
+          tests/test_reflect_e2e.py tests/test_reflect_installation.py -v
 
   python-wheel:
     name: Python wheel and minimal installation
