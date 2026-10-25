@@ -401,4 +401,5 @@ async def test_langchain_failure_runner_preserves_operational_error_and_partial_
         await run("provider_error")
     report = json.loads((tmp_path / "run/report.json").read_text())
     assert report["status"] == "interrupted" and report["turns"][0]["error"] == "RuntimeError"
+    assert report["turns"][0]["error_message"] == "Fixture provider unavailable"
     assert not report["accepted_rules"] and not any(report["milestones"].values())
