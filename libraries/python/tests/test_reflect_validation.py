@@ -1,4 +1,4 @@
-"""Behavioral acceptance requires independent, paired, delivered evidence."""
+"""Behavioral acceptance requires independent paired outcomes, not text matching."""
 
 import asyncio
 from types import SimpleNamespace
@@ -38,7 +38,6 @@ def setup(tmp_path):
 async def measured(request):
     """Independent scripted verifier; assertions don't rely on the reflection's text."""
     output = await request.execution.runtime.bash("cat /rules/*.md")
-    request.execution.submitted(output, channel="tool_output")
     success = request.case.protected or "calculator" in output
     return Outcome(
         scores={"task_completion": float(success), "coherence": 1.0},
@@ -47,7 +46,7 @@ async def measured(request):
     )
 
 
-async def test_replay_fresh_controls_delivery_and_acceptance(tmp_path):
+async def test_replay_fresh_controls_and_acceptance(tmp_path):
     runtime, proposal, cases = setup(tmp_path)
     verdict = await runtime.validate(proposal.id, cases=cases, replay=measured)
     assert verdict.outcome == "accepted"
@@ -60,25 +59,33 @@ async def test_replay_fresh_controls_delivery_and_acceptance(tmp_path):
     await runtime.aclose()
 
 
-@pytest.mark.parametrize(
-    "fault", ["empty", "missing_success", "missing_metric", "undelivered", "same_outcome", "no_protected"]
-)
-async def test_incomplete_unexposed_or_unimproved_is_pending(tmp_path, fault):
+async def test_replay_accepts_measured_improvement_from_a_partial_unformatted_excerpt(tmp_path):
+    runtime, proposal, cases = setup(tmp_path)
+
+    async def replay(request):
+        # The agent consumes only the relevant sentence. No title, scope, numbered
+        # output, model-input callback, or delivery attestation is required by Reflect.
+        excerpt = await runtime.bash("sed -n '3p' /rules/math.md 2>/dev/null")
+        assert TEXT.strip() not in excerpt
+        success = request.case.protected or "calculator" in excerpt
+        return Outcome(scores={"task_completion": float(success), "coherence": 1}, success=success)
+
+    verdict = await runtime.validate(proposal.id, cases=cases, replay=replay)
+    assert verdict.outcome == "accepted"
+    assert runtime.workspace.rules()["math.md"].version == proposal.changes["math.md"].version
+    assert all("delivered_versions" not in row["candidate"] for row in verdict.cases)
+    snapshot = runtime.workspace.load_execution(verdict.cases[0]["candidate"]["execution_id"])
+    assert "deliveries" not in snapshot
+    await runtime.aclose()
+
+
+@pytest.mark.parametrize("fault", ["empty", "missing_success", "missing_metric", "same_outcome", "no_protected"])
+async def test_incomplete_or_unimproved_is_pending(tmp_path, fault):
     runtime, proposal, cases = setup(tmp_path)
 
     async def replay(request):
         if fault == "empty":
             return Outcome()
-        if fault == "undelivered":
-            # Making a file readable or calling cat is not model submission.
-            await request.execution.runtime.bash("cat /rules/*.md")
-            return Outcome(
-                scores={
-                    "task_completion": float(request.arm == "candidate" or request.case.protected),
-                    "coherence": 1,
-                },
-                success=True,
-            )
         outcome = await measured(request)
         if fault == "missing_success":
             return Outcome(scores=outcome.scores)
@@ -181,7 +188,7 @@ async def test_cancelled_replay_persists_pending_and_releases_context(tmp_path):
     await runtime.aclose()
 
 
-async def test_removal_requires_old_rule_exposure_and_noninferiority(tmp_path):
+async def test_removal_requires_measured_noninferiority(tmp_path):
     runtime, proposal, cases = setup(tmp_path)
     runtime.workspace.decide(
         ValidationVerdict(proposal_id=proposal.id, outcome="accepted", mode="replay", reason="fixture")
@@ -191,8 +198,7 @@ async def test_removal_requires_old_rule_exposure_and_noninferiority(tmp_path):
     ).proposal
 
     async def replay(request):
-        output = await runtime.bash("cat /rules/*.md")
-        request.execution.submitted(output, channel="tool_output")
+        await runtime.bash("cat /rules/*.md")
         return Outcome(scores={"task_completion": 1, "coherence": 1}, success=True)
 
     verdict = await runtime.validate(removal.id, cases=cases, replay=replay)
@@ -210,14 +216,12 @@ async def test_live_trials_require_explicit_paired_assignment_and_cannot_reuse_e
         arms = {}
         for arm in ("control", "candidate"):
             async with runtime.trial_execution(proposal.id, arm=arm) as execution:
-                output = await runtime.bash("cat /rules/*.md")
-                execution.submitted(output, channel="tool_output")
+                await runtime.bash("cat /rules/*.md")
                 success = arm == "candidate" or case.protected
             arms[arm] = TrialArm(
                 execution_id=execution.id,
                 scores={"task_completion": float(success), "coherence": 1},
                 success=success,
-                delivered_versions=sorted(execution.delivered_versions),
                 candidate_ids=execution.shell.candidate_ids,
             )
         record = TrialCase(case_id=case.id, base_revision=proposal.base_revision, protected=case.protected, **arms)
