@@ -208,7 +208,7 @@ def test_report_extracts_native_results_without_treating_errors_as_answers(suppo
 
 
 async def test_live_runner_reports_real_lifecycle_without_live_services(support, tmp_path):
-    """Same application runner, real Bash/replay/receipts, deterministic model and HTTP fixtures."""
+    """Same application runner, real Bash/replay, deterministic model and HTTP fixtures."""
     import httpx
     from uuid import uuid4
     from unittest.mock import MagicMock
@@ -286,7 +286,6 @@ async def test_live_runner_reports_real_lifecycle_without_live_services(support,
                     await runtime.bash("cat > /rules/refunds.md <<'EOF'\n" + rule + "EOF")
                     return "Proposed refund guidance"
                 guidance = await runtime.bash("cat /rules/refunds.md 2>/dev/null || true")
-                request.execution.submitted(guidance, channel="tool_output")
                 desk.lookup_order(desk.ticket.id)
                 desk.search_policy("returns")
                 if desk.stage != "inspect":
