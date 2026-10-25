@@ -44,9 +44,10 @@ def test_failure_examples_help_without_credentials_or_frameworks(framework, caps
 class Policy:
     """A fixture, not a reflection implementation; decisions inspect actual model input."""
 
-    def __init__(self, batch, *, observable=True):
+    def __init__(self, batch, *, observable=True, excerpt=False):
         self.batch = batch
         self.observable = observable
+        self.excerpt = excerpt
         self.trace = None
         self.phase = "task"
         self.steps = {}
@@ -66,7 +67,8 @@ class Policy:
                 return "reflect_bash", {"command": "cat > /rules/refunds.md <<'RULE'\n" + RULE + "RULE"}
             return "Proposed guidance for independent validation."
         if step == 0:
-            return "reflect_bash", {"command": "grep -RnE 'Refund|Applies' /rules 2>/dev/null || true"}
+            pattern = "merchandise_paid" if self.excerpt else "Refund|Applies"
+            return "reflect_bash", {"command": f"grep -RnE '{pattern}' /rules 2>/dev/null || true"}
         if step == 1:
             return "lookup_refund_order", {"order_id": self.batch.order.id}
         if step == 2:
@@ -79,9 +81,9 @@ class Policy:
         return "Refund posted." if self.batch.ledger else "Refund rejected; batch closed."
 
 
-def local_binding(framework, module, runtime, batch, output, validation, monkeypatch):
+def local_binding(framework, module, runtime, batch, output, validation, monkeypatch, *, excerpt=False):
     """Swap only provider transport/model behavior, preserving native agent/tool loops."""
-    policy = Policy(batch, observable=framework != "claude_agent_sdk")
+    policy = Policy(batch, observable=framework != "claude_agent_sdk", excerpt=excerpt)
     if framework in ("langchain", "langgraph", "deepagents"):
         import langchain_openai
         from langchain_core.language_models import BaseChatModel
@@ -234,7 +236,8 @@ def local_binding(framework, module, runtime, batch, output, validation, monkeyp
 
 
 @pytest.mark.parametrize("framework", FRAMEWORKS)
-async def test_failure_native_framework_lifecycle_and_numbered_delivery(framework, tmp_path, monkeypatch):
+@pytest.mark.parametrize("excerpt", [False, True])
+async def test_failure_native_framework_lifecycle_and_numbered_delivery(framework, excerpt, tmp_path, monkeypatch):
     dependency = {"openai_agents": "agents", "google_adk": "google.adk"}.get(framework, framework)
     pytest.importorskip(dependency)
     monkeypatch.setenv("CREWAI_STORAGE_DIR", str(tmp_path / "crew"))
@@ -301,7 +304,9 @@ async def test_failure_native_framework_lifecycle_and_numbered_delivery(framewor
 
     def build(runtime, batch, model, workdir, *, validation=False):
         batches.append(batch)
-        binding, policy = local_binding(framework, module, runtime, batch, workdir, validation, monkeypatch)
+        binding, policy = local_binding(
+            framework, module, runtime, batch, workdir, validation, monkeypatch, excerpt=excerpt
+        )
         invoke = invoker_for(binding.agent, **binding.kwargs)
 
         async def traced(request):
@@ -332,7 +337,11 @@ async def test_failure_native_framework_lifecycle_and_numbered_delivery(framewor
         assert report["status"] == "completed", report.get("reason")
         assert all(report["milestones"].values())
         assert len(batches) == 8 and len({id(batch) for batch in batches}) == 8
-        assert report["turns"][1]["task_delivery"]["before_submission_versions"]
+        delivery = report["turns"][1]["task_delivery"]
+        assert delivery["before_submission_excerpt_versions"] == report["expected_accepted_versions"]
+        assert bool(delivery["before_submission_versions"]) is not excerpt
+        if excerpt:
+            assert delivery["partial_model_input_versions"] == report["expected_accepted_versions"]
     assert len(report["replay_arms"]) == 6
     assert all(row["initial_active_memory_bytes"] == 0 for row in report["replay_arms"])
     assert api.evaluations.create.await_count == 2
