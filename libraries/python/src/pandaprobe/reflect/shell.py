@@ -13,7 +13,7 @@ from collections.abc import Callable, Mapping
 from typing import Any
 
 from .config import ReflectConfig
-from .models import DeliveryReceipt, Rule, digest
+from .models import Rule
 from .workspace import WorkspaceError
 
 TOOL_NAME = "reflect_bash"
@@ -44,10 +44,8 @@ class ReflectShell:
         config: ReflectConfig,
         rules: Mapping[str, Rule],
         *,
-        execution_id: str,
         context: str = "",
         candidate_ids: list[str] | None = None,
-        on_receipt: Callable[[DeliveryReceipt, str], None] | None = None,
         on_checkpoint: Callable[[dict[str, str], str], None] | None = None,
         usage: Mapping[str, int] | None = None,
     ) -> None:
@@ -56,9 +54,7 @@ class ReflectShell:
         except ImportError as exc:
             raise ImportError('Install Reflect with pip install "pandaprobe[reflect]"') from exc
         self.config = config
-        self.execution_id = execution_id
         self.candidate_ids = list(candidate_ids or [])
-        self._on_receipt = on_receipt
         self._on_checkpoint = on_checkpoint
         self._lock = asyncio.Lock()
         self._output_bytes = (usage or {}).get("output_bytes", 0)
@@ -83,7 +79,6 @@ class ReflectShell:
         self._bash.write_file("/context.md", clip_bytes(context, config.context_max_bytes))
         self._mount_readonly("/inbox", {})
         self._mount_readonly("/decisions", {})
-        self.receipts: list[DeliveryReceipt] = []
 
     def _mount_readonly(self, path: str, contents: Mapping[str, str]) -> None:
         from bashkit import FileSystem
@@ -169,27 +164,6 @@ class ReflectShell:
     def rules(self) -> dict[str, Rule]:
         return {path: Rule(path=path, text=text) for path, text in self.files().items()}
 
-    def receipt(self, text: str, *, channel: str, submitted: bool = False) -> DeliveryReceipt:
-        # Only full exact rule text earns a body-delivery receipt. grep snippets,
-        # filenames, status lookups, and commands mentioning a file do not.
-        versions: dict[str, str] = {}
-        for path, content in self.files().items():
-            if content.strip() and content.strip() in text:
-                versions[path] = digest(content.replace("\r\n", "\n").strip() + "\n")
-        receipt = DeliveryReceipt(
-            execution_id=self.execution_id,
-            channel=channel,
-            content_hash=digest(text),
-            byte_count=len(text.encode("utf-8")),
-            rule_versions=versions,
-            candidate_ids=list(self.candidate_ids),
-            submitted=submitted,
-        )
-        self.receipts.append(receipt)
-        if self._on_receipt:
-            self._on_receipt(receipt, text)
-        return receipt
-
     def _control_message(self, message: str) -> str:
         remaining = self.config.execution_output_max_bytes - self._output_bytes
         rendered = clip_bytes(message, min(self.config.output_max_bytes, remaining))
@@ -197,7 +171,6 @@ class ReflectShell:
             self._output_bytes += len(rendered.encode("utf-8"))
             if self._on_checkpoint:
                 self._on_checkpoint(self.files(), self.context())
-            self.receipt(rendered, channel="tool_output")
         return rendered
 
     async def execute(self, command: str) -> str:
@@ -258,7 +231,6 @@ class ReflectShell:
             self._output_bytes += len(rendered.encode("utf-8"))
             if self._on_checkpoint:
                 self._on_checkpoint(files, context)
-            self.receipt(rendered, channel="tool_output")
             return rendered
 
     async def aclose(self) -> None:
