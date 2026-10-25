@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 
 def input_text(value: Any) -> str:
-    """Preserve actual text, including newlines; JSON escaping is not delivery."""
+    """Extract text from nested framework messages without JSON-escaping newlines."""
     if isinstance(value, str):
         return value
     if hasattr(value, "model_dump"):
