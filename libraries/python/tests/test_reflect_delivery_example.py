@@ -1,4 +1,4 @@
-"""Content proofs accept complete numbered output, never mere discovery or fragments."""
+"""Example retrieval evidence distinguishes verified excerpts from whole-file coverage."""
 
 import json
 import sys
@@ -104,6 +104,28 @@ def test_example_audit_uses_recorded_model_request_time(started_at, before):
     evidence = inspect_delivery([trace], {RULE.path: RULE.text}, "2026-10-23T00:00:01+00:00")
     assert evidence["model_input_versions"] == [RULE.version]
     assert evidence["before_submission_versions"] == ([RULE.version] if before else [])
+    assert evidence["before_submission_excerpt_versions"] == ([RULE.version] if before else [])
+
+
+@pytest.mark.parametrize("before", [False, True])
+def test_verified_excerpt_counts_as_retrieval_only_before_submission(before):
+    trace = {
+        "trace_id": "task",
+        "spans": [
+            {
+                "span_id": "model",
+                "kind": "LLM",
+                "started_at": f"2026-10-23T00:00:0{0 if before else 2}+00:00",
+                "input": numbered().splitlines()[-1],
+            }
+        ],
+    }
+    evidence = inspect_delivery([trace], {RULE.path: RULE.text}, "2026-10-23T00:00:01+00:00")
+    assert evidence["before_submission_excerpt_versions"] == ([RULE.version] if before else [])
+    assert evidence["partial_model_input_versions"] == [RULE.version]
+    assert not evidence["model_input_versions"] and not evidence["before_submission_versions"]
+    coverage = evidence["receipts"][0]["rule_coverage"][RULE.path]
+    assert coverage["matched_lines"] == [4] and not coverage["complete"]
 
 
 def test_example_audit_does_not_treat_tool_output_as_model_input():
@@ -113,6 +135,7 @@ def test_example_audit_does_not_treat_tool_output_as_model_input():
     }
     evidence = inspect_delivery([trace], {RULE.path: RULE.text}, None)
     assert not evidence["model_input_versions"] and not evidence["receipts"]
+    assert not evidence["before_submission_excerpt_versions"]
 
 
 async def test_example_matcher_distinguishes_partial_and_full_real_bash_output():
