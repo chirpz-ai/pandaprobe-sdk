@@ -178,6 +178,8 @@ def build_claude_agent_sdk(runtime, desk, model, workdir, *, validation=False, i
     # Empty settings prevent local project plugins/instructions changing the exercise.
     options = ClaudeAgentOptions(
         model=model,
+        thinking={"type": "disabled"},
+        effort="low",
         system_prompt=instructions,
         mcp_servers={"support": server},
         allowed_tools=[f"mcp__support__{fn.__name__}" for fn in desk.functions],
