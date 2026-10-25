@@ -29,9 +29,13 @@ def setup(tmp_path):
     return runtime
 
 
-async def test_langchain_real_agent_tool_delivery_memory_replacement_and_continuation(tmp_path):
-    pytest.importorskip("langchain")
-    from langchain.agents import create_agent
+@pytest.mark.parametrize("framework", ["langchain", "deepagents"])
+@pytest.mark.parametrize("checkpoint_mode", ["none", "saved", "cleared"])
+async def test_langchain_real_agent_tool_delivery_memory_replacement_and_continuation(
+    tmp_path, framework, checkpoint_mode
+):
+    native = pytest.importorskip("langchain.agents" if framework == "langchain" else framework)
+    factory = native.create_deep_agent if framework == "deepagents" else native.create_agent
     from langchain_core.language_models.fake_chat_models import FakeMessagesListChatModel
     from langchain_core.messages import AIMessage, ToolMessage
     from langgraph.checkpoint.memory import InMemorySaver
@@ -41,6 +45,17 @@ async def test_langchain_real_agent_tool_delivery_memory_replacement_and_continu
 
     class Model(FakeMessagesListChatModel):
         def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+            # Hosted models reject orphaned/repeated tool replies. Fake models
+            # otherwise accept malformed histories and hide continuation bugs.
+            pending = set()
+            for message in messages:
+                if isinstance(message, ToolMessage):
+                    assert message.tool_call_id in pending, "Tool reply has no preceding unanswered call"
+                    pending.remove(message.tool_call_id)
+                else:
+                    assert not pending, "Tool calls must be answered before the next message"
+                    pending = {call["id"] for call in message.tool_calls} if isinstance(message, AIMessage) else set()
+            assert not pending
             inputs.append(input_text(messages))
             return super()._generate(messages, stop=stop, run_manager=run_manager, **kwargs)
 
@@ -61,7 +76,10 @@ async def test_langchain_real_agent_tool_delivery_memory_replacement_and_continu
     object.__setattr__(runtime.client.config, "enabled", True)
     runtime.client._transport = MagicMock()
     agent = runtime.agent(
-        create_agent, model=model, system_prompt="Keep this developer instruction.", checkpointer=InMemorySaver()
+        factory,
+        model=model,
+        system_prompt="Keep this developer instruction.",
+        checkpointer=InMemorySaver() if checkpoint_mode != "none" else None,
     )
     invoke = invoker_for(agent, config={"callbacks": [LangChainCallbackHandler(client=runtime.client)]})
     async with runtime.execution(session_id="customer") as execution:
@@ -69,6 +87,8 @@ async def test_langchain_real_agent_tool_delivery_memory_replacement_and_continu
         first = await invoke(Invocation(input="Do the task", execution=execution))
         assert first["messages"][-1].content == "Task answer"
         assert any(isinstance(m, ToolMessage) and TEXT.strip() in m.content for m in first["messages"])
+        if checkpoint_mode == "cleared":
+            await agent.checkpointer.adelete_thread("customer")
         await runtime.bash("echo 'new memory' > /context.md")
         async with execution.activate("reflection"):
             second = await invoke(
@@ -82,6 +102,9 @@ async def test_langchain_real_agent_tool_delivery_memory_replacement_and_continu
             )
         memory = [m for m in second["messages"] if m.id == "pandaprobe-reflect-active-memory"]
         assert len(memory) == 1 and "new memory" in memory[0].content and "old memory" not in memory[0].content
+        assert sum(isinstance(m, ToolMessage) and m.tool_call_id == "read" for m in second["messages"]) == 1
+        assert sum(m.type == "human" and m.content == "Do the task" for m in second["messages"]) == 1
+        assert "Task answer" in inputs[-1] and "Review the result" in inputs[-1]
     payloads = [call.args[0] for call in runtime.client._transport.enqueue_trace.call_args_list]
     assert TEXT.strip() in inputs[1]
     assert len(payloads) == 2  # Reuse the existing tracing callback; no second tracing patch.
