@@ -54,42 +54,6 @@ def make_tool(runtime):
     return BashTool(cache_function=_never_cache)
 
 
-def observed_llm(llm, execution):
-    """Explicit instance delegation; no global provider wrapping or hooks."""
-    from crewai.llms.base_llm import BaseLLM
-    from pydantic import PrivateAttr
-
-    class ObservedLLM(BaseLLM):
-        _delegate: Any = PrivateAttr()
-
-        def call(self, messages, *args, **kwargs):
-            execution.observe_model_input(messages)
-            self._delegate.stop = self.stop
-            return self._delegate.call(messages, *args, **kwargs)
-
-        async def acall(self, messages, *args, **kwargs):
-            execution.observe_model_input(messages)
-            self._delegate.stop = self.stop
-            return await self._delegate.acall(messages, *args, **kwargs)
-
-        def supports_function_calling(self):
-            return self._delegate.supports_function_calling()
-
-        def supports_stop_words(self):
-            return self._delegate.supports_stop_words()
-
-        def get_context_window_size(self):
-            return self._delegate.get_context_window_size()
-
-        def get_token_usage_summary(self):
-            return self._delegate.get_token_usage_summary()
-
-    wrapper = ObservedLLM(model=llm.model, temperature=getattr(llm, "temperature", None))
-    wrapper._delegate = llm
-    wrapper.stop = getattr(llm, "stop", [])
-    return wrapper
-
-
 def invoker(agent: Any, **kwargs: Any):
     from crewai import Crew
 
@@ -101,9 +65,6 @@ def invoker(agent: Any, **kwargs: Any):
         for member in members:
             tools = [tool for tool in member.tools if tool.name != TOOL_NAME]
             member.tools = ([*tools] if request.phase != "reflection" else []) + [make_tool(runtime)]
-            member.llm = observed_llm(member.llm, request.execution)
-            if member.function_calling_llm is not None:
-                member.function_calling_llm = observed_llm(member.function_calling_llm, request.execution)
             if request.phase == "reflection":
                 member.max_iter = min(member.max_iter, runtime.config.reflection_max_commands + 1)
                 member.allow_delegation = False
