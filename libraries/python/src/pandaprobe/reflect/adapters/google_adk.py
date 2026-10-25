@@ -16,7 +16,7 @@ def configure(runtime, kwargs: dict[str, Any]) -> dict[str, Any]:
         execution = runtime._current.get()
         return (prefix or "") + ("\n\n" + execution.instructions() if execution else "")
 
-    async def receipt(callback_context, llm_request):
+    async def restrict_tools(callback_context, llm_request):
         execution = runtime._current.get()
         if execution is not None:
             if execution.role == "reflection":
@@ -29,7 +29,6 @@ def configure(runtime, kwargs: dict[str, Any]) -> dict[str, Any]:
                     if declaration.name == "reflect_bash"
                 ]
                 llm_request.config.tools = [types.Tool(function_declarations=declarations)]
-            execution.observe_model_input(llm_request)
 
     async def permissions(tool, args, tool_context):
         execution = runtime._current.get()
@@ -47,7 +46,7 @@ def configure(runtime, kwargs: dict[str, Any]) -> dict[str, Any]:
     return {
         **kwargs,
         "instruction": instruction,
-        "before_model_callback": [*callbacks, receipt],
+        "before_model_callback": [*callbacks, restrict_tools],
         "before_tool_callback": [permissions, *before_tool],
     }
 
