@@ -36,7 +36,6 @@ def configure(runtime, factory, args, kwargs, tools):
         execution = runtime._current.get()
         if execution is not None:
             result.insert(0, SystemMessage(content=execution.instructions(), id=MEMORY_ID))
-            execution.observe_model_input(result)
         return result
 
     async def permissions(request, handler):
