@@ -57,6 +57,10 @@ Use the corresponding file for another framework. `--model` (or
 CrewAI model names include a provider prefix, e.g. `openai/gpt-6-luna`.
 `--help` works without credentials or installing that framework.
 
+The Claude examples use disabled thinking and low effort to avoid the older
+bundled runtime's incompatible budget-based thinking mode with Haiku 5.5.
+Provider failures retain their error message in the terminal and run report.
+
 ## Workload and boundaries
 
 The default is six customer conversations, each with **inspect → authorize →
