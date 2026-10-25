@@ -185,6 +185,16 @@ def inspect_delivery(traces: list[dict], files: Mapping[str, str], first_submit:
         "before_submission_versions": sorted(
             {version for row in receipts if row["before_submission"] for version in row["rule_versions"].values()}
         ),
+        # Retrieval can deliver an excerpt without delivering the entire file.
+        # Keep full coverage above separate; neither proves behavioral compliance.
+        "before_submission_excerpt_versions": sorted(
+            {
+                match["version"]
+                for row in receipts
+                if row["before_submission"]
+                for match in row["rule_coverage"].values()
+            }
+        ),
     }
 
 
