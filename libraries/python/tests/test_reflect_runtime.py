@@ -332,7 +332,6 @@ async def test_registered_replay_is_scheduled_without_holding_the_task_barrier(t
         entered.set()
         async with resource:
             output = await request.execution.runtime.bash("cat /rules/*.md")
-            request.execution.submitted(output, channel="tool_output")
             success = request.case.protected or "Check sums" in output
             return Outcome(scores={"task_completion": float(success), "coherence": 1}, success=success)
 
