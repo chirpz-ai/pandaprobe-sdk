@@ -94,6 +94,13 @@ def invoker(options: Any, **kwargs: Any):
         # into its MCP dispatch tasks; no last-active-client router is used.
         async with ClaudeSDKClient(options=configured) as client:
             await client.query(request.feedback if request.phase == "reflection" else request.input)
-            return [message async for message in client.receive_response()]
+            messages = [message async for message in client.receive_response()]
+            for message in messages:
+                if isinstance(message, ResultMessage) and message.is_error:
+                    # Claude reports provider/turn-limit failures as values, not
+                    # exceptions. Do not treat them as completed task answers.
+                    detail = message.result or "No error details returned"
+                    raise RuntimeError(f"Claude Agent SDK failed ({message.subtype}): {detail}")
+            return messages
 
     return invoke
