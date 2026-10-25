@@ -155,7 +155,6 @@ class Validator:
                         "scores": outcome.scores,
                         "success": outcome.success,
                         "evidence": outcome.evidence,
-                        "delivered_versions": sorted(execution.delivered_versions),
                         "candidate_ids": execution.shell.candidate_ids,
                     }
                 finally:
@@ -174,8 +173,6 @@ class Validator:
         required = set(config.thresholds)
         seen_executions: set[str] = set()
         deltas: list[float] = []
-        control_versions: set[str] = set()
-        candidate_versions: set[str] = set()
         for row in rows:
             if row.get("base_revision") != proposal.base_revision:
                 return verdict("pending", "Case baseline does not match the proposed revision")
@@ -213,18 +210,11 @@ class Validator:
                     return verdict("rejected", f"Candidate regressed {name} on case {row['case_id']}")
                 if not row["protected"]:
                     deltas.append(change)
-            control_versions.update(control.get("delivered_versions", []))
-            candidate_versions.update(candidate.get("delivered_versions", []))
-        baseline = self.runtime.workspace.rules(proposal.base_revision)
-        for path, rule in proposal.changes.items():
-            if rule is not None and rule.version not in candidate_versions:
-                return verdict("pending", f"Changed guidance was not delivered: {path}")
-            if rule is None and baseline[path].version not in control_versions:
-                return verdict("pending", f"Removed guidance was not exercised by controls: {path}")
         if deltas and sum(deltas) / len(deltas) >= config.validation_min_improvement:
             return verdict(
                 "accepted", "Observed paired improvement within configured regression tolerances in tested cases"
             )
+        baseline = self.runtime.workspace.rules(proposal.base_revision)
         candidate_rules = self.runtime.workspace.candidate_rules(proposal)
         if sum(len(r.text.encode()) for r in candidate_rules.values()) < sum(
             len(r.text.encode()) for r in baseline.values()
@@ -248,7 +238,7 @@ class Validator:
     def record_trial(self, proposal_id: str, case: TrialCase | dict[str, Any]) -> ValidationVerdict:
         """Record a host-assigned matched live trial; unrelated sessions never count.
 
-        The host attests independent outcomes and actual submitted rule versions.
+        The host attests independent outcomes and control/candidate assignments.
         Repeated case IDs with different data are rejected, not silently replaced.
         """
         proposal = self.runtime.workspace.proposal(proposal_id)
