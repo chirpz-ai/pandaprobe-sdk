@@ -55,7 +55,15 @@ def invoker(agent: Any, **kwargs: Any):
             config["recursion_limit"] = min(
                 config.get("recursion_limit", 25), request.execution.runtime.config.reflection_max_commands * 2 + 2
             )
-            value = dict(request.previous_result) if isinstance(request.previous_result, dict) else {"messages": []}
+            history = None
+            if getattr(agent, "checkpointer", None):
+                history = (await agent.aget_state(config)).values.get("messages")
+            # A checkpoint already owns the conversation and other agent state.
+            # Replaying output as an update duplicates ID-less messages (notably
+            # Deep Agents tool replies) while deduplicating their assistant calls.
+            value = {}
+            if not history and isinstance(request.previous_result, dict):
+                value = dict(request.previous_result)
             messages = convert_to_messages(value.get("messages", []))
             messages.append(HumanMessage(content=request.feedback))
         else:
