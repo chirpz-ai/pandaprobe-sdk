@@ -90,21 +90,28 @@ it does not override the model or fabricate a failure.
    reopens the workspace from disk. A new agent/checkpointer and customer session
    handle a new 9,250 + 850 shipping order. The example verifies the accepted
    revision, empty initial active memory, and no candidate trial assignment. Its
-   own trace audit looks for complete accepted rule coverage in a task model
-   request before the first refund attempt. The independent ledger and platform
-   evaluation are recorded separately.
+   own trace audit verifies that text from each accepted rule reached a task model
+   request before the first refund attempt. A verified excerpt suffices; reading
+   the whole file is not required. The independent ledger and platform evaluation
+   are recorded separately.
 
 The example audit uses only **task inputs**, excluding subsequent reflection.
 It compares the recorded model-request time with the first refund attempt, not
 the time the audit runs. Reading a rule only after the refund submission cannot
 satisfy this demonstration. Reading guidance and succeeding once still do not
-establish general reliability. Complete coverage includes numbered grep output containing every
-nonblank rule line, not only verbatim `cat` output. Each path, line number, and
-line text must match the current file. Partial snippets are recorded separately
-in `rule_coverage` and `partial_model_input_versions`; they cannot satisfy full
-coverage. The check does not combine disjoint excerpts into complete coverage.
-An agent can benefit from a partial excerpt; the example reports that evidence
-separately. This demonstration's whole-file criterion is not a production policy.
+establish general reliability. `before_submission_excerpt_versions` records
+versions with verified text in model input before the action, whether partial
+or complete. A filename or search command alone does not count. For numbered
+grep output, each matched path, line number, and line text must agree with the
+current file. Retrieval does not prove that the excerpt was relevant or used;
+business success and paired improvement remain separate evidence.
+
+The report still distinguishes complete coverage (`model_input_versions` and
+`before_submission_versions`) from partial snippets (`rule_coverage` and
+`partial_model_input_versions`). Only verbatim full text or numbered output
+covering every nonblank line counts as complete. Separate excerpts are never
+combined into a claim of whole-file coverage. These checks live only in the
+example and do not affect SDK rule acceptance.
 
 ## Bounds and artifacts
 
@@ -159,8 +166,8 @@ before a report exists.
 
 Offline tests exercise all seven native framework loops with scripted model and
 API fixtures, including Claude's accepted candidate with unverified fresh retrieval. LangChain additionally
-covers protected regressions, no-proposal and judge-miss outcomes, missing/late or
-partial retrieval, and operational failure reports. A recorded numbered-grep
+covers protected regressions, no-proposal and judge-miss outcomes, missing/late
+retrieval failures, verified partial retrieval, and operational failure reports. A recorded numbered-grep
 output from the live LangChain incident is retained as a regression fixture. **These
 fixtures do not establish that the live model will produce an accepted rule.**
 Inspect the live report before making any improvement claim. This is a focused
