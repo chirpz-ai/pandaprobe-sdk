@@ -23,6 +23,8 @@ import pandaprobe
 assert "pandaprobe.reflect" not in sys.modules
 from pandaprobe.api import PlatformClient
 from pandaprobe.reflect import Reflect, ReflectConfig
+assert importlib.util.find_spec("pandaprobe.reflect.delivery") is None
+assert "_support.delivery" not in sys.modules
 client = pandaprobe.Client(enabled=False)
 with client.trace("disabled"):
     pass
