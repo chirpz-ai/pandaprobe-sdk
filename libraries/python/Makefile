@@ -1,7 +1,10 @@
-.PHONY: install install-langgraph install-langchain install-deepagents install-google-adk install-claude-agent-sdk install-crewai install-openai-agents lock lint format format-check test test-cov build clean
+.PHONY: install install-reflect install-langgraph install-langchain install-deepagents install-google-adk install-claude-agent-sdk install-crewai install-openai-agents lock lint format format-check test test-cov build clean
 
 install:
 	uv sync --extra dev
+
+install-reflect:
+	uv sync --extra dev --extra reflect
 
 install-langgraph:
 	uv sync --extra dev --extra langgraph

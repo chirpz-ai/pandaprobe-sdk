@@ -49,7 +49,7 @@ def get_population(city: str) -> dict:
 
 agent = LlmAgent(
     name="city_info_agent",
-    model="gemini-3.1-flash-lite-preview",
+    model="gemini-3.8-flash",
     instruction=(
         "You are a helpful assistant with access to weather and population tools. "
         "Use the tools to answer questions about cities."

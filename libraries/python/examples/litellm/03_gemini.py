@@ -23,7 +23,7 @@ wrap_litellm(litellm)
 
 if __name__ == "__main__":
     response = litellm.completion(
-        model="gemini/gemini-3.1-flash-lite",
+        model="gemini/gemini-3.8-flash",
         messages=[
             {"role": "system", "content": "You are a concise assistant. Answer in one or two sentences."},
             {"role": "user", "content": "What is a generator in Python and when should I use one?"},

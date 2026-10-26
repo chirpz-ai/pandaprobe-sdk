@@ -63,7 +63,7 @@ async def main():
             "You are a helpful assistant with access to weather and population tools. "
             "Use the tools to answer questions about cities."
         ),
-        model="gpt-5.4-nano",
+        model="gpt-6-luna",
         tools=[get_weather, get_population],
     )
 

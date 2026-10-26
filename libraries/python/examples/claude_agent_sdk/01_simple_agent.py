@@ -35,7 +35,7 @@ async def main():
 
     options = ClaudeAgentOptions(
         system_prompt="You are a helpful assistant. Keep answers concise.",
-        model="claude-sonnet-4-20250514",
+        model="claude-haiku-5-5",
         permission_mode="bypassPermissions",
         max_turns=1,
     )

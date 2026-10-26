@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import logging
 import threading
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
 from uuid import UUID
+
+if TYPE_CHECKING:
+    from pandaprobe.tracing.capture import TraceCapture
 
 from pandaprobe.config import SdkConfig, _env_bool, resolve_config
 from pandaprobe.schemas import ScoreData, ScoreDataType, TraceData
@@ -146,6 +149,30 @@ class Client:
     def config(self) -> SdkConfig:
         return self._config
 
+    def capture_traces(
+        self,
+        *,
+        metadata: dict[str, Any] | None = None,
+        session_id: str | None = None,
+        max_traces: int = 1000,
+        on_submit: Callable[[dict[str, Any]], None] | None = None,
+    ) -> TraceCapture:
+        """Capture IDs submitted by existing instrumentation in an explicit scope.
+
+        Optional attributes apply only inside this scope, without mutating the
+        original TraceData. No tracing patches, worker changes, or persistence
+        guarantee are introduced. Consume streaming results before leaving it.
+        Descendant tasks retain attribution after closing; ID collection stops.
+        """
+        from contextvars import ContextVar
+
+        from pandaprobe.tracing.capture import TraceCapture
+
+        variable = self.__dict__.setdefault("_trace_capture", ContextVar("pandaprobe.trace_capture", default=None))
+        return TraceCapture(
+            variable, metadata=metadata, session_id=session_id, max_traces=max_traces, on_submit=on_submit
+        )
+
     # ------------------------------------------------------------------
     # Trace operations
     # ------------------------------------------------------------------
@@ -183,7 +210,12 @@ class Client:
             trace_data.environment = self._config.environment
         if self._config.release and not trace_data.release:
             trace_data.release = self._config.release
-        self._transport.enqueue_trace(trace_data.to_api_dict())
+        payload = trace_data.to_api_dict()
+        variable = getattr(self, "_trace_capture", None)
+        capture = variable.get() if variable is not None else None
+        if capture is not None:
+            payload = capture._apply(payload)
+        self._transport.enqueue_trace(payload)
 
     # ------------------------------------------------------------------
     # Score operations

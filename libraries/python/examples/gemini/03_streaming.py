@@ -27,7 +27,7 @@ if __name__ == "__main__":
     print("Streaming response:\n")
 
     stream = client.models.generate_content_stream(
-        model="gemini-3.1-flash-lite-preview",
+        model="gemini-3.8-flash",
         contents="Write a short poem about debugging code.",
         config=types.GenerateContentConfig(
             system_instruction="You are a helpful assistant.",

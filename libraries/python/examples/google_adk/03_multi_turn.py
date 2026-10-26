@@ -27,7 +27,7 @@ from pandaprobe.integrations.google_adk import GoogleADKAdapter
 
 agent = LlmAgent(
     name="travel_advisor",
-    model="gemini-3.1-flash-lite-preview",
+    model="gemini-3.8-flash",
     instruction="You are a helpful travel advisor. Keep answers to 2-3 sentences.",
     generate_content_config=GenerateContentConfig(
         thinking_config=ThinkingConfig(thinking_level="low", include_thoughts=True),

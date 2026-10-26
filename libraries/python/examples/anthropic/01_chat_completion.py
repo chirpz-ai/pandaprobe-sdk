@@ -1,7 +1,7 @@
-"""Anthropic wrapper — messages.create with extended thinking.
+"""Anthropic wrapper — messages.create with adaptive thinking.
 
 Demonstrates wrap_anthropic instrumenting a messages.create call with
-extended thinking enabled. The wrapper automatically creates an LLM span
+adaptive thinking enabled. The wrapper automatically creates an LLM span
 capturing model, tokens, I/O, and reasoning summary.
 
 Required env vars:
@@ -23,9 +23,10 @@ client = wrap_anthropic(anthropic.Anthropic())
 
 if __name__ == "__main__":
     response = client.messages.create(
-        model="claude-sonnet-4-6",
+        model="claude-haiku-5-5",
         max_tokens=2048,
-        thinking={"type": "enabled", "budget_tokens": 1024},
+        thinking={"type": "adaptive"},
+        output_config={"effort": "low"},
         system="You are a concise assistant. Answer in one or two sentences.",
         messages=[
             {"role": "user", "content": "Explain what a Python decorator is."},

@@ -18,6 +18,7 @@ import uuid
 
 from deepagents import create_deep_agent
 from langchain.tools import tool
+from langchain_openai import ChatOpenAI
 
 import pandaprobe
 from pandaprobe.integrations.deepagents import DeepAgentsCallbackHandler
@@ -35,7 +36,7 @@ def get_attraction(city: str) -> str:
 
 
 agent = create_deep_agent(
-    model="openai:gpt-5.4-nano",
+    model=ChatOpenAI(model="gpt-6-luna", reasoning_effort="none"),
     tools=[get_attraction],
     system_prompt=(
         "You are a helpful travel advisor. Plan briefly with write_todos when "

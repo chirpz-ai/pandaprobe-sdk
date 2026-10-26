@@ -32,7 +32,7 @@ def main():
     )
     adapter.instrument()
 
-    llm = LLM(model="gemini/gemini-3.1-flash-lite")
+    llm = LLM(model="gemini/gemini-3.8-flash")
 
     researcher = Agent(
         role="Researcher",

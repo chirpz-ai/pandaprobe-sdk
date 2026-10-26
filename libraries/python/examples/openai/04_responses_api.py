@@ -23,7 +23,7 @@ client = wrap_openai(openai.OpenAI())
 
 if __name__ == "__main__":
     response = client.responses.create(
-        model="gpt-5.4-nano",
+        model="gpt-6-luna",
         instructions="You are a concise assistant. Reason and answer the question.",
         input="with the rapid development of AI, what are the potential risks for humanity in the next 10 years?",
         reasoning={"effort": "medium", "summary": "auto"},

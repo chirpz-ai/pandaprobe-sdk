@@ -29,12 +29,13 @@ if __name__ == "__main__":
     print("Streaming response:\n")
 
     response = client.converse_stream(
-        modelId="us.anthropic.claude-haiku-4-5-20251001-v1:0",
+        modelId="us.anthropic.claude-haiku-5-5",
         system=[{"text": "You are a helpful assistant."}],
         messages=[
             {"role": "user", "content": [{"text": "Write a short poem about debugging code."}]},
         ],
-        inferenceConfig={"temperature": 0.7, "maxTokens": 200},
+        inferenceConfig={"maxTokens": 2048},
+        additionalModelRequestFields={"output_config": {"effort": "low"}},
     )
 
     for event in response["stream"]:

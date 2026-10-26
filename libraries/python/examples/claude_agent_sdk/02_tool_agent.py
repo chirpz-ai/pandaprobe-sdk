@@ -75,7 +75,7 @@ async def main():
 
     options = ClaudeAgentOptions(
         system_prompt="You are a helpful assistant with access to weather and population tools.",
-        model="claude-sonnet-4-20250514",
+        model="claude-haiku-5-5",
         mcp_servers={"city_info": server},
         allowed_tools=["mcp__city_info__get_weather", "mcp__city_info__get_population"],
         permission_mode="bypassPermissions",

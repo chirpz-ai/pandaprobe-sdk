@@ -1,7 +1,7 @@
 """Anthropic wrapper — multi-turn conversation with sessions.
 
 Demonstrates pandaprobe.session() + wrap_anthropic for a multi-turn conversation
-with extended thinking enabled. The wrapper automatically creates traces and LLM
+with adaptive thinking enabled. The wrapper automatically creates traces and LLM
 spans for each call, and the session context groups them together.
 
 Required env vars:
@@ -41,8 +41,9 @@ if __name__ == "__main__":
             conversation.append({"role": "user", "content": question})
 
             response = client.messages.create(
-                model="claude-sonnet-4-6",
-                max_tokens=200,
+                model="claude-haiku-5-5",
+                max_tokens=2048,
+                output_config={"effort": "low"},
                 system="You are a concise geography assistant.",
                 messages=conversation,
             )
@@ -52,7 +53,10 @@ if __name__ == "__main__":
                 if block.type == "text":
                     reply_text += block.text
 
-            conversation.append({"role": "assistant", "content": reply_text})
+            # Preserve signed thinking blocks alongside the answer across turns.
+            conversation.append(
+                {"role": "assistant", "content": [block.model_dump(exclude_none=True) for block in response.content]}
+            )
             print(f"Bot:  {reply_text}\n")
 
     pandaprobe.flush()

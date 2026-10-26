@@ -19,7 +19,7 @@ All examples require:
 ```bash
 export PANDAPROBE_API_KEY="sk_pp_..."
 export PANDAPROBE_PROJECT_NAME="my-project"
-export PANDAPROBE_ENDPOINT="http://localhost:8000"
+export PANDAPROBE_ENDPOINT="https://api.pandaprobe.com/"
 
 # Provider keys (set whichever you need):
 export OPENAI_API_KEY="sk-..."
@@ -28,6 +28,16 @@ export ANTHROPIC_API_KEY="sk-ant-..."
 ```
 
 The SDK auto-initializes from these environment variables — no `pandaprobe.init()` call is needed.
+
+Examples use [GPT-6 Luna](https://developers.openai.com/api/docs/models/gpt-6-luna),
+[Gemini 3.8 Flash](https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash), and
+[Claude Haiku 5.5](https://platform.claude.com/docs/en/models/haiku-5-5/migration-guide).
+Provider prefixes are retained where required; Bedrock uses
+[`us.anthropic.claude-haiku-5-5`](https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-anthropic-claude-haiku-5-5.html).
+The OpenAI examples that use Chat Completions with tools explicitly disable
+reasoning, as required by GPT-6 Luna on that endpoint. OpenAI Agents and the
+Responses API example use Responses, which supports reasoning with tools.
+Claude examples use adaptive thinking, and Gemini examples use supported thinking levels.
 
 
 To enable debug logging:
@@ -50,6 +60,22 @@ uv run python examples/openai/01_chat_completion.py
 ```
 
 ## Examples
+
+### Reflect: live agent pressure tests
+
+Each of the seven Python agent-framework folders includes `04_reflect.py`: a real
+model-backed support agent handling six three-turn customer conversations with
+policy changes, duplicate requests, rule retrieval, reflection, and independent
+paired replay. See [the live support guide](reflect/live_support.md) for installs,
+credentials, longer runs, costs, and how to interpret the generated reports.
+The business tools use fictional local data; model calls and platform evaluations
+are real. The [offline demo](reflect/README.md) remains available without credentials.
+
+Each framework also includes `05_reflect_failure.py`: a controlled stale-runbook incident with
+independent ledger checks, held-out paired replay, and accepted-guidance retrieval
+on a fresh execution. See [the live failure guide](reflect/live_failure.md) for
+commands and framework evidence limits, and the [workspace guide](reflect/workspace.md)
+for the generated files.
 
 ### Context Managers
 
@@ -85,8 +111,8 @@ uv run python examples/openai/01_chat_completion.py
 
 | Example | Description |
 |---|---|
-| `anthropic/01_chat_completion.py` | messages.create with extended thinking and automatic tracing via `wrap_anthropic` |
-| `anthropic/02_multi_turn.py` | Multi-turn conversation with extended thinking and session grouping via `pandaprobe.session()` + `wrap_anthropic` |
+| `anthropic/01_chat_completion.py` | messages.create with adaptive thinking and automatic tracing via `wrap_anthropic` |
+| `anthropic/02_multi_turn.py` | Multi-turn conversation with adaptive thinking and session grouping via `pandaprobe.session()` + `wrap_anthropic` |
 
 ### LiteLLM Wrapper
 

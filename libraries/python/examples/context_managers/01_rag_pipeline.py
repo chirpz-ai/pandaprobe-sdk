@@ -68,7 +68,7 @@ if __name__ == "__main__":
 
         context = "\n".join(doc["text"] for doc in results)
 
-        with trace.span("llm-generation", kind="LLM", model="gpt-5.4-nano") as llm:
+        with trace.span("llm-generation", kind="LLM", model="gpt-6-luna") as llm:
             messages = [
                 {
                     "role": "system",
@@ -79,7 +79,7 @@ if __name__ == "__main__":
             llm.set_input({"messages": messages})
 
             response = oai_client.chat.completions.create(
-                model="gpt-5.4-nano",
+                model="gpt-6-luna",
                 messages=messages,
                 reasoning_effort="low",
                 max_completion_tokens=200,

@@ -2,11 +2,25 @@
 
 Python SDK for [PandaProbe](https://www.pandaprobe.com/) — open source agent engineering platform.
 
+**Trace → Evaluate → Reflect.** Opt-in [PandaProbe Reflect](examples/reflect/README.md)
+lets your task agent maintain learned guidance through a supplied Bash filesystem,
+with external evaluation evidence and independent validation of shared changes.
+
 ## Installation
 
 ```bash
 pip install pandaprobe
 ```
+
+To enable reflection, compose it with your existing framework extra:
+
+```bash
+pip install "pandaprobe[reflect,langchain]"
+```
+
+Reflect is explicitly enabled through `pandaprobe.reflect.Reflect`. Ordinary
+tracing does not import or activate it. See the [integration guide](examples/reflect/README.md)
+and [credential-free offline demo](examples/reflect/offline_demo.py).
 
 With optional LLM provider wrappers:
 

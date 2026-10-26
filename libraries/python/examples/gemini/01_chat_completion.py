@@ -23,7 +23,7 @@ client = wrap_gemini(genai.Client())
 
 if __name__ == "__main__":
     response = client.models.generate_content(
-        model="gemini-3.1-flash-lite-preview",
+        model="gemini-3.8-flash",
         contents="with the rapid development of AI, what are the potential risks for humanity in the next 10 years?",
         config=types.GenerateContentConfig(
             thinking_config=types.ThinkingConfig(thinking_level="low", include_thoughts=True),
