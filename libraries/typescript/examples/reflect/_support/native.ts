@@ -1,9 +1,11 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { mkdirSync, mkdtempSync } from "node:fs";
 import { join } from "node:path";
 import { wrapClaudeAgentQuery } from "../../../src/integrations/claude-agent-sdk/index.js";
 import { DeepAgentsCallbackHandler } from "../../../src/integrations/deepagents/index.js";
 import { LangChainCallbackHandler } from "../../../src/integrations/langchain/index.js";
 import { LangGraphCallbackHandler } from "../../../src/integrations/langgraph/index.js";
+import type { TraceProcessor } from "../../../src/integrations/openai-agents/adapter.js";
 import { OpenAIAgentsAdapter } from "../../../src/integrations/openai-agents/index.js";
 import { pandaProbeMiddleware, wrapVercelAgent } from "../../../src/integrations/vercel-ai/index.js";
 import {
@@ -15,6 +17,42 @@ import {
 import { optionalModule } from "../../../src/reflect/integrations.js";
 import type { TaskInputAudit } from "./delivery.js";
 import { nativeTelemetry } from "./telemetry.js";
+
+// The Agents SDK registry is shared by all factories. Register one dispatcher,
+// then route each trace to the invoking factory's client/tags (including fresh
+// runtimes and simultaneous examples). Leave host-owned processors untouched.
+const openaiProcessors = new WeakSet<object>();
+const openaiInvocation = new AsyncLocalStorage<TraceProcessor>();
+function registerOpenAIProcessor(sdk: any): void {
+  if (openaiProcessors.has(sdk)) return;
+  const owners = new Map<string, TraceProcessor>();
+  const id = (event: any) => String(event.traceId ?? event.trace_id ?? "");
+  sdk.addTraceProcessor({
+    onTraceStart(trace: any) {
+      const processor = openaiInvocation.getStore();
+      if (!processor) return;
+      owners.set(id(trace), processor);
+      processor.onTraceStart(trace);
+    },
+    onSpanStart(span: any) {
+      owners.get(id(span))?.onSpanStart(span);
+    },
+    onSpanEnd(span: any) {
+      owners.get(id(span))?.onSpanEnd(span);
+    },
+    onTraceEnd(trace: any) {
+      const processor = owners.get(id(trace));
+      owners.delete(id(trace));
+      processor?.onTraceEnd(trace);
+    },
+    forceFlush() {},
+    shutdown() {
+      owners.clear();
+      openaiProcessors.delete(sdk);
+    },
+  });
+  openaiProcessors.add(sdk);
+}
 export interface BusinessTool {
   name: string;
   description: string;
@@ -89,6 +127,7 @@ export async function nativeFactory(
   framework: Exclude<Framework, "generic">,
   options: NativeOptions,
 ): Promise<AgentFactory> {
+  let openaiProcessor: TraceProcessor | undefined;
   let model = options.model;
   if (["langchain", "langgraph", "deepagents"].includes(framework) && typeof model === "string") {
     const { ChatOpenAI } = await optionalModule("@langchain/openai");
@@ -105,12 +144,11 @@ export async function nativeFactory(
   }
   if (framework === "openai-agents") {
     const sdk = await optionalModule("@openai/agents");
-    sdk.addTraceProcessor(
-      new OpenAIAgentsAdapter({
-        client: runtime.client,
-        tags: [options.tag ?? "reflect-support", "example"],
-      }).createTraceProcessor(),
-    );
+    registerOpenAIProcessor(sdk);
+    openaiProcessor = new OpenAIAgentsAdapter({
+      client: runtime.client,
+      tags: [options.tag ?? "reflect-support", "example"],
+    }).createTraceProcessor();
   }
   const create = async (
     definitions: BusinessTool[],
@@ -291,7 +329,8 @@ export async function nativeFactory(
       ...agent,
       async invokeReflect(request: Invocation, overrides?: Record<string, any>) {
         try {
-          const result = await agent.invokeReflect(request, overrides);
+          const invoke = () => agent.invokeReflect(request, overrides);
+          const result = await (openaiProcessor ? openaiInvocation.run(openaiProcessor, invoke) : invoke());
           if (options.onResult)
             options.onResult({
               execution_id: request.execution.id,
