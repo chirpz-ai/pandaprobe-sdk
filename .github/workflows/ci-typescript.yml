@@ -61,3 +61,45 @@ jobs:
         run: pnpm exec vitest run --coverage
       - name: Build
         run: pnpm run build
+      - name: Packed ESM/CJS and minimal/runtime consumers
+        run: pnpm test:package
+
+  typescript-reflect-platforms:
+    name: Reflect filesystem and package (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: libraries/typescript/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec vitest run test/reflect test/api.test.ts test/trace-capture.test.ts
+      - run: pnpm run build
+      - run: pnpm test:package
+
+  typescript-reflect-native:
+    name: Reflect native framework loops (Node 22)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: libraries/typescript/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: npm ci --prefix test/native --ignore-scripts --no-audit --no-fund
+      - run: pnpm test:native
+      - run: pnpm typecheck:native
