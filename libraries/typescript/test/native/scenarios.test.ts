@@ -1,10 +1,26 @@
 import { randomUUID } from "node:crypto";
-import { expect, it, vi } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
 import { failureLoop, supportLoop } from "../../examples/reflect/_support/loops.js";
 import { nativeFactory } from "../../examples/reflect/_support/native.js";
 import type { Framework } from "../../src/reflect/index.js";
 import { optionalModule } from "../../src/reflect/integrations.js";
 import { WRITE_RULE, fixture } from "../reflect/helpers.js";
+const hostTraceEnd = vi.fn();
+beforeEach(async () => {
+  const sdk = await optionalModule("@openai/agents");
+  sdk.setTracingDisabled(false);
+  sdk.setTraceProcessors([
+    {
+      onTraceStart() {},
+      onSpanStart() {},
+      onSpanEnd() {},
+      onTraceEnd: hostTraceEnd,
+      forceFlush() {},
+      shutdown() {},
+    },
+  ]);
+  hostTraceEnd.mockClear();
+});
 function strings(value: any): string[] {
   if (typeof value === "string") return [value];
   if (Array.isArray(value)) return value.flatMap(strings);
@@ -107,8 +123,6 @@ async function scripted(f: ReturnType<typeof fixture>, framework: Exclude<Framew
   }
   if (framework === "openai-agents") {
     const sdk = await optionalModule("@openai/agents");
-    sdk.setTracingDisabled(false);
-    sdk.setTraceProcessors([]);
     return {
       model: {
         async getResponse(request: any) {
@@ -268,6 +282,12 @@ it.each(frameworks)(
     expect(report.turns[1].initial_active_memory_bytes).toBe(0);
     expect(partial.length).toBeGreaterThanOrEqual(4);
     expect(report.milestones.fresh_guidance_retrieved).toBe(true);
+    if (framework === "openai-agents") {
+      // Reopening the runtime must not register a second global exporter.
+      for (const turn of report.turns) expect(turn.reflect.trace_ids).toHaveLength(1);
+      expect(f.client.logTrace).toHaveBeenCalledTimes(9); // initial + reflection + six arms + fresh
+      expect(hostTraceEnd).toHaveBeenCalledTimes(9);
+    }
   },
 );
 it.each(frameworks)(
@@ -321,6 +341,18 @@ it.each(frameworks)("%s keeps simultaneous runtime/tool instances isolated", asy
   expect(a.ledger[0]?.amount_cents).toBe(6500);
   expect(b.ledger[0]?.amount_cents).toBe(1500);
   expect(left.runtime.workspace.path).not.toBe(right.runtime.workspace.path);
+  if (framework === "openai-agents") {
+    expect(left.client.logTrace).toHaveBeenCalledTimes(1);
+    expect(right.client.logTrace).toHaveBeenCalledTimes(1);
+    expect(left.runtime.report("same").trace_ids).toHaveLength(1);
+    expect(right.runtime.report("same").trace_ids).toHaveLength(1);
+    expect(hostTraceEnd).toHaveBeenCalledTimes(2);
+    const sdk = await optionalModule("@openai/agents");
+    await sdk.withTrace("unrelated host trace", async () => {});
+    expect(hostTraceEnd).toHaveBeenCalledTimes(3);
+    expect(left.client.logTrace).toHaveBeenCalledTimes(1);
+    expect(right.client.logTrace).toHaveBeenCalledTimes(1);
+  }
 });
 
 it.each(frameworks)("%s propagates native task failures without claiming reflection success", async (framework) => {
