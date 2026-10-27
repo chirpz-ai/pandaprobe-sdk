@@ -67,6 +67,8 @@ jobs:
   typescript-reflect-platforms:
     name: Reflect filesystem and package (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    env:
+      RUST_BACKTRACE: full
     strategy:
       fail-fast: false
       matrix:
@@ -82,7 +84,10 @@ jobs:
           cache: pnpm
           cache-dependency-path: libraries/typescript/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec vitest run test/reflect test/api.test.ts test/trace-capture.test.ts
+      # Keep native runtime lifecycle/process-lock suites from competing for
+      # runner resources. Retain every test and identify the last completed test
+      # if the pinned native binding aborts (Rust panics bypass Vitest assertions).
+      - run: pnpm exec vitest run test/reflect test/api.test.ts test/trace-capture.test.ts test/native-fixture.test.ts --fileParallelism=false --reporter=verbose
       - run: pnpm run build
       - run: pnpm test:package
 
