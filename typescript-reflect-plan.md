@@ -1168,3 +1168,41 @@ The only live platform operation was the authorized read-only CLI inspection; no
 new model/evaluation calls were made. Hash checks preserve Python, installed
 dependency manifests/lockfiles, other integrations and the original run artifacts.
 `git diff --check` passes. Nothing was staged, committed, pushed or published.
+
+### PR #33 review fixes — 2026-10-27
+
+**DONE — lint and dependency isolation.** Corrected the package manifest's Biome
+formatting and explicitly ignored generated `.pandaprobe` artifacts. Removed
+locally installed framework/provider SDKs from the base development manifest and
+regenerated its lockfile without changing the installed example packages. A clean
+Node 18 install with strict engine enforcement passes. Optional peers and the
+on-demand framework install targets are unchanged. The native fixture linker now
+rejects shadowing root packages before creating any links; an explicit
+`test:native:installed` command supports local compatibility checks and reports
+overrides. Three subprocess regressions cover pinned resolution, idempotency,
+non-destructive refusal, explicit overrides and missing fixtures.
+
+**DONE — OpenAI example trace ownership.** The example factory registers one SDK
+dispatcher and routes traces through invocation-scoped processors. Reopening a
+runtime no longer duplicates exports; concurrent clients stay isolated and host
+processors remain registered. The test harness now resets processors once per
+test rather than once per factory. The fresh-runtime and concurrent-client
+regressions both fail against the previous factory and pass with the fix.
+
+Verification: **404 base tests / 27 files** pass on Node 18, including a clean
+installation without framework SDKs; **79 native tests / 6 files** pass against
+both the pinned fixture on Node 22 and the locally installed versions. Formatting,
+lint, both typechecks, build and packed ESM/CJS/NodeNext consumer checks pass.
+
+**Windows investigation / mitigation — hosted verification of the updated
+workflow remains pending.** The original failure in workflow run `40472702945`
+was a Bashkit 0.19.0 native Tokio panic, terminating the shell-test worker, not a
+reported filesystem assertion failure. The targeted rerun on the unchanged PR
+commit passed all **298 tests**, build and package verification. Twenty repeated
+Node 22 shell-suite runs also passed locally. The platform job now serializes
+test files, includes the fixture-linker regressions and enables verbose output
+and full Rust backtraces. Its exact command passes locally (**301 tests / 10
+files**). This reduces runner contention and improves diagnosis; it is not proof
+of a fix inside Bashkit. The native abort's precise trigger remains unconfirmed.
+No shell semantics or runtime pins were changed. Do not mark the new Windows
+workflow verified until the changed commit runs on the hosted runner.
