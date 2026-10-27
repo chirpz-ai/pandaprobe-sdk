@@ -1,9 +1,10 @@
 /**
- * Vercel AI SDK integration — a `LanguageModelV2Middleware` that emits a
+ * Vercel AI SDK model middleware that emits a
  * PandaProbe LLM span for every `doGenerate` / `doStream`.
  *
  * Net-new vs the Python SDK, but follows the same schema/normalization contract
  * so traces are cross-compatible. Reuses the wrapper streaming-reducer engine.
+ * Use wrapVercelAgent for native agent lifecycle and tool execution spans.
  *
  * Usage:
  *   import { wrapLanguageModel } from "ai";
@@ -11,9 +12,9 @@
  *   const model = wrapLanguageModel({ model: openai("gpt-4o"), middleware: pandaProbeMiddleware() });
  */
 
-import type { SpanContext } from "../../tracing/span.js";
 import { closeLlmSpan, errorLlmSpan, openLlmSpan, setSpanUsage } from "../../wrappers/base.js";
-import { extractVercelText, extractVercelUsage, normalizeVercelInput } from "./utils.js";
+import { vercelRuns } from "./run.js";
+import { extractVercelOutput, extractVercelUsage, normalizeVercelInput } from "./utils.js";
 
 type Any = any;
 
@@ -26,13 +27,31 @@ function spanModel(model: Any): string | null {
   return model?.modelId ?? model?.modelID ?? null;
 }
 
-function openSpan(params: Any, model: Any, name: string): SpanContext | null {
-  return openLlmSpan({
+function openSpan(params: Any, model: Any, name: string) {
+  const run = vercelRuns.getStore();
+  if (run) {
+    const span = run.model(params, model, name);
+    return {
+      span,
+      usage: (usage: Record<string, number> | null) => {
+        if (usage) span?.setTokenUsage(usage);
+      },
+      end: (error?: unknown) => span?.end(error),
+    };
+  }
+  const span = openLlmSpan({
     methodName: name,
     inputData: normalizeVercelInput(params),
     modelParams: {},
     model: spanModel(model),
   });
+  return {
+    span,
+    usage: (usage: Record<string, number> | null) => {
+      if (span) setSpanUsage(span, usage);
+    },
+    end: (error?: unknown) => (error == null ? closeLlmSpan(span) : errorLlmSpan(span, error)),
+  };
 }
 
 /** Build a PandaProbe middleware object for the AI SDK's `wrapLanguageModel`. */
@@ -41,35 +60,36 @@ export function pandaProbeMiddleware(options: VercelMiddlewareOptions = {}) {
 
   return {
     wrapGenerate: async ({ doGenerate, params, model }: Any): Promise<Any> => {
-      const span = openSpan(params, model, name);
+      const observation = openSpan(params, model, name);
+      const { span } = observation;
       try {
         const result = await doGenerate();
         if (span !== null) {
-          const text = extractVercelText(result);
-          if (text !== null) {
-            span.setOutput({ messages: [{ role: "assistant", content: text }] });
-          }
-          setSpanUsage(span, extractVercelUsage(result?.usage));
+          const output = extractVercelOutput(result);
+          if (output !== null) span.setOutput(output);
+          observation.usage(extractVercelUsage(result?.usage));
         }
-        closeLlmSpan(span);
+        observation.end();
         return result;
       } catch (exc) {
-        errorLlmSpan(span, exc);
+        observation.end(exc);
         throw exc;
       }
     },
 
     wrapStream: async ({ doStream, params, model }: Any): Promise<Any> => {
-      const span = openSpan(params, model, name);
+      const observation = openSpan(params, model, name);
+      const { span } = observation;
       let result: Any;
       try {
         result = await doStream();
       } catch (exc) {
-        errorLlmSpan(span, exc);
+        observation.end(exc);
         throw exc;
       }
 
       const textParts: string[] = [];
+      const toolCalls: Any[] = [];
       let usage: Record<string, number> | null = null;
       let first = true;
       let finalized = false;
@@ -84,14 +104,14 @@ export function pandaProbeMiddleware(options: VercelMiddlewareOptions = {}) {
         }
         finalized = true;
         if (error !== undefined) {
-          errorLlmSpan(span, error);
+          vercelRuns.getStore()?.streamError(error);
+          observation.end(error);
           return;
         }
-        if (textParts.length > 0) {
-          span.setOutput({ messages: [{ role: "assistant", content: textParts.join("") }] });
-        }
-        setSpanUsage(span, usage);
-        closeLlmSpan(span);
+        const output = extractVercelOutput({ text: textParts.join(""), toolCalls });
+        if (output) span.setOutput(output);
+        observation.usage(usage);
+        observation.end();
       };
 
       const reader = (result.stream as ReadableStream<Any>).getReader();
@@ -113,6 +133,8 @@ export function pandaProbeMiddleware(options: VercelMiddlewareOptions = {}) {
             } else if (value?.type === "text" && typeof value.text === "string") {
               textParts.push(value.text);
             }
+            if (value?.type === "tool-call") toolCalls.push(value);
+            if (value?.type === "error") finalize(value.error ?? new Error("Vercel model stream failed"));
             if (value?.type === "finish" && value.usage) {
               usage = extractVercelUsage(value.usage);
             }

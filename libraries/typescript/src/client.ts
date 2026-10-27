@@ -2,9 +2,11 @@
  * PandaProbe Client — main entry point for the SDK.
  */
 
+import { AsyncLocalStorage } from "node:async_hooks";
 import { type ConfigOptions, type SdkConfig, envEnabled, resolveConfig } from "./config.js";
 import { logger } from "./logger.js";
 import { ScoreData, type ScoreDataType, type TraceData } from "./schemas.js";
+import { TraceCapture, type TraceCaptureOptions } from "./tracing/capture.js";
 import { TraceContext, type TraceContextOptions } from "./tracing/context.js";
 import { Transport } from "./transport.js";
 
@@ -70,6 +72,7 @@ export class Client {
   private readonly _config: SdkConfig;
   private readonly errorCallbacks: Array<(exc: unknown) => void> = [];
   private readonly transport: Transport;
+  private readonly captures = new AsyncLocalStorage<TraceCapture>();
 
   constructor(options: ConfigOptions = {}) {
     this._config = resolveConfig(options);
@@ -107,7 +110,13 @@ export class Client {
     if (this._config.release && !traceData.release) {
       traceData.release = this._config.release;
     }
-    this.transport.enqueueTrace(traceData.toApiDict());
+    const payload = traceData.toApiDict();
+    this.transport.enqueueTrace(this.captures.getStore()?.apply(payload) ?? payload);
+  }
+
+  /** Capture existing submissions inside an explicit asynchronous application boundary. */
+  captureTraces(options: TraceCaptureOptions = {}): TraceCapture {
+    return new TraceCapture(this.captures, options);
   }
 
   // ------------------------------------------------------------------

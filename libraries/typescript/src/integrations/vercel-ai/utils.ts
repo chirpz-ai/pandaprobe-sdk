@@ -62,13 +62,37 @@ export function extractVercelText(result: Any): string | null {
   return null;
 }
 
+/** Preserve model tool calls as well as assistant text. */
+export function extractVercelOutput(result: Any) {
+  const calls = result?.toolCalls ?? result?.content?.filter((part: Any) => part?.type === "tool-call") ?? [];
+  const text = extractVercelText(result);
+  if (text === null && !calls.length) return null;
+  return {
+    messages: [
+      {
+        role: "assistant",
+        content: text ?? "",
+        ...(calls.length
+          ? {
+              tool_calls: calls.map((call: Any) => ({
+                id: call.toolCallId,
+                name: call.toolName,
+                arguments: call.input ?? call.args,
+              })),
+            }
+          : {}),
+      },
+    ],
+  };
+}
+
 /** Map AI SDK usage (`{inputTokens, outputTokens}` or `{promptTokens, completionTokens}`). */
 export function extractVercelUsage(usage: Any): Record<string, number> | null {
   if (!usage || typeof usage !== "object") {
     return null;
   }
-  const prompt = usage.inputTokens ?? usage.promptTokens;
-  const completion = usage.outputTokens ?? usage.completionTokens;
+  const prompt = usage.inputTokens?.total ?? usage.inputTokens ?? usage.promptTokens;
+  const completion = usage.outputTokens?.total ?? usage.outputTokens ?? usage.completionTokens;
   const total = usage.totalTokens;
   const out: Record<string, number> = {};
   if (typeof prompt === "number") {

@@ -6,7 +6,7 @@
     "useIgnoreFile": true
   },
   "files": {
-    "ignore": ["dist", "coverage", "node_modules"]
+    "ignore": ["dist", "coverage", "node_modules", ".pandaprobe"]
   },
   "formatter": {
     "enabled": true,

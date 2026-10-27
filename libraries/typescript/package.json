@@ -78,6 +78,16 @@
       "types": "./dist/integrations/vercel-ai/index.d.ts",
       "import": "./dist/integrations/vercel-ai/index.js",
       "require": "./dist/integrations/vercel-ai/index.cjs"
+    },
+    "./reflect": {
+      "types": "./dist/reflect/index.d.ts",
+      "import": "./dist/reflect/index.js",
+      "require": "./dist/reflect/index.cjs"
+    },
+    "./api": {
+      "types": "./dist/api/index.d.ts",
+      "import": "./dist/api/index.js",
+      "require": "./dist/api/index.cjs"
     }
   },
   "files": ["dist", "README.md"],
@@ -89,17 +99,28 @@
     "format:check": "biome format .",
     "test": "vitest run",
     "test:cov": "vitest run --coverage",
-    "clean": "rm -rf dist coverage node_modules/.cache"
+    "clean": "rm -rf dist coverage node_modules/.cache",
+    "test:native": "node scripts/link-native-tests.mjs && vitest run --config vitest.native.config.ts",
+    "test:native:installed": "node scripts/link-native-tests.mjs --allow-installed && vitest run --config vitest.native.config.ts",
+    "test:package": "node scripts/verify-package.mjs",
+    "typecheck:native": "tsc --noEmit -p tsconfig.native.json"
   },
   "peerDependencies": {
     "@anthropic-ai/claude-agent-sdk": ">=0.1.0",
     "@anthropic-ai/sdk": ">=0.30.0",
     "@aws-sdk/client-bedrock-runtime": ">=3.600.0",
+    "@everruns/bashkit": "0.19.0",
     "@google/genai": ">=0.3.0",
     "@langchain/core": ">=0.3.0",
+    "@langchain/langgraph": "*",
     "@mistralai/mistralai": ">=1.0.0",
     "@openai/agents": ">=0.0.5",
-    "openai": ">=4.0.0"
+    "ai": "*",
+    "deepagents": "*",
+    "fs-native-extensions": "1.5.1",
+    "langchain": "*",
+    "openai": ">=4.0.0",
+    "zod": "*"
   },
   "peerDependenciesMeta": {
     "openai": {
@@ -128,12 +149,32 @@
     },
     "ai": {
       "optional": true
+    },
+    "@everruns/bashkit": {
+      "optional": true
+    },
+    "fs-native-extensions": {
+      "optional": true
+    },
+    "langchain": {
+      "optional": true
+    },
+    "@langchain/langgraph": {
+      "optional": true
+    },
+    "deepagents": {
+      "optional": true
+    },
+    "zod": {
+      "optional": true
     }
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
+    "@everruns/bashkit": "0.19.0",
     "@types/node": "^22.10.0",
     "@vitest/coverage-v8": "^2.1.8",
+    "fs-native-extensions": "1.5.1",
     "tsup": "^8.3.5",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",

@@ -95,3 +95,5 @@ export function setUser(userId: string): void {
 export async function user<T>(userId: string, fn: () => T | Promise<T>): Promise<T> {
   return runWithUser(userId, async () => fn());
 }
+
+export type { TraceCapture, TraceCaptureOptions } from "./tracing/capture.js";

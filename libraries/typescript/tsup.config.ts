@@ -3,6 +3,8 @@ import { defineConfig } from "tsup";
 export default defineConfig({
   entry: [
     "src/index.ts",
+    "src/reflect/index.ts",
+    "src/api/index.ts",
     "src/wrappers/openai/index.ts",
     "src/wrappers/anthropic/index.ts",
     "src/wrappers/gemini/index.ts",
@@ -19,7 +21,8 @@ export default defineConfig({
   dts: true,
   clean: true,
   sourcemap: true,
-  splitting: false,
+  // Subpaths must share the initialized client and tracing async context.
+  splitting: true,
   treeshake: true,
   outDir: "dist",
 });
