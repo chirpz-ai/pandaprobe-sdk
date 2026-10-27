@@ -181,6 +181,23 @@ install already includes Reflect. The separate `install-reflect` recipe explicit
 `@everruns/bashkit@0.19.0` and `fs-native-extensions@1.5.1` with `pnpm add -D --save-exact`,
 matching the versions in `package.json`. Add your chosen framework/provider separately for live examples.
 
+Native framework regression tests use the separate Node ≥22 fixture in `test/native`:
+
+```bash
+cd libraries/typescript
+npm ci --prefix test/native --ignore-scripts
+pnpm test:native
+pnpm typecheck:native
+```
+
+`test:native` requires imports to resolve to that fixture's locked packages. It refuses
+to overwrite or silently use framework versions installed in the SDK's root
+`node_modules` by the example install targets. Use a clean install for the pinned
+suite. To intentionally test your installed example versions instead, run
+`pnpm test:native:installed`; it prints each local override. This compatibility run
+does not replace the pinned CI check. Keep framework additions from local example
+installation out of the committed base manifest and lockfile.
+
 ### Installing provider SDKs and agent frameworks (on demand)
 
 Like the Python SDK's `uv sync --extra <name>`, the SDKs are installed on demand rather than as part
