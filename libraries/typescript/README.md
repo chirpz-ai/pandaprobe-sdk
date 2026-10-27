@@ -31,6 +31,42 @@ import { init } from "pandaprobe";
 init({ apiKey: "sk_pp_...", projectName: "my-project" });
 ```
 
+## Reflect: learn guidance from independently evaluated work
+
+PandaProbe Reflect adds **Detect → Notify → Reflect → Validate** to your existing
+agent. The same agent uses one `reflect_bash` tool in an isolated filesystem;
+independent paired outcomes decide whether its proposals become accepted guidance.
+Core has no delivery checker and no default 100-evaluation quota.
+
+```sh
+npm install pandaprobe @everruns/bashkit@0.19.0 fs-native-extensions@1.5.1
+```
+
+```ts
+import { Client } from "pandaprobe";
+import { Reflect as ReflectRuntime } from "pandaprobe/reflect";
+import { PlatformClient } from "pandaprobe/api";
+const client = new Client();
+const reflect = new ReflectRuntime(client);
+const api = new PlatformClient(client); // separately reusable native platform API
+// Attach your native agent with reflect.agent(...), then await reflect.run(...).
+await api.close();
+await reflect.close();
+await client.shutdown();
+```
+
+Tracing imports retain zero required runtime dependencies. Reflect's shell/lock
+packages and framework SDKs are optional; native framework examples use Node ≥22.
+All configuration timeouts use **seconds**. Reading a rule, proposing a change,
+accepting it, and succeeding on a new task remain separate recorded facts.
+
+See the [Reflect guide](examples/reflect/README.md),
+[native quickstarts](examples/reflect/native.md),
+[workspace and limits](examples/reflect/workspace.md),
+[credential-free complete loop](examples/reflect/offline-demo.ts),
+[multi-turn support](examples/reflect/live_support.md), and
+[controlled failure example](examples/reflect/live_failure.md).
+
 ## Three instrumentation layers
 
 ### 1. Manual instrumentation
@@ -91,6 +127,25 @@ await graph.invoke(input, { callbacks: [new LangGraphCallbackHandler()] });
 
 Available: `pandaprobe/integrations/{langchain,langgraph,deepagents,claude-agent-sdk,openai-agents,vercel-ai}`.
 
+Vercel AI SDK 6/7 agents use `wrapVercelAgent` for `CHAIN → AGENT → LLM → TOOL`
+traces. The separate model middleware records exact provider-call timing and also
+supports standalone model calls:
+
+```ts
+import { ToolLoopAgent, wrapLanguageModel } from "ai";
+import { pandaProbeMiddleware, wrapVercelAgent } from "pandaprobe/integrations/vercel-ai";
+
+const agent = wrapVercelAgent(new ToolLoopAgent({
+  model: wrapLanguageModel({ model, middleware: pandaProbeMiddleware() }),
+  tools,
+}));
+await agent.generate({ prompt: "Help with this task." });
+```
+
+See the [Vercel Reflect example](examples/reflect/native.md#vercel-ai-sdk) for
+constructor wrapping and the [agent example](examples/vercel-ai/agent.ts) for a
+standalone native tool loop. Model middleware alone remains an LLM-level integration.
+
 ## Session / user grouping
 
 ```ts
@@ -104,7 +159,8 @@ await session("conv-123", async () => {
 ## Development
 
 ```bash
-make ts-install        # pnpm install — dev tooling only (Biome, tsup, tsx, TypeScript, Vitest)
+make ts-install        # pnpm install — dev tooling and Reflect shell/lock test runtimes
+make ts-install-reflect # explicitly install the pinned Reflect shell/lock runtimes
 make ts-typecheck      # tsc --noEmit
 make ts-lint           # biome check
 make ts-format-check   # biome format (check only)
@@ -113,11 +169,17 @@ make ts-test-cov       # vitest run --coverage
 make ts-build          # tsup → dist (ESM + CJS + .d.ts)
 ```
 
-The base install is deliberately minimal: the build/typecheck/test/lint toolchain is all that's
-needed to develop the core, and every dev dependency supports **Node ≥ 18**, so the CI matrix
+The base install includes the build/typecheck/test/lint toolchain and Reflect's shell/lock
+runtimes for core tests. Every dev dependency supports **Node ≥ 18**, so the CI matrix
 (Node 18/20/22) installs cleanly. Provider/framework SDKs are optional `peerDependencies` and are
 installed on demand (below) — several (e.g. `@aws-sdk/client-bedrock-runtime`, `@langchain/*`)
 require Node ≥ 20, so they're kept out of the base install.
+
+From `libraries/typescript`, use `make install-reflect`; from the repository root,
+use `make ts-install-reflect`. Like Python's development extra, the default development
+install already includes Reflect. The separate `install-reflect` recipe explicitly installs
+`@everruns/bashkit@0.19.0` and `fs-native-extensions@1.5.1` with `pnpm add -D --save-exact`,
+matching the versions in `package.json`. Add your chosen framework/provider separately for live examples.
 
 ### Installing provider SDKs and agent frameworks (on demand)
 
