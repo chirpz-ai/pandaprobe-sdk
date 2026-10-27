@@ -1661,3 +1661,54 @@ agent-authored memory, independent validation and example-only observation.
 When behavior changes, append a dated revision or write a new baseline report.
 Do not silently reinterpret this pre-release snapshot as evidence about a later
 package or mark the pending release checks complete without their results.
+
+## Revision: PR #33 review fixes (2026-10-27)
+
+This revision supersedes installation and example trace-registration details
+where they conflict with the original snapshot; the Reflect lifecycle, Python
+parity policy, public APIs and native runtime pins are unchanged.
+
+- **Base development install:** framework/provider packages accidentally retained
+  after live example installation were removed from `devDependencies` and the
+  root TypeScript lockfile. Tooling plus Bashkit 0.19.0 and fs-native-extensions
+  1.5.1 remain. A clean Node 18 frozen install passes strict engine checking.
+  Frameworks remain optional peers and are installed on demand. No required
+  runtime dependency or package version change was introduced.
+- **Native fixture integrity:** `scripts/link-native-tests.mjs` verifies that root
+  imports resolve to `test/native/node_modules`, rejecting mismatches before
+  creating links and preserving existing installations. `pnpm test:native` is
+  the pinned CI command; `pnpm test:native:installed` explicitly permits and logs
+  installed-version overrides. Local compatibility results must not be described
+  as pinned-fixture results.
+- **OpenAI example trace ownership:** `_support/native.ts` registers one shared
+  dispatcher with the Agents SDK. `AsyncLocalStorage` selects the invoking
+  factory's processor; SDK trace IDs route subsequent span/end events to that
+  owner. Fresh runtime factories no longer register duplicate exporters, and
+  simultaneous clients do not receive each other's traces. Host processors are
+  preserved. The test harness resets the registry once per test rather than
+  silently clearing it whenever another factory's scripted model is created.
+  The general OpenAI tracing adapter was not changed.
+- **Lint:** the manifest now follows Biome formatting, and generated local
+  `.pandaprobe` artifacts are explicitly excluded from Biome checks.
+- **Windows CI:** the initial failure was an intermittent native Bashkit/Tokio
+  abort (`Cannot drop a runtime in a context where blocking is not allowed`),
+  which bypassed Vitest assertions and killed its shell worker. A targeted rerun
+  of the unchanged PR commit passed 298 tests, build and packed-package checks
+  ([workflow evidence](https://github.com/chirpz-ai/pandaprobe-sdk/actions/runs/40472702945/job/122091725917)).
+  The platform job now serializes files, includes the new fixture-linker tests,
+  and records verbose test output/full Rust backtraces. This is a contention
+  mitigation and diagnostic improvement, not a proven upstream runtime fix.
+  The precise panic trigger and hosted verification of the changed workflow
+  remain outstanding; the successful rerun must not be attributed to unpushed
+  local changes.
+
+Local validation of this revision: 404 base tests in 27 files pass on Node 18,
+including a clean installation without framework SDKs; 79 native tests in six
+files pass with the pinned fixture on Node 22 and again with installed example
+versions. The new OpenAI fresh/concurrent export assertions fail against the old
+factory. Twenty repeated Node 22 shell-suite runs pass. The updated serialized
+platform command passes 301 tests in ten files. Formatting, lint, base/native
+typechecks, build and packed ESM/CJS/NodeNext consumers pass, including minimal
+imports, missing-runtime errors and AI SDK 5 compatibility. Python, production
+tracing/runtime code and saved live reports were preserved. No release version
+was bumped and no changes were staged, committed, pushed or published.
