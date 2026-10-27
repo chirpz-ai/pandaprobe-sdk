@@ -1,0 +1,824 @@
+{
+  "rules": [
+    {
+      "path": "refunds/shipping.md",
+      "text": "# Refund café 🐼\nApplies to: return refunds\nExclude outbound shipping.\n",
+      "version": "ad087a83bfcec2b5e3d2c7aeb7e9f982e2e84cd338c475f507ba551100e6edbe",
+      "scope": "refunds",
+      "applicability": "return refunds"
+    },
+    {
+      "path": "global.md",
+      "text": "# Safety\nApplies to: all tasks\nCheck evidence.\n",
+      "version": "0a3cdd3a04667069cfd4078a81ca819008834308ca1563568f68fff98d7e4452",
+      "scope": "global",
+      "applicability": "all tasks"
+    }
+  ],
+  "empty_revision": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+  "manifest": {
+    "refunds/shipping.md": "ad087a83bfcec2b5e3d2c7aeb7e9f982e2e84cd338c475f507ba551100e6edbe",
+    "global.md": "0a3cdd3a04667069cfd4078a81ca819008834308ca1563568f68fff98d7e4452"
+  },
+  "revision_json": "{\"global.md\":\"0a3cdd3a04667069cfd4078a81ca819008834308ca1563568f68fff98d7e4452\",\"refunds/shipping.md\":\"ad087a83bfcec2b5e3d2c7aeb7e9f982e2e84cd338c475f507ba551100e6edbe\"}",
+  "revision": "a3f4201ba9674d353c4a4ade9cd8fce120136fbc30fc8af3bebedec94de8246d",
+  "proposal_json": "{\"base\":\"44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"changes\":{\"global.md\":{\"path\":\"global.md\",\"text\":\"# Safety\\nApplies to: all tasks\\nCheck evidence.\\n\"},\"refunds/shipping.md\":{\"path\":\"refunds/shipping.md\",\"text\":\"# Refund café 🐼\\nApplies to: return refunds\\nExclude outbound shipping.\\n\"}}}",
+  "proposal_fingerprint": "5bfbb68953ef3e708492e7ffbdc370859e3b3c534dc20478ca66cc9a4de9f31a",
+  "evaluation_json": "[\"execution\", \"detect\", [\"trace\"], [\"task_completion\"]]",
+  "input": {
+    "café": [true, null, 7, 0.25, "🐼"],
+    "a": "line\nnext"
+  },
+  "input_json": "{\"a\": \"line\\nnext\", \"caf\\u00e9\": [true, null, 7, 0.25, \"\\ud83d\\udc3c\"]}",
+  "input_hash": "dbea2a4bbf52bdb9ecc4da017a9a1e9f8328d7363bc5a0e6d7f57ac1d303e5fa",
+  "decisions": [
+    {
+      "name": "improvement",
+      "rows": [
+        {
+          "case_id": "0",
+          "base_revision": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "input_hash": "fixture",
+          "protected": false,
+          "control": {
+            "execution_id": "control-0",
+            "scores": {
+              "task_completion": 0
+            },
+            "success": false,
+            "candidate_ids": [],
+            "evidence": {}
+          },
+          "candidate": {
+            "execution_id": "candidate-0",
+            "scores": {
+              "task_completion": 1
+            },
+            "success": true,
+            "candidate_ids": ["fixture-proposal"],
+            "evidence": {}
+          }
+        },
+        {
+          "case_id": "1",
+          "base_revision": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "input_hash": "fixture",
+          "protected": false,
+          "control": {
+            "execution_id": "control-1",
+            "scores": {
+              "task_completion": 0
+            },
+            "success": false,
+            "candidate_ids": [],
+            "evidence": {}
+          },
+          "candidate": {
+            "execution_id": "candidate-1",
+            "scores": {
+              "task_completion": 1
+            },
+            "success": true,
+            "candidate_ids": ["fixture-proposal"],
+            "evidence": {}
+          }
+        },
+        {
+          "case_id": "2",
+          "base_revision": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "input_hash": "fixture",
+          "protected": true,
+          "control": {
+            "execution_id": "control-2",
+            "scores": {
+              "task_completion": 1
+            },
+            "success": true,
+            "candidate_ids": [],
+            "evidence": {}
+          },
+          "candidate": {
+            "execution_id": "candidate-2",
+            "scores": {
+              "task_completion": 1
+            },
+            "success": true,
+            "candidate_ids": ["fixture-proposal"],
+            "evidence": {}
+          }
+        }
+      ],
+      "outcome": "accepted",
+      "reason": "Observed paired improvement within configured regression tolerances in tested cases"
+    },
+    {
+      "name": "too_few",
+      "rows": [
+        {
+          "case_id": "0",
+          "base_revision": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "input_hash": "fixture",
+          "protected": false,
+          "control": {
+            "execution_id": "control-0",
+            "scores": {
+              "task_completion": 0
+            },
+            "success": false,
+            "candidate_ids": [],
+            "evidence": {}
+          },
+          "candidate": {
+            "execution_id": "candidate-0",
+            "scores": {
+              "task_completion": 1
+            },
+            "success": true,
+            "candidate_ids": ["fixture-proposal"],
+            "evidence": {}
+          }
+        },
+        {
+          "case_id": "1",
+          "base_revision": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "input_hash": "fixture",
+          "protected": false,
+          "control": {
+            "execution_id": "control-1",
+            "scores": {
+              "task_completion": 0
+            },
+            "success": false,
+            "candidate_ids": [],
+            "evidence": {}
+          },
+          "candidate": {
+            "execution_id": "candidate-1",
+            "scores": {
+              "task_completion": 1
+            },
+            "success": true,
+            "candidate_ids": ["fixture-proposal"],
+            "evidence": {}
+          }
+        }
+      ],
+      "outcome": "pending",
+      "reason": "Insufficient distinct paired cases"
+    },
+    {
+      "name": "regression",
+      "rows": [
+        {
+          "case_id": "0",
+          "base_revision": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "input_hash": "fixture",
+          "protected": false,
+          "control": {
+            "execution_id": "control-0",
+            "scores": {
+              "task_completion": 0
+            },
+            "success": false,
+            "candidate_ids": [],
+            "evidence": {}
+          },
+          "candidate": {
+            "execution_id": "candidate-0",
+            "scores": {
+              "task_completion": 1
+            },
+            "success": true,
+            "candidate_ids": ["fixture-proposal"],
+            "evidence": {}
+          }
+        },
+        {
+          "case_id": "1",
+          "base_revision": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "input_hash": "fixture",
+          "protected": false,
+          "control": {
+            "execution_id": "control-1",
+            "scores": {
+              "task_completion": 0
+            },
+            "success": false,
+            "candidate_ids": [],
+            "evidence": {}
+          },
+          "candidate": {
+            "execution_id": "candidate-1",
+            "scores": {
+              "task_completion": 1
+            },
+            "success": true,
+            "candidate_ids": ["fixture-proposal"],
+            "evidence": {}
+          }
+        },
+        {
+          "case_id": "2",
+          "base_revision": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "input_hash": "fixture",
+          "protected": true,
+          "control": {
+            "execution_id": "control-2",
+            "scores": {
+              "task_completion": 1
+            },
+            "success": true,
+            "candidate_ids": [],
+            "evidence": {}
+          },
+          "candidate": {
+            "execution_id": "candidate-2",
+            "scores": {
+              "task_completion": 1
+            },
+            "success": false,
+            "candidate_ids": ["fixture-proposal"],
+            "evidence": {}
+          }
+        }
+      ],
+      "outcome": "rejected",
+      "reason": "Candidate regressed a successful outcome"
+    },
+    {
+      "name": "no_improvement",
+      "rows": [
+        {
+          "case_id": "0",
+          "base_revision": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "input_hash": "fixture",
+          "protected": false,
+          "control": {
+            "execution_id": "control-0",
+            "scores": {
+              "task_completion": 0
+            },
+            "success": false,
+            "candidate_ids": [],
+            "evidence": {}
+          },
+          "candidate": {
+            "execution_id": "candidate-0",
+            "scores": {
+              "task_completion": 0
+            },
+            "success": true,
+            "candidate_ids": ["fixture-proposal"],
+            "evidence": {}
+          }
+        },
+        {
+          "case_id": "1",
+          "base_revision": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "input_hash": "fixture",
+          "protected": false,
+          "control": {
+            "execution_id": "control-1",
+            "scores": {
+              "task_completion": 0
+            },
+            "success": false,
+            "candidate_ids": [],
+            "evidence": {}
+          },
+          "candidate": {
+            "execution_id": "candidate-1",
+            "scores": {
+              "task_completion": 0
+            },
+            "success": true,
+            "candidate_ids": ["fixture-proposal"],
+            "evidence": {}
+          }
+        },
+        {
+          "case_id": "2",
+          "base_revision": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "input_hash": "fixture",
+          "protected": true,
+          "control": {
+            "execution_id": "control-2",
+            "scores": {
+              "task_completion": 1
+            },
+            "success": true,
+            "candidate_ids": [],
+            "evidence": {}
+          },
+          "candidate": {
+            "execution_id": "candidate-2",
+            "scores": {
+              "task_completion": 1
+            },
+            "success": true,
+            "candidate_ids": ["fixture-proposal"],
+            "evidence": {}
+          }
+        }
+      ],
+      "outcome": "pending",
+      "reason": "No sufficient measured improvement"
+    },
+    {
+      "name": "reused_execution",
+      "rows": [
+        {
+          "case_id": "0",
+          "base_revision": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "input_hash": "fixture",
+          "protected": false,
+          "control": {
+            "execution_id": "control-0",
+            "scores": {
+              "task_completion": 0
+            },
+            "success": false,
+            "candidate_ids": [],
+            "evidence": {}
+          },
+          "candidate": {
+            "execution_id": "control-0",
+            "scores": {
+              "task_completion": 1
+            },
+            "success": true,
+            "candidate_ids": ["fixture-proposal"],
+            "evidence": {}
+          }
+        },
+        {
+          "case_id": "1",
+          "base_revision": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "input_hash": "fixture",
+          "protected": false,
+          "control": {
+            "execution_id": "control-1",
+            "scores": {
+              "task_completion": 0
+            },
+            "success": false,
+            "candidate_ids": [],
+            "evidence": {}
+          },
+          "candidate": {
+            "execution_id": "candidate-1",
+            "scores": {
+              "task_completion": 1
+            },
+            "success": true,
+            "candidate_ids": ["fixture-proposal"],
+            "evidence": {}
+          }
+        },
+        {
+          "case_id": "2",
+          "base_revision": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "input_hash": "fixture",
+          "protected": true,
+          "control": {
+            "execution_id": "control-2",
+            "scores": {
+              "task_completion": 1
+            },
+            "success": true,
+            "candidate_ids": [],
+            "evidence": {}
+          },
+          "candidate": {
+            "execution_id": "candidate-2",
+            "scores": {
+              "task_completion": 1
+            },
+            "success": true,
+            "candidate_ids": ["fixture-proposal"],
+            "evidence": {}
+          }
+        }
+      ],
+      "outcome": "pending",
+      "reason": "Execution evidence was reused across trial arms or cases"
+    },
+    {
+      "name": "wrong_assignment",
+      "rows": [
+        {
+          "case_id": "0",
+          "base_revision": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "input_hash": "fixture",
+          "protected": false,
+          "control": {
+            "execution_id": "control-0",
+            "scores": {
+              "task_completion": 0
+            },
+            "success": false,
+            "candidate_ids": [],
+            "evidence": {}
+          },
+          "candidate": {
+            "execution_id": "candidate-0",
+            "scores": {
+              "task_completion": 1
+            },
+            "success": true,
+            "candidate_ids": [],
+            "evidence": {}
+          }
+        },
+        {
+          "case_id": "1",
+          "base_revision": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "input_hash": "fixture",
+          "protected": false,
+          "control": {
+            "execution_id": "control-1",
+            "scores": {
+              "task_completion": 0
+            },
+            "success": false,
+            "candidate_ids": [],
+            "evidence": {}
+          },
+          "candidate": {
+            "execution_id": "candidate-1",
+            "scores": {
+              "task_completion": 1
+            },
+            "success": true,
+            "candidate_ids": ["fixture-proposal"],
+            "evidence": {}
+          }
+        },
+        {
+          "case_id": "2",
+          "base_revision": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "input_hash": "fixture",
+          "protected": true,
+          "control": {
+            "execution_id": "control-2",
+            "scores": {
+              "task_completion": 1
+            },
+            "success": true,
+            "candidate_ids": [],
+            "evidence": {}
+          },
+          "candidate": {
+            "execution_id": "candidate-2",
+            "scores": {
+              "task_completion": 1
+            },
+            "success": true,
+            "candidate_ids": ["fixture-proposal"],
+            "evidence": {}
+          }
+        }
+      ],
+      "outcome": "pending",
+      "reason": "Trial exposure/assignment does not match control and candidate"
+    },
+    {
+      "name": "invalid_boolean",
+      "rows": [
+        {
+          "case_id": "0",
+          "base_revision": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "input_hash": "fixture",
+          "protected": false,
+          "control": {
+            "execution_id": "control-0",
+            "scores": {
+              "task_completion": 0
+            },
+            "success": false,
+            "candidate_ids": [],
+            "evidence": {}
+          },
+          "candidate": {
+            "execution_id": "candidate-0",
+            "scores": {
+              "task_completion": 1
+            },
+            "success": 1,
+            "candidate_ids": ["fixture-proposal"],
+            "evidence": {}
+          }
+        },
+        {
+          "case_id": "1",
+          "base_revision": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "input_hash": "fixture",
+          "protected": false,
+          "control": {
+            "execution_id": "control-1",
+            "scores": {
+              "task_completion": 0
+            },
+            "success": false,
+            "candidate_ids": [],
+            "evidence": {}
+          },
+          "candidate": {
+            "execution_id": "candidate-1",
+            "scores": {
+              "task_completion": 1
+            },
+            "success": true,
+            "candidate_ids": ["fixture-proposal"],
+            "evidence": {}
+          }
+        },
+        {
+          "case_id": "2",
+          "base_revision": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "input_hash": "fixture",
+          "protected": true,
+          "control": {
+            "execution_id": "control-2",
+            "scores": {
+              "task_completion": 1
+            },
+            "success": true,
+            "candidate_ids": [],
+            "evidence": {}
+          },
+          "candidate": {
+            "execution_id": "candidate-2",
+            "scores": {
+              "task_completion": 1
+            },
+            "success": true,
+            "candidate_ids": ["fixture-proposal"],
+            "evidence": {}
+          }
+        }
+      ],
+      "outcome": "pending",
+      "reason": "Missing or invalid independently verified outcomes"
+    },
+    {
+      "name": "metric_mismatch",
+      "rows": [
+        {
+          "case_id": "0",
+          "base_revision": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "input_hash": "fixture",
+          "protected": false,
+          "control": {
+            "execution_id": "control-0",
+            "scores": {
+              "task_completion": 0
+            },
+            "success": false,
+            "candidate_ids": [],
+            "evidence": {}
+          },
+          "candidate": {
+            "execution_id": "candidate-0",
+            "scores": {
+              "task_completion": 1,
+              "extra": 1
+            },
+            "success": true,
+            "candidate_ids": ["fixture-proposal"],
+            "evidence": {}
+          }
+        },
+        {
+          "case_id": "1",
+          "base_revision": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "input_hash": "fixture",
+          "protected": false,
+          "control": {
+            "execution_id": "control-1",
+            "scores": {
+              "task_completion": 0
+            },
+            "success": false,
+            "candidate_ids": [],
+            "evidence": {}
+          },
+          "candidate": {
+            "execution_id": "candidate-1",
+            "scores": {
+              "task_completion": 1
+            },
+            "success": true,
+            "candidate_ids": ["fixture-proposal"],
+            "evidence": {}
+          }
+        },
+        {
+          "case_id": "2",
+          "base_revision": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "input_hash": "fixture",
+          "protected": true,
+          "control": {
+            "execution_id": "control-2",
+            "scores": {
+              "task_completion": 1
+            },
+            "success": true,
+            "candidate_ids": [],
+            "evidence": {}
+          },
+          "candidate": {
+            "execution_id": "candidate-2",
+            "scores": {
+              "task_completion": 1
+            },
+            "success": true,
+            "candidate_ids": ["fixture-proposal"],
+            "evidence": {}
+          }
+        }
+      ],
+      "outcome": "pending",
+      "reason": "Paired metric sets differ"
+    },
+    {
+      "name": "unprotected",
+      "rows": [
+        {
+          "case_id": "0",
+          "base_revision": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "input_hash": "fixture",
+          "protected": false,
+          "control": {
+            "execution_id": "control-0",
+            "scores": {
+              "task_completion": 0
+            },
+            "success": false,
+            "candidate_ids": [],
+            "evidence": {}
+          },
+          "candidate": {
+            "execution_id": "candidate-0",
+            "scores": {
+              "task_completion": 1
+            },
+            "success": true,
+            "candidate_ids": ["fixture-proposal"],
+            "evidence": {}
+          }
+        },
+        {
+          "case_id": "1",
+          "base_revision": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "input_hash": "fixture",
+          "protected": false,
+          "control": {
+            "execution_id": "control-1",
+            "scores": {
+              "task_completion": 0
+            },
+            "success": false,
+            "candidate_ids": [],
+            "evidence": {}
+          },
+          "candidate": {
+            "execution_id": "candidate-1",
+            "scores": {
+              "task_completion": 1
+            },
+            "success": true,
+            "candidate_ids": ["fixture-proposal"],
+            "evidence": {}
+          }
+        },
+        {
+          "case_id": "2",
+          "base_revision": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "input_hash": "fixture",
+          "protected": false,
+          "control": {
+            "execution_id": "control-2",
+            "scores": {
+              "task_completion": 1
+            },
+            "success": true,
+            "candidate_ids": [],
+            "evidence": {}
+          },
+          "candidate": {
+            "execution_id": "candidate-2",
+            "scores": {
+              "task_completion": 1
+            },
+            "success": true,
+            "candidate_ids": ["fixture-proposal"],
+            "evidence": {}
+          }
+        }
+      ],
+      "outcome": "pending",
+      "reason": "At least one protected successful case is required"
+    },
+    {
+      "name": "wrong_baseline",
+      "rows": [
+        {
+          "case_id": "0",
+          "base_revision": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "input_hash": "fixture",
+          "protected": false,
+          "control": {
+            "execution_id": "control-0",
+            "scores": {
+              "task_completion": 0
+            },
+            "success": false,
+            "candidate_ids": [],
+            "evidence": {}
+          },
+          "candidate": {
+            "execution_id": "candidate-0",
+            "scores": {
+              "task_completion": 1
+            },
+            "success": true,
+            "candidate_ids": ["fixture-proposal"],
+            "evidence": {}
+          }
+        },
+        {
+          "case_id": "1",
+          "base_revision": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "input_hash": "fixture",
+          "protected": false,
+          "control": {
+            "execution_id": "control-1",
+            "scores": {
+              "task_completion": 0
+            },
+            "success": false,
+            "candidate_ids": [],
+            "evidence": {}
+          },
+          "candidate": {
+            "execution_id": "candidate-1",
+            "scores": {
+              "task_completion": 1
+            },
+            "success": true,
+            "candidate_ids": ["fixture-proposal"],
+            "evidence": {}
+          }
+        },
+        {
+          "case_id": "2",
+          "base_revision": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "input_hash": "fixture",
+          "protected": true,
+          "control": {
+            "execution_id": "control-2",
+            "scores": {
+              "task_completion": 1
+            },
+            "success": true,
+            "candidate_ids": [],
+            "evidence": {}
+          },
+          "candidate": {
+            "execution_id": "candidate-2",
+            "scores": {
+              "task_completion": 1
+            },
+            "success": true,
+            "candidate_ids": ["fixture-proposal"],
+            "evidence": {}
+          }
+        }
+      ],
+      "outcome": "pending",
+      "reason": "Case baseline does not match the proposed revision"
+    }
+  ],
+  "decision_proposal": {
+    "id": "fixture-proposal",
+    "base_revision": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+    "changes": {
+      "refunds/shipping.md": {
+        "path": "refunds/shipping.md",
+        "text": "# Refund café 🐼\nApplies to: return refunds\nExclude outbound shipping.\n"
+      },
+      "global.md": {
+        "path": "global.md",
+        "text": "# Safety\nApplies to: all tasks\nCheck evidence.\n"
+      }
+    },
+    "fingerprint": "5bfbb68953ef3e708492e7ffbdc370859e3b3c534dc20478ca66cc9a4de9f31a",
+    "session_id": "s",
+    "execution_id": "e",
+    "evidence_ids": [],
+    "status": "candidate",
+    "rationale": "",
+    "decision": null
+  }
+}
