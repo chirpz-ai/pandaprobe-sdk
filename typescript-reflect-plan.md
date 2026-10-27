@@ -983,13 +983,15 @@ existing main-push/main-PR/reusable/manual triggers are preserved. Alpine/musl,
 browser/edge, distributed filesystems and mixed-language concurrent writers remain
 outside the tested support model.
 
-**Live evidence and Claude limitation.** No paid/live provider run was performed.
+**Initial live evidence and Claude audit finding (corrected below).** No paid/live provider run was performed.
 The offline complete loop uses real loopback HTTP export, polling and the native
 shell; native suites use real framework loops with fake providers/platforms.
-These tests do not establish broad real-model improvement. The tested Claude query
-surface does not expose complete model input, so the example reports
-`incomplete` at `fresh_delivery`, even with accepted guidance and a correct fresh
-ledger. This follows Python's evidence requirement rather than weakening it.
+These tests do not establish broad real-model improvement. At this stage the
+Claude test expected `incomplete` at `fresh_delivery`, with accepted guidance and
+a correct fresh ledger. The initial diagnosis of missing model-input visibility
+was incorrect: the user's later live run exposed a missing decode step for
+JSON-encoded MCP text blocks already present in traced LLM inputs. The Claude
+follow-up below fixes the audit while retaining Python's exact evidence checks.
 
 ### Strict Python-parity revision checklist
 
@@ -1043,3 +1045,126 @@ No live provider calls were made. Hash checks confirm the user's root TS package
 manifest/lockfile and failed report `bcebb911890f/report.json` are unchanged.
 Python and the Git index remain unchanged. No dependency reinstall is needed to
 rerun the live example; it creates a new output directory by default.
+
+### LangGraph failure-example request timeout — DONE
+
+Inspected the preserved live report `langgraph-failure/eea4817fb4e2/report.json`.
+The first candidate/control pair completed. The second candidate (`shipping-300`)
+failed after **60.021 seconds**, with no business-tool events; its single LLM span
+lasted **60,010 ms** with no token usage. This matches the example's ChatOpenAI
+`timeout: 60000`, whose OpenAI connection-timeout error LangChain exposes as
+`TimeoutError: Request timed out.` The 360-second task and 600-second validation
+deadlines were not reached. Reflect correctly recorded a pending verdict and an
+incomplete demonstration. The artifacts do not establish why the provider/network
+request stalled, or whether it would eventually have completed.
+
+At the user's request for an isolated example fix, only
+`examples/langgraph/05_reflect_failure.ts` opts into a **120-second model request
+timeout** through optional example-launcher/factory configuration. This is an
+explicit exception to Python's 60-second example setting, documented in the
+native example guide and this entry point's help. The default remains 60 seconds
+for the other LangChain-family examples. Retries remain disabled; prompts,
+business logic, acceptance requirements and outer deadlines are unchanged.
+Reflect core, tracing, Python and dependency manifests/lockfiles are unchanged.
+This accommodates slower responses but does not guarantee provider availability.
+
+Verification: **63 native tests / 5 files** and **12 example tests** pass. The six
+new request-deadline regressions use actual ChatOpenAI/framework execution with
+mocked HTTP and a virtual clock: defaults abort at 60 seconds; the explicit
+override permits a 90-second response, aborts at 120 seconds, survives factory
+recreation and honors earlier caller cancellation; each makes exactly one request
+and performs no business actions on timeout. The slow-response/extended-deadline
+tests failed before the change. Help checks verify only the LangGraph failure
+entry point opts in. Base/native typechecks, focused Biome and `git diff --check`
+pass. The offline loopback test initially hit the sandbox's `listen EPERM` and
+passed when rerun with local socket access. No live provider or platform calls
+were made, so live completion remains for the user's rerun. Hash checks preserve
+the failed run artifacts and all unrelated pre-existing changes; the Git index
+remains unchanged.
+
+### Claude live-example audit and permission follow-up — DONE
+
+Inspected the user's preserved Claude SDK 0.3.311 runs `06f31041fd05` and
+`1c3a3bb46ec1`, plus the latter's local native session transcript. The first run
+received a completed platform `task_completion=0.8` evaluation at a `0.8`
+threshold. Python and TS require a strictly lower score for a threshold failure,
+so no failure notice or reflection was correct despite the failed business ledger.
+The example's detection reason now includes evaluation status, scores, thresholds
+and any evaluator reason. No threshold change or forced/retried evaluation was
+introduced; judge disagreement can still leave the demonstration incomplete.
+
+The second run independently accepted the rule and correctly posted the fresh
+9250-cent refund. Its transcript shows the complete accepted rule returned at
+`07:11:44.363Z`, before submission at `07:11:45.578196Z`. The unchanged TS tracing
+adapter serializes Claude MCP text-block arrays into JSON strings inside LLM tool
+messages. The audit treated escaped newlines/quotes as literal text, incorrectly
+missing that delivery. The example now decodes only that known tool-message
+representation before its existing exact text/version and timestamp checks.
+Arbitrary JSON, malformed content, filenames, model claims, late reads and
+tool-only output remain insufficient. This is a necessary native representation
+adaptation, not a change to Python's evidence or SDK acceptance policy. The prior
+Claude visibility limitation diagnosis and test expectation were wrong and have
+been corrected in the guides and native complete-loop test.
+
+Removed the redundant TS-only reflection `canUseTool` wrapper that native
+`allowedTools` bypassed, causing `CLAUDE_SDK_CAN_USE_TOOL_SHADOWED`. The existing
+Python-matching restriction remains: no built-in tools, only the execution-bound
+Reflect MCP server/tool, strict MCP configuration and bounded reflection turns.
+Host-provided callbacks/hooks and task tools are preserved; reflection does not
+mutate host options. This follows the native permission evaluation order rather
+than adding a new permission policy.
+
+Verification: **401 base tests / 26 files**, **64 native tests / 5 files**,
+base/native typechecks, scoped Biome, build and packed ESM/CJS/NodeNext consumers
+pass, including minimal imports, optional-runtime errors and legacy AI SDK 5
+compatibility. The encoded full-text/excerpt audit, Claude complete loop,
+reflection configuration and exact-threshold diagnostic regressions failed
+before the fixes and pass afterward. Negative audit cases retain fail-closed
+behavior. An offline reconstruction of the saved native transcript through the
+unchanged tracing adapter and original timestamps verifies the exact accepted
+rule version before submission. No live model/platform calls were made or
+historical reports rewritten. Hash checks preserve Python, tracing, dependency
+manifests/lockfiles and both run artifacts. `git diff --check` passes and the Git
+index is unchanged; nothing was staged, committed, pushed or published.
+
+### Vercel native agent trace hierarchy — DONE
+
+Read the successful saved Vercel report `808a44f0ac39/report.json` and inspected
+task trace `5be4a2bb-046e-46da-ab6e-f5cb95d38660` with the PandaProbe CLI. The
+platform received four `vercel-ai-generate` LLM spans, each with no parent, and no
+CHAIN, AGENT or TOOL spans. The original integration observed only model
+`doGenerate`/`doStream` calls. Tool messages inside later model inputs exposed
+their results but did not constitute tool execution spans. This was a tracing
+integration limitation, not a Reflect policy or platform rendering issue.
+
+Added `wrapVercelAgent` for native ToolLoopAgent instances and constructors. It
+composes AI SDK 6/7 lifecycle callbacks into invocation-owned
+`CHAIN → AGENT → LLM → TOOL` trees, with actual tool inputs, outputs, errors and
+parallel call identities. Proposed calls without execution do not produce TOOL
+spans. Existing model middleware enriches the same LLM spans with exact provider
+timing and usage, avoiding duplicates; without it, native step callback timing is
+explicitly identified. Standalone middleware and older AI SDK 5 tracing remain
+supported. No new required dependency or Reflect acceptance rule was introduced.
+
+The wrapper preserves native callbacks, prepareCall, results and errors, joins an
+ambient trace when present, and closes streaming/error/cancellation paths once.
+Cancellation export retains the originating Reflect execution context, including
+abort signals raised elsewhere; late provider results cannot mutate the emitted
+trace. Native stream tee semantics remain intact and are documented. Both live
+Vercel Reflect entry points use the wrapper through their shared factory; a
+standalone native agent example and public integration instructions were added.
+
+Verification: **401 base tests / 26 files**, **79 native tests / 6 files**,
+base/native typechecks, scoped Biome, build, standalone example typecheck and
+packed ESM/CJS/NodeNext consumers pass. The 15 new native tracing tests cover real
+SDK execution with mocked providers, including the pinned AI SDK 6.0.116 and
+locally installed 7.0.154, tool results/errors, concurrency, streaming, abort,
+ambient traces and preservation of native callbacks. Existing Reflect task and
+reflection tests now assert the full hierarchy; complete mocked native Reflect
+loops pass. Packed consumers also retain AI SDK 5.0.100 model tracing compatibility
+and verify the new wrapper's constructor/instance types.
+
+The only live platform operation was the authorized read-only CLI inspection; no
+new model/evaluation calls were made. Hash checks preserve Python, installed
+dependency manifests/lockfiles, other integrations and the original run artifacts.
+`git diff --check` passes. Nothing was staged, committed, pushed or published.
