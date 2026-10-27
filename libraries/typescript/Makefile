@@ -1,8 +1,12 @@
-.PHONY: install install-base install-langgraph install-langchain install-deepagents install-claude-agent-sdk install-openai-agents install-vercel-ai lint format format-check typecheck test test-cov build clean
+.PHONY: install install-reflect install-base install-langgraph install-langchain install-deepagents install-claude-agent-sdk install-openai-agents install-vercel-ai lint format format-check typecheck test test-cov build clean
 
-# Base install: dev tooling
+# Base install: dev tooling and Reflect shell/lock test runtimes
 install:
 	pnpm install
+
+# Explicit Reflect install, matching Python's install-reflect target.
+install-reflect:
+	pnpm add -D --save-exact @everruns/bashkit@0.19.0 fs-native-extensions@1.5.1
 
 install-base:
 	pnpm add -D openai @anthropic-ai/sdk @google/genai @mistralai/mistralai @aws-sdk/client-bedrock-runtime @langchain/core @langchain/openai
@@ -54,3 +58,16 @@ build:
 
 clean:
 	rm -rf dist coverage
+
+# Reflect runtimes are dev dependencies for real shell/lock tests; native frameworks
+# remain in a separate pinned fixture so the base install supports Node 18.
+.PHONY: install-native-test test-native test-package
+install-native-test:
+	npm ci --prefix test/native --ignore-scripts
+
+test-native:
+	pnpm test:native
+
+test-package:
+	pnpm run build
+	pnpm test:package
